@@ -1,0 +1,45 @@
+{
+    "entryPoints": [
+        "src/map/index.ts",
+        "src/layer/index.ts",
+        "src/feature/index.ts",
+        "src/viewer/index.ts",
+        "src/ui/index.ts",
+        "src/style/index.ts",
+        "src/core/index.ts",
+        "src/tilesystem/index.ts",
+        "src/map/tool/index.ts",
+        "src/projection/index.ts",
+        "src/utils/index.ts"
+    ],
+    "out": "docs/typedoc",
+    "plugin": [],
+    "customCss": "./docs/static/styles/typedoc-custom.css",
+    "categorizeByGroup": true,
+    "categoryOrder": [
+        "Map",
+        "Layer",
+        "Geometry",
+        "Basic Types",
+        "MapTool",
+        "UI",
+        "Control",
+        "Utils",
+        "TileSystem",
+        "Projection"
+    ],
+    "defaultCategory": "Other",
+    "includeVersion": true,
+    "readme": "README.md",
+    "name": "Terra-GL API",
+    "gitRevision": "master",
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "excludeInternal": true,
+    "disableSources": true,
+    "customCss": "./docs/typedoc-custom.css",
+    "navigation": {
+        "includeCategories": true,
+        "includeGroups": true
+    }
+}

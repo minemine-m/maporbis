@@ -1,0 +1,11 @@
+.tsd-hierarchy {
+    display: none !important;
+}
+.tsd-sources {
+    display: none !important;
+}
+/* 尝试调整导航栏样式，使其更紧凑 */
+.tsd-navigation.primary ul li a {
+    padding-top: 5px;
+    padding-bottom: 5px;
+}

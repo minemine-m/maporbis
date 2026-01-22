@@ -1,0 +1,77 @@
+{
+	"name": "maporbis",
+	"version": "0.0.1",
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"main": "./dist/index.umd.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.umd.cjs"
+		}
+	},
+	"author": {
+		"name": "MapOrbis Team"
+	},
+	"description": "A powerful mapping engine using Three.js",
+	"license": "Apache-2.0",
+	"keywords": [
+		"three",
+		"gis",
+		"tile",
+		"map",
+		"3D",
+		"cesium",
+		"mapbox"
+	],
+	"scripts": {
+		"start": "vite",
+		"dev": "vite build --watch",
+		"build": "tsc && vite build && node copy-extra-to-dist.cjs",
+		"docs:build-plugin": "tsc --project docs/typedoc-plugins",
+		"docs:generate": "npx rimraf docs/jsdoc && npx tsc --noEmit false --declaration false --outDir dist-docs-temp --removeComments false && npx jsdoc -c jsdoc.json && npx rimraf dist-docs-temp",
+		"docs:typedoc": "npx typedoc --options typedoc.json",
+		"changelog": "npx conventional-changelog-cli -p angular -i CHANGELOG.md -s --commit-path ."
+	},
+	"peerDependencies": {
+		"three": "^0.171.0"
+	},
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org/",
+		"access": "public"
+	},
+	"dependencies": {
+		"@mapbox/vector-tile": "^2.0.4",
+		"@pmndrs/vanilla": "^1.20.4",
+		"@types/earcut": "^3.0.0",
+		"@types/geojson": "^7946.0.16",
+		"d3-quadtree": "^3.0.1",
+		"earcut": "^3.0.1",
+		"lodash": "^4.17.21",
+		"pbf": "^4.0.1",
+		"postprocessing": "^6.37.3",
+		"three-stdlib": "^2.36.0",
+		"uuid": "^13.0.0"
+	},
+	"devDependencies": {
+		"@types/d3-quadtree": "^3.0.6",
+		"@types/lodash": "^4.17.20",
+		"@types/node": "^24.2.0",
+		"@types/three": "^0.182.0",
+		"@types/uuid": "^10.0.0",
+		"jsdoc": "^4.0.5",
+		"rimraf": "^6.1.2",
+		"rollup-plugin-visualizer": "^6.0.5",
+		"typedoc": "^0.28.8",
+		"typedoc-vitepress-theme": "^1.1.2",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1",
+		"vite-plugin-dts": "^4.5.4",
+		"vue": "^3.5.18"
+	}
+}
