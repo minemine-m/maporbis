@@ -1,0 +1,1126 @@
+/* MapOrbisStyle CSS 组件库 - maporbisstyle.css */
+/* 基于 iOS 设计语言的现代化 UI 组件，专为地图应用优化 */
+
+/* 基础变量 */
+:root {
+  /* 颜色变量 */
+  --orbis-blue: #007AFF;
+  --orbis-blue-dark: #0056CC;
+  --orbis-green: #34C759;
+  --orbis-green-dark: #248A3D;
+  --orbis-red: #FF3B30;
+  --orbis-red-dark: #D70015;
+  --orbis-orange: #FF9500;
+  --orbis-yellow: #FFCC00;
+  --orbis-purple: #AF52DE;
+  --orbis-pink: #FF2D55;
+  --orbis-teal: #5AC8FA;
+  --orbis-indigo: #5856D6;
+  
+  /* 中性色 */
+  --orbis-gray-1: #F2F2F7;
+  --orbis-gray-2: #E5E5EA;
+  --orbis-gray-3: #D1D1D6;
+  --orbis-gray-4: #C7C7CC;
+  --orbis-gray-5: #AEAEB2;
+  --orbis-gray-6: #8E8E93;
+  
+  /* 文本颜色 */
+  --orbis-text-primary: #1D1D1F;
+  --orbis-text-secondary: #3C3C43;
+  --orbis-text-tertiary: #8E8E93;
+  
+  /* 背景颜色 */
+  --orbis-bg-primary: #FFFFFF;
+  --orbis-bg-secondary: #F2F2F7;
+  --orbis-bg-tertiary: #E5E5EA;
+  
+  /* 暗黑模式颜色 */
+  --orbis-dark-bg-primary: #000000;
+  --orbis-dark-bg-secondary: #1C1C1E;
+  --orbis-dark-bg-tertiary: #2C2C2E;
+  --orbis-dark-text-primary: #FFFFFF;
+  --orbis-dark-text-secondary: #EBEBF5;
+  --orbis-dark-text-tertiary: #8E8E93;
+  
+  /* 尺寸变量 */
+  --orbis-radius-sm: 8px;
+  --orbis-radius-md: 12px;
+  --orbis-radius-lg: 16px;
+  --orbis-radius-xl: 20px;
+  --orbis-radius-full: 9999px;
+  
+  /* 阴影 */
+  --orbis-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --orbis-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --orbis-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --orbis-shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  
+  /* 过渡动画 */
+  --orbis-transition-fast: 0.2s ease;
+  --orbis-transition-normal: 0.3s ease;
+  --orbis-transition-slow: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  /* 字体 */
+  --orbis-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --orbis-font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  
+  /* 间距 */
+  --orbis-space-1: 4px;
+  --orbis-space-2: 8px;
+  --orbis-space-3: 12px;
+  --orbis-space-4: 16px;
+  --orbis-space-5: 20px;
+  --orbis-space-6: 24px;
+  --orbis-space-8: 32px;
+  --orbis-space-10: 40px;
+  
+  /* 层级 */
+  --orbis-z-index-dropdown: 1000;
+  --orbis-z-index-sticky: 1020;
+  --orbis-z-index-fixed: 1030;
+  --orbis-z-index-modal-backdrop: 1040;
+  --orbis-z-index-modal: 1050;
+  --orbis-z-index-popover: 1060;
+  --orbis-z-index-tooltip: 1070;
+  --orbis-z-index-toast: 1080;
+}
+
+/* 暗黑模式变量 */
+.orbis-dark {
+  --orbis-text-primary: var(--orbis-dark-text-primary);
+  --orbis-text-secondary: var(--orbis-dark-text-secondary);
+  --orbis-text-tertiary: var(--orbis-dark-text-tertiary);
+  --orbis-bg-primary: var(--orbis-dark-bg-primary);
+  --orbis-bg-secondary: var(--orbis-dark-bg-secondary);
+  --orbis-bg-tertiary: var(--orbis-dark-bg-tertiary);
+}
+
+/* 基础重置 */
+.orbis-reset, .orbis-body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--orbis-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.orbis-body {
+  background-color: var(--orbis-bg-secondary);
+  color: var(--orbis-text-primary);
+  transition: background-color var(--orbis-transition-normal), color var(--orbis-transition-normal);
+  line-height: 1.5;
+}
+
+/* 容器布局 */
+.orbis-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--orbis-space-4);
+}
+
+.orbis-container-fluid {
+  width: 100%;
+  padding: 0 var(--orbis-space-4);
+}
+
+/* 毛玻璃效果 */
+.orbis-glass {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.orbis-dark .orbis-glass {
+  background: rgba(28, 28, 30, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 卡片组件 */
+.orbis-card {
+  background: var(--orbis-bg-primary);
+  border-radius: var(--orbis-radius-lg);
+  box-shadow: var(--orbis-shadow-md);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all var(--orbis-transition-normal);
+}
+
+.orbis-dark .orbis-card {
+  background: var(--orbis-dark-bg-tertiary);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.orbis-card:hover {
+  box-shadow: var(--orbis-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.orbis-card-compact {
+  border-radius: var(--orbis-radius-md);
+}
+
+.orbis-card-outline {
+  background: transparent;
+  border: 1px solid var(--orbis-gray-3);
+  box-shadow: none;
+}
+
+.orbis-dark .orbis-card-outline {
+  border-color: var(--orbis-gray-5);
+}
+
+/* 按钮组件 */
+.orbis-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--orbis-space-2);
+  padding: var(--orbis-space-3) var(--orbis-space-4);
+  border-radius: var(--orbis-radius-md);
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--orbis-transition-fast);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.orbis-btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.orbis-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.orbis-btn:disabled:active {
+  transform: none;
+}
+
+/* 按钮尺寸 */
+.orbis-btn-sm {
+  padding: var(--orbis-space-2) var(--orbis-space-3);
+  font-size: 13px;
+  gap: var(--orbis-space-1);
+}
+
+.orbis-btn-md {
+  padding: var(--orbis-space-3) var(--orbis-space-4);
+  font-size: 15px;
+}
+
+.orbis-btn-lg {
+  padding: var(--orbis-space-4) var(--orbis-space-5);
+  font-size: 16px;
+  gap: var(--orbis-space-3);
+}
+
+/* 按钮颜色变体 */
+.orbis-btn-primary {
+  background: var(--orbis-blue);
+  color: white;
+}
+
+.orbis-btn-primary:hover:not(:disabled) {
+  background: var(--orbis-blue-dark);
+}
+
+.orbis-btn-secondary {
+  background: var(--orbis-gray-2);
+  color: var(--orbis-text-primary);
+}
+
+.orbis-dark .orbis-btn-secondary {
+  background: var(--orbis-dark-bg-tertiary);
+  color: var(--orbis-dark-text-primary);
+}
+
+.orbis-btn-secondary:hover:not(:disabled) {
+  background: var(--orbis-gray-3);
+}
+
+.orbis-dark .orbis-btn-secondary:hover:not(:disabled) {
+  background: var(--orbis-gray-5);
+}
+
+.orbis-btn-success {
+  background: var(--orbis-green);
+  color: white;
+}
+
+.orbis-btn-success:hover:not(:disabled) {
+  background: var(--orbis-green-dark);
+}
+
+.orbis-btn-danger {
+  background: var(--orbis-red);
+  color: white;
+}
+
+.orbis-btn-danger:hover:not(:disabled) {
+  background: var(--orbis-red-dark);
+}
+
+.orbis-btn-warning {
+  background: var(--orbis-orange);
+  color: white;
+}
+
+.orbis-btn-warning:hover:not(:disabled) {
+  background: #F29100;
+}
+
+.orbis-btn-info {
+  background: var(--orbis-teal);
+  color: white;
+}
+
+.orbis-btn-info:hover:not(:disabled) {
+  background: #4AB9E9;
+}
+
+.orbis-btn-ghost {
+  background: transparent;
+  color: var(--orbis-text-primary);
+  border: 1px solid var(--orbis-gray-3);
+}
+
+.orbis-dark .orbis-btn-ghost {
+  color: var(--orbis-dark-text-primary);
+  border-color: var(--orbis-gray-5);
+}
+
+.orbis-btn-ghost:hover:not(:disabled) {
+  background: var(--orbis-gray-1);
+}
+
+.orbis-dark .orbis-btn-ghost:hover:not(:disabled) {
+  background: var(--orbis-dark-bg-tertiary);
+}
+
+/* 按钮轮廓样式 */
+.orbis-btn-outline-primary {
+  background: transparent;
+  color: var(--orbis-blue);
+  border: 1px solid var(--orbis-blue);
+}
+
+.orbis-btn-outline-primary:hover:not(:disabled) {
+  background: var(--orbis-blue);
+  color: white;
+}
+
+.orbis-btn-outline-secondary {
+  background: transparent;
+  color: var(--orbis-text-secondary);
+  border: 1px solid var(--orbis-gray-3);
+}
+
+.orbis-btn-outline-secondary:hover:not(:disabled) {
+  background: var(--orbis-gray-1);
+  border-color: var(--orbis-gray-4);
+}
+
+.orbis-dark .orbis-btn-outline-secondary {
+  color: var(--orbis-dark-text-secondary);
+  border-color: var(--orbis-gray-5);
+}
+
+.orbis-dark .orbis-btn-outline-secondary:hover:not(:disabled) {
+  background: var(--orbis-dark-bg-tertiary);
+}
+
+/* 按钮状态 */
+.orbis-btn-loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.orbis-btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: orbis-spin 1s linear infinite;
+}
+
+.orbis-btn-ghost.orbis-btn-loading::after,
+.orbis-btn-outline-primary.orbis-btn-loading::after,
+.orbis-btn-outline-secondary.orbis-btn-loading::after {
+  border-color: rgba(0, 0, 0, 0.1);
+  border-top-color: var(--orbis-text-primary);
+}
+
+.orbis-dark .orbis-btn-ghost.orbis-btn-loading::after,
+.orbis-dark .orbis-btn-outline-primary.orbis-btn-loading::after,
+.orbis-dark .orbis-btn-outline-secondary.orbis-btn-loading::after {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--orbis-dark-text-primary);
+}
+
+/* 按钮全宽 */
+.orbis-btn-block {
+  width: 100%;
+  display: flex;
+}
+
+/* 图标按钮 */
+.orbis-btn-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--orbis-radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orbis-btn-icon.orbis-btn-sm {
+  width: 32px;
+  height: 32px;
+}
+
+.orbis-btn-icon.orbis-btn-lg {
+  width: 48px;
+  height: 48px;
+}
+
+/* 控制面板 */
+.orbis-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--orbis-radius-lg);
+  box-shadow: var(--orbis-shadow-lg);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all var(--orbis-transition-normal);
+}
+
+.orbis-dark .orbis-panel {
+  background: rgba(28, 28, 30, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.orbis-panel-header {
+  padding: var(--orbis-space-4) var(--orbis-space-5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.orbis-dark .orbis-panel-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: rgba(44, 44, 46, 0.7);
+}
+
+.orbis-panel-body {
+  padding: var(--orbis-space-5);
+}
+
+.orbis-panel-footer {
+  padding: var(--orbis-space-4) var(--orbis-space-5);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.orbis-dark .orbis-panel-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  background: rgba(44, 44, 46, 0.7);
+}
+
+/* 按钮组 */
+.orbis-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--orbis-space-2);
+}
+
+.orbis-btn-row {
+  display: flex;
+  gap: var(--orbis-space-2);
+}
+
+.orbis-btn-row .orbis-btn {
+  flex: 1;
+}
+
+/* 状态卡片 */
+.orbis-status-card {
+  background: var(--orbis-bg-secondary);
+  border-radius: var(--orbis-radius-md);
+  padding: var(--orbis-space-4);
+  transition: all var(--orbis-transition-normal);
+}
+
+.orbis-dark .orbis-status-card {
+  background: rgba(44, 44, 46, 0.6);
+}
+
+.orbis-status-title {
+  font-size: 12px;
+  color: var(--orbis-gray-6);
+  margin-bottom: var(--orbis-space-2);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.orbis-dark .orbis-status-title {
+  color: var(--orbis-dark-text-tertiary);
+}
+
+.orbis-status-content {
+  font-size: 16px;
+  color: var(--orbis-text-primary);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.orbis-dark .orbis-status-content {
+  color: var(--orbis-dark-text-primary);
+}
+
+/* 状态指示器 */
+.orbis-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--orbis-space-2);
+}
+
+.orbis-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--orbis-red);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.orbis-indicator-active {
+  background: var(--orbis-green);
+  box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2);
+  animation: orbis-pulse 2s infinite;
+}
+
+.orbis-indicator-warning {
+  background: var(--orbis-orange);
+  box-shadow: 0 0 0 2px rgba(255, 149, 0, 0.2);
+}
+
+.orbis-indicator-info {
+  background: var(--orbis-blue);
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.orbis-indicator-offline {
+  background: var(--orbis-gray-4);
+}
+
+/* 信息网格 */
+.orbis-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: var(--orbis-space-3);
+  margin-top: var(--orbis-space-3);
+}
+
+.orbis-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--orbis-space-1);
+}
+
+.orbis-info-label {
+  font-size: 11px;
+  color: var(--orbis-gray-6);
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.orbis-dark .orbis-info-label {
+  color: var(--orbis-dark-text-tertiary);
+}
+
+.orbis-info-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--orbis-text-primary);
+  word-break: break-word;
+}
+
+.orbis-dark .orbis-info-value {
+  color: var(--orbis-dark-text-primary);
+}
+
+/* 通知组件 */
+.orbis-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--orbis-radius-lg);
+  padding: var(--orbis-space-4) var(--orbis-space-5);
+  box-shadow: var(--orbis-shadow-lg);
+  z-index: var(--orbis-z-index-toast);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  min-width: 280px;
+  max-width: 90vw;
+  text-align: center;
+  transition: transform var(--orbis-transition-slow);
+  pointer-events: none;
+}
+
+.orbis-dark .orbis-notification {
+  background: rgba(28, 28, 30, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.orbis-notification-show {
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.orbis-notification-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--orbis-space-3);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.orbis-notification-success .orbis-notification-content {
+  color: var(--orbis-green);
+}
+
+.orbis-notification-info .orbis-notification-content {
+  color: var(--orbis-blue);
+}
+
+.orbis-dark .orbis-notification-info .orbis-notification-content {
+  color: #0A84FF;
+}
+
+.orbis-notification-warning .orbis-notification-content {
+  color: var(--orbis-orange);
+}
+
+.orbis-notification-error .orbis-notification-content {
+  color: var(--orbis-red);
+}
+
+/* 加载指示器 */
+.orbis-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: var(--orbis-space-5) var(--orbis-space-6);
+  border-radius: var(--orbis-radius-lg);
+  box-shadow: var(--orbis-shadow-lg);
+  z-index: var(--orbis-z-index-modal);
+  text-align: center;
+  min-width: 120px;
+}
+
+.orbis-dark .orbis-loading {
+  background: rgba(28, 28, 30, 0.95);
+}
+
+.orbis-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 122, 255, 0.1);
+  border-top-color: var(--orbis-blue);
+  border-radius: 50%;
+  animation: orbis-spin 1s linear infinite;
+  margin: 0 auto var(--orbis-space-3);
+}
+
+.orbis-dark .orbis-spinner {
+  border-top-color: #0A84FF;
+}
+
+/* 切换按钮 */
+.orbis-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--orbis-gray-1);
+  border: none;
+  cursor: pointer;
+  color: var(--orbis-text-primary);
+  font-size: 16px;
+  transition: all var(--orbis-transition-fast);
+  flex-shrink: 0;
+}
+
+.orbis-dark .orbis-toggle {
+  background: #3A3A3C;
+  color: var(--orbis-dark-text-primary);
+}
+
+.orbis-toggle:hover {
+  transform: scale(1.1);
+  background: var(--orbis-gray-2);
+}
+
+.orbis-dark .orbis-toggle:hover {
+  background: #48484A;
+}
+
+.orbis-toggle:active {
+  transform: scale(0.95);
+}
+
+/* 标记样式 */
+.orbis-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+  pointer-events: none;
+}
+
+.orbis-marker-pin {
+  width: 24px;
+  height: 24px;
+  background: var(--orbis-blue);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: relative;
+  animation: orbis-pulse 2s infinite;
+}
+
+.orbis-marker-pin::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}
+
+.orbis-marker-label {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--orbis-radius-sm);
+  padding: var(--orbis-space-2) var(--orbis-space-3);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orbis-text-primary);
+  margin-top: var(--orbis-space-2);
+  white-space: nowrap;
+  box-shadow: var(--orbis-shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orbis-dark .orbis-marker-label {
+  background: rgba(28, 28, 30, 0.95);
+  color: var(--orbis-dark-text-primary);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.orbis-marker-updated .orbis-marker-pin {
+  background: var(--orbis-green);
+  animation: orbis-pulse-success 2s infinite;
+}
+
+.orbis-marker-warning .orbis-marker-pin {
+  background: var(--orbis-orange);
+  animation: orbis-pulse-warning 2s infinite;
+}
+
+.orbis-marker-danger .orbis-marker-pin {
+  background: var(--orbis-red);
+  animation: orbis-pulse-danger 2s infinite;
+}
+
+/* 提示文本 */
+.orbis-hint {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--orbis-radius-md);
+  padding: var(--orbis-space-3) var(--orbis-space-4);
+  font-size: 12px;
+  color: var(--orbis-gray-6);
+  box-shadow: var(--orbis-shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+.orbis-dark .orbis-hint {
+  background: rgba(28, 28, 30, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--orbis-dark-text-tertiary);
+}
+
+/* 折叠面板 */
+.orbis-panel-collapsed {
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+  transition: all var(--orbis-transition-normal);
+}
+
+.orbis-panel-collapsed .orbis-panel-body,
+.orbis-panel-collapsed .orbis-panel-footer,
+.orbis-panel-collapsed .orbis-panel-header h3,
+.orbis-panel-collapsed .orbis-panel-header p,
+.orbis-panel-collapsed .orbis-toggle:not(:first-child) {
+  display: none;
+}
+
+.orbis-panel-collapsed .orbis-panel-header {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.orbis-panel-collapsed .orbis-panel-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* 输入组件 */
+.orbis-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--orbis-space-2);
+  margin-bottom: var(--orbis-space-4);
+}
+
+.orbis-input-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--orbis-text-secondary);
+  margin-bottom: var(--orbis-space-1);
+}
+
+.orbis-dark .orbis-input-label {
+  color: var(--orbis-dark-text-secondary);
+}
+
+.orbis-input {
+  width: 100%;
+  padding: var(--orbis-space-3) var(--orbis-space-4);
+  border-radius: var(--orbis-radius-md);
+  border: 1px solid var(--orbis-gray-3);
+  background: var(--orbis-bg-primary);
+  color: var(--orbis-text-primary);
+  font-size: 15px;
+  font-family: var(--orbis-font-family);
+  transition: all var(--orbis-transition-fast);
+}
+
+.orbis-dark .orbis-input {
+  background: var(--orbis-dark-bg-tertiary);
+  border-color: var(--orbis-gray-5);
+  color: var(--orbis-dark-text-primary);
+}
+
+.orbis-input:focus {
+  outline: none;
+  border-color: var(--orbis-blue);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.orbis-dark .orbis-input:focus {
+  border-color: #0A84FF;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+}
+
+.orbis-input::placeholder {
+  color: var(--orbis-gray-5);
+}
+
+.orbis-dark .orbis-input::placeholder {
+  color: var(--orbis-gray-6);
+}
+
+/* 工具类 */
+.orbis-text-center { text-align: center; }
+.orbis-text-left { text-align: left; }
+.orbis-text-right { text-align: right; }
+.orbis-text-justify { text-align: justify; }
+
+.orbis-mb-1 { margin-bottom: var(--orbis-space-1); }
+.orbis-mb-2 { margin-bottom: var(--orbis-space-2); }
+.orbis-mb-3 { margin-bottom: var(--orbis-space-3); }
+.orbis-mb-4 { margin-bottom: var(--orbis-space-4); }
+.orbis-mb-5 { margin-bottom: var(--orbis-space-5); }
+.orbis-mb-6 { margin-bottom: var(--orbis-space-6); }
+
+.orbis-mt-1 { margin-top: var(--orbis-space-1); }
+.orbis-mt-2 { margin-top: var(--orbis-space-2); }
+.orbis-mt-3 { margin-top: var(--orbis-space-3); }
+.orbis-mt-4 { margin-top: var(--orbis-space-4); }
+.orbis-mt-5 { margin-top: var(--orbis-space-5); }
+.orbis-mt-6 { margin-top: var(--orbis-space-6); }
+
+.orbis-ml-1 { margin-left: var(--orbis-space-1); }
+.orbis-ml-2 { margin-left: var(--orbis-space-2); }
+.orbis-ml-3 { margin-left: var(--orbis-space-3); }
+.orbis-ml-4 { margin-left: var(--orbis-space-4); }
+
+.orbis-mr-1 { margin-right: var(--orbis-space-1); }
+.orbis-mr-2 { margin-right: var(--orbis-space-2); }
+.orbis-mr-3 { margin-right: var(--orbis-space-3); }
+.orbis-mr-4 { margin-right: var(--orbis-space-4); }
+
+.orbis-p-1 { padding: var(--orbis-space-1); }
+.orbis-p-2 { padding: var(--orbis-space-2); }
+.orbis-p-3 { padding: var(--orbis-space-3); }
+.orbis-p-4 { padding: var(--orbis-space-4); }
+.orbis-p-5 { padding: var(--orbis-space-5); }
+.orbis-p-6 { padding: var(--orbis-space-6); }
+
+.orbis-d-flex { display: flex; }
+.orbis-flex-column { flex-direction: column; }
+.orbis-align-center { align-items: center; }
+.orbis-justify-center { justify-content: center; }
+.orbis-justify-between { justify-content: space-between; }
+.orbis-flex-wrap { flex-wrap: wrap; }
+.orbis-gap-1 { gap: var(--orbis-space-1); }
+.orbis-gap-2 { gap: var(--orbis-space-2); }
+.orbis-gap-3 { gap: var(--orbis-space-3); }
+.orbis-gap-4 { gap: var(--orbis-space-4); }
+
+.orbis-d-none { display: none; }
+.orbis-d-block { display: block; }
+.orbis-d-inline { display: inline; }
+.orbis-d-inline-block { display: inline-block; }
+
+.orbis-w-100 { width: 100%; }
+.orbis-h-100 { height: 100%; }
+.orbis-vw-100 { width: 100vw; }
+.orbis-vh-100 { height: 100vh; }
+
+.orbis-position-relative { position: relative; }
+.orbis-position-absolute { position: absolute; }
+.orbis-position-fixed { position: fixed; }
+.orbis-position-sticky { position: sticky; }
+
+.orbis-z-1 { z-index: 1; }
+.orbis-z-2 { z-index: 2; }
+.orbis-z-3 { z-index: 3; }
+.orbis-z-999 { z-index: 999; }
+.orbis-z-1000 { z-index: 1000; }
+
+.orbis-opacity-0 { opacity: 0; }
+.orbis-opacity-25 { opacity: 0.25; }
+.orbis-opacity-50 { opacity: 0.5; }
+.orbis-opacity-75 { opacity: 0.75; }
+.orbis-opacity-100 { opacity: 1; }
+
+.orbis-cursor-pointer { cursor: pointer; }
+.orbis-cursor-default { cursor: default; }
+.orbis-cursor-not-allowed { cursor: not-allowed; }
+
+.orbis-user-select-none { user-select: none; }
+.orbis-user-select-text { user-select: text; }
+
+.orbis-overflow-hidden { overflow: hidden; }
+.orbis-overflow-auto { overflow: auto; }
+.orbis-overflow-scroll { overflow: scroll; }
+
+.orbis-border-none { border: none; }
+.orbis-border-radius-sm { border-radius: var(--orbis-radius-sm); }
+.orbis-border-radius-md { border-radius: var(--orbis-radius-md); }
+.orbis-border-radius-lg { border-radius: var(--orbis-radius-lg); }
+.orbis-border-radius-full { border-radius: var(--orbis-radius-full); }
+
+.orbis-shadow-sm { box-shadow: var(--orbis-shadow-sm); }
+.orbis-shadow-md { box-shadow: var(--orbis-shadow-md); }
+.orbis-shadow-lg { box-shadow: var(--orbis-shadow-lg); }
+.orbis-shadow-none { box-shadow: none; }
+
+.orbis-font-sm { font-size: 12px; }
+.orbis-font-md { font-size: 14px; }
+.orbis-font-lg { font-size: 16px; }
+.orbis-font-xl { font-size: 18px; }
+.orbis-font-2xl { font-size: 20px; }
+.orbis-font-3xl { font-size: 24px; }
+
+.orbis-font-light { font-weight: 300; }
+.orbis-font-normal { font-weight: 400; }
+.orbis-font-medium { font-weight: 500; }
+.orbis-font-semibold { font-weight: 600; }
+.orbis-font-bold { font-weight: 700; }
+
+.orbis-text-primary { color: var(--orbis-text-primary); }
+.orbis-text-secondary { color: var(--orbis-text-secondary); }
+.orbis-text-tertiary { color: var(--orbis-text-tertiary); }
+.orbis-text-blue { color: var(--orbis-blue); }
+.orbis-text-green { color: var(--orbis-green); }
+.orbis-text-red { color: var(--orbis-red); }
+.orbis-text-orange { color: var(--orbis-orange); }
+.orbis-text-yellow { color: var(--orbis-yellow); }
+.orbis-text-white { color: white; }
+.orbis-text-muted { color: var(--orbis-gray-6); }
+
+.orbis-bg-primary { background-color: var(--orbis-bg-primary); }
+.orbis-bg-secondary { background-color: var(--orbis-bg-secondary); }
+.orbis-bg-tertiary { background-color: var(--orbis-bg-tertiary); }
+.orbis-bg-blue { background-color: var(--orbis-blue); }
+.orbis-bg-green { background-color: var(--orbis-green); }
+.orbis-bg-red { background-color: var(--orbis-red); }
+.orbis-bg-orange { background-color: var(--orbis-orange); }
+.orbis-bg-transparent { background-color: transparent; }
+
+/* 动画 */
+@keyframes orbis-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbis-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 122, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
+}
+
+@keyframes orbis-pulse-success {
+  0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(52, 199, 89, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
+}
+
+@keyframes orbis-pulse-warning {
+  0% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 149, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0); }
+}
+
+@keyframes orbis-pulse-danger {
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
+
+@keyframes orbis-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes orbis-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes orbis-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes orbis-slide-down {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes orbis-slide-left {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes orbis-slide-right {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.orbis-fade-in { animation: orbis-fade-in 0.3s ease; }
+.orbis-fade-out { animation: orbis-fade-out 0.3s ease; }
+.orbis-slide-up { animation: orbis-slide-up 0.3s ease; }
+.orbis-slide-down { animation: orbis-slide-down 0.3s ease; }
+.orbis-slide-left { animation: orbis-slide-left 0.3s ease; }
+.orbis-slide-right { animation: orbis-slide-right 0.3s ease; }
+
+/* 响应式断点 */
+@media (max-width: 768px) {
+  .orbis-panel {
+    width: calc(100% - var(--orbis-space-4)) !important;
+    margin: 0 var(--orbis-space-2);
+  }
+  
+  .orbis-btn {
+    padding: var(--orbis-space-4) var(--orbis-space-4);
+  }
+  
+  .orbis-info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .orbis-notification {
+    min-width: calc(100% - 40px);
+    left: 20px;
+    transform: translateY(-100px);
+  }
+  
+  .orbis-notification-show {
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .orbis-btn-lg {
+    padding: var(--orbis-space-3) var(--orbis-space-4);
+    font-size: 15px;
+  }
+  
+  .orbis-panel-header,
+  .orbis-panel-body,
+  .orbis-panel-footer {
+    padding: var(--orbis-space-3) var(--orbis-space-4);
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .orbis-notification,
+  .orbis-loading,
+  .orbis-hint {
+    display: none !important;
+  }
+  
+  .orbis-panel {
+    box-shadow: none;
+    border: 1px solid var(--orbis-gray-3);
+  }
+}
