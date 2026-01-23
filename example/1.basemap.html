@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapOrbis TileLayer Demo</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #map { width: 100vw; height: 100vh; background-color: #000; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>TileLayer Demo</h3>
+        <p>Loading OpenStreetMap tiles...</p>
+    </div>
+    <div id="map"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { Map, TileLayer, TileSource, ProjectionFactory } from './src/index.ts';
+
+        // Initialize Map
+        const map = new Map('map', {
+            center: [116.40, 39.90, 20000], // Beijing, [lon, lat, height]
+            basemap: {
+                minLevel: 2,
+                maxLevel: 19,
+                Baselayers: [
+                    // Create OSM TileLayer
+                    new TileLayer('osm_base', {
+                        source: new TileSource({
+                            url: 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            projectionID: '3857'
+                        }),
+                        projection: ProjectionFactory.create('3857'),
+                        opacity: 1.0,
+                        visible: true
+                    })
+                ]
+            },
+            viewer: {
+                stats: true
+            }
+        });
+
+        console.log('Map initialized:', map);
+
+        map.on('loaded', () => {
+            console.log('Map loaded event fired');
+            document.querySelector('#info p').innerText = 'Map loaded. Pan/Zoom to explore.';
+        });
+    </script>
+</body>
+</html>
