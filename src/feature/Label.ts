@@ -67,15 +67,15 @@ export class Label extends Point {
      * 
      * 根据样式配置创建文本标签几何体
      */
-    async _toThreeJSGeometry(): Promise<void> {
-        this._position = this._coordsTransform() as Vector3;
+    async _buildRenderObject(): Promise<void> {
+        this._worldCoordinates = this._coordsTransform() as Vector3;
         if (this._style) {
-            if (this._threeGeometry) {
+            if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._threeGeometry = await this._createObject(this._style);
-            this._updateGeometry();
+            this._renderObject = await this._createObject(this._style);
+            this._refreshCoordinates();
         }
     }
 
@@ -88,26 +88,26 @@ export class Label extends Point {
      * 
      * 用于拖拽、编辑等实时交互场景，仅更新Label的位置而不销毁重建几何体。
      */
-    protected _updateGeometryPositions(): void {
+    protected _refreshCoordinates(): void {
         // Recalculate coordinates
-        this._position = this._coordsTransform() as Vector3;
+        this._worldCoordinates = this._coordsTransform() as Vector3;
 
         // If geometry exists, only update position
-        if (this._threeGeometry) {
+        if (this._renderObject) {
             // Update position
-            this._threeGeometry.position.copy(this._position as Vector3);
+            this._renderObject.position.copy(this._worldCoordinates as Vector3);
             
             // Ensure geometry is in the scene (Critical: prevent disappearance during editing)
-            if (!this.children.includes(this._threeGeometry as Object3D)) {
-                this.add(this._threeGeometry);
+            if (!this.children.includes(this._renderObject as Object3D)) {
+                this.add(this._renderObject);
             }
             
             // Force update matrix
             this.updateMatrixWorld(true);
-            this._threeGeometry.updateMatrixWorld(true);
+            this._renderObject.updateMatrixWorld(true);
         } else {
             // If geometry doesn't exist, call full rebuild
-            this._toThreeJSGeometry();
+            this._buildRenderObject();
         }
     }
 

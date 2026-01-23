@@ -67,15 +67,15 @@ export class Marker extends Point {
      * 
      * @returns Promise<void>
      */
-    async _toThreeJSGeometry(): Promise<void> {
-        this._position = this._coordsTransform() as Vector3;
+    async _buildRenderObject(): Promise<void> {
+        this._worldCoordinates = this._coordsTransform() as Vector3;
         if (this._style) {
-            if (this._threeGeometry) {
+            if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._threeGeometry = await this._createObject(this._style);
-            this._updateGeometry();
+            this._renderObject = await this._createObject(this._style);
+            this._refreshCoordinates();
         }
     }
 
@@ -90,26 +90,26 @@ export class Marker extends Point {
      * 用于拖拽、编辑等实时交互场景，仅更新Marker的位置而不销毁重建几何体。
      * 这比完整重建快得多，并且能保持feature在拖拽过程中可见。
      */
-    protected _updateGeometryPositions(): void {
+    protected _refreshCoordinates(): void {
         // 重新计算坐标
-        this._position = this._coordsTransform() as Vector3;
+        this._worldCoordinates = this._coordsTransform() as Vector3;
 
         // 如果几何体已存在，仅更新位置
-        if (this._threeGeometry) {
+        if (this._renderObject) {
             // 更新位置
-            this._threeGeometry.position.copy(this._position as Vector3);
+            this._renderObject.position.copy(this._worldCoordinates as Vector3);
             
             // 确保几何体在场景中（关键：防止编辑时消失）
-            if (!this.children.includes(this._threeGeometry as Object3D)) {
-                this.add(this._threeGeometry);
+            if (!this.children.includes(this._renderObject as Object3D)) {
+                this.add(this._renderObject);
             }
             
             // 强制更新矩阵
             this.updateMatrixWorld(true);
-            this._threeGeometry.updateMatrixWorld(true);
+            this._renderObject.updateMatrixWorld(true);
         } else {
             // 如果几何体不存在，调用完整重建
-            this._toThreeJSGeometry();
+            this._buildRenderObject();
         }
     }
 
@@ -133,9 +133,9 @@ export class Marker extends Point {
             case 'basic-point':
                 return _createBasicPoint(style.config, new Vector3(0, 0, 0));
             case 'icon-point':
-                return _createIconPoint(style.config, this._position as Vector3);
+                return _createIconPoint(style.config, this._worldCoordinates as Vector3);
             case 'icon-label-point':
-                return _createIconLabelSprite(style.config, this._position as Vector3);
+                return _createIconLabelSprite(style.config, this._worldCoordinates as Vector3);
             default:
                 throw new Error(`不支持的样式类型: ${style.config.type}`);
         }
@@ -161,7 +161,7 @@ export class Marker extends Point {
         renderer: WebGLRenderer
     ): { width: number; height: number; offsetX: number; offsetY: number } | null {
 
-        if (!this.visible || !this._threeGeometry || !camera || !renderer) {
+        if (!this.visible || !this._renderObject || !camera || !renderer) {
             return null;
         }
 
@@ -171,32 +171,32 @@ export class Marker extends Point {
             switch (this._style?.config.type) {
                 case 'icon-point':
                     return this._calculateSpriteBoundingBox(
-                        this._threeGeometry as Sprite
+                        this._renderObject as Sprite
                     );
 
-                // case this._threeGeometry instanceof Mesh:
+                // case this._renderObject instanceof Mesh:
                 //     return this._calculateMeshBoundingBox(
-                //         this._threeGeometry as Mesh,
+                //         this._renderObject as Mesh,
                 //         screenCenterX,
                 //         screenCenterY,
                 //         camera,
                 //         renderer
                 //     );
 
-                // case 'isLine' in this._threeGeometry && (this._threeGeometry as any).isLine:
+                // case 'isLine' in this._renderObject && (this._renderObject as any).isLine:
                 //     return this._calculateLineBoundingBox(
-                //         this._threeGeometry as any,
+                //         this._renderObject as any,
                 //         screenCenterX,
                 //         screenCenterY,
                 //         camera,
                 //         renderer
                 //     );
 
-                // case this._threeGeometry instanceof Object3D:
+                // case this._renderObject instanceof Object3D:
                 //     // For standard Object3D, use default bounding box calculation
                 //     // 对于普通的Object3D，使用默认的包围盒计算
                 //     return this._calculateDefaultBoundingBox(
-                //         this._threeGeometry,
+                //         this._renderObject,
                 //         screenCenterX,
                 //         screenCenterY,
                 //         camera,
@@ -204,8 +204,8 @@ export class Marker extends Point {
                 //     );
 
                 default:
-                    // console.warn(`Marker: Unknown geometry type`, this._threeGeometry);
-                    // console.warn(`Marker: 未知的几何体类型`, this._threeGeometry);
+                    // console.warn(`Marker: Unknown geometry type`, this._renderObject);
+                    // console.warn(`Marker: 未知的几何体类型`, this._renderObject);
                     return this._getFallbackBoundingBox();
             }
 

@@ -153,8 +153,8 @@ export class UIMarker extends UIComponent {
         if (coordinate) {
             this._markerCoord = [...coordinate] as Coordinate;
         }
-        // Pass to base class, let UIComponent handle unified geo2world + position update logic
-        // 传给基类，让 UIComponent 走统一的 geo2world + 位置更新逻辑
+        // Pass to base class, let UIComponent handle unified projectToWorld + position update logic
+        // 传给基类，让 UIComponent 走统一的 projectToWorld + 位置更新逻辑
         return super.show(this._markerCoord);
     }
 

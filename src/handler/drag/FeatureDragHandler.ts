@@ -120,6 +120,6 @@ export class FeatureDragHandler extends Handler {
         // Update coordinates directly and use fast update mode
         // 直接更新坐标并使用快速更新模式
         (geo as any).coordinates = newCoords;
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._applyCoordinateChanges(true);
     }
 }

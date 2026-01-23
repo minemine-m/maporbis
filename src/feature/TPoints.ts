@@ -76,15 +76,15 @@ export class TPoints extends Point {
      * Create TPoints geometry based on style configuration.
      * 根据样式配置创建TPoints几何体
      */
-    async _toThreeJSGeometry(): Promise<void> {
-        this._position = this._coordsTransform() as Vector3;
+    async _buildRenderObject(): Promise<void> {
+        this._worldCoordinates = this._coordsTransform() as Vector3;
         if (this._style) {
-            if (this._threeGeometry) {
+            if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._threeGeometry = await this._createObject(this._style) as any;
-            this._updateGeometry();
+            this._renderObject = await this._createObject(this._style) as any;
+            this._refreshCoordinates();
         }
     }
 
@@ -96,26 +96,26 @@ export class TPoints extends Point {
      * Add TPoints geometry to the container, and set position and render order.
      * 将TPoints几何体添加到容器中，并设置位置和渲染顺序
      */
-    override _updateGeometry(): void {
+    override _refreshCoordinates(): void {
 
-        // console.log(this._threeGeometry,'灯');
+        // console.log(this._renderObject,'灯');
 
         // this._disposeGeometry();
         // const layer = this.getLayer();
 
-        if (this._threeGeometry) {
-            // this._threeGeometry.position.copy(this._position as any);
-            // this._threeGeometry.renderOrder = 1000;
+        if (this._renderObject) {
+            // this._renderObject.position.copy(this._worldCoordinates as any);
+            // this._renderObject.renderOrder = 1000;
             
             // if (layer) {
-            //     layer._clouds.add(this._threeGeometry);
+            //     layer._clouds.add(this._renderObject);
             //     layer._clouds.updateMatrixWorld();
             // }
-            if ((this._threeGeometry as any).points) {
-                this.add((this._threeGeometry as any).points);
+            if ((this._renderObject as any).points) {
+                this.add((this._renderObject as any).points);
             }
-            if ((this._threeGeometry as any).InstancedCol) {
-                this.add((this._threeGeometry as any).InstancedCol);
+            if ((this._renderObject as any).InstancedCol) {
+                this.add((this._renderObject as any).InstancedCol);
             }
             this.updateMatrixWorld(true);
         }

@@ -774,10 +774,10 @@ export class Style {
         //     // sprite.renderOrder = 999;
 
         //     if (object.parent) {
-        //         let parent = object.parent as Feature;
-        //         parent._threeGeometry = sprite;
-        //         parent._updateGeometry();
-        //     }
+            //         let parent = object.parent as Feature;
+            //         parent._renderObject = sprite;
+            //         parent._updateGeometry();
+            //     }
         // }
 
         // const size = config.size;
@@ -823,7 +823,7 @@ export class Style {
             // points.renderOrder = 999;
             if (object.parent) {
                 let parent = object.parent as Feature;
-                parent._threeGeometry = points;
+                parent._renderObject = points;
                 parent._updateGeometry();
             }
         }
@@ -872,7 +872,7 @@ export class Style {
         const config = this.config as BaseLineStyle;
         // if (object.parent) {
         //     let parent = object.parent as Feature;
-        //     parent._threeGeometry = _createBasicLine(config, parent._vertexPoints);
+        //     parent._renderObject = _createBasicLine(config, parent._vertexPoints);
         //     parent._updateGeometry();
         // }
         return true;

@@ -2142,7 +2142,7 @@ export async function createLight(config: LightStyle, geometries: any, map: Map)
             geometry.coordinates[2] as number || 0 // 默认高度0
         );
         // if (xy4326.x > 10000) xy4326 = epsg3857To4326(...coordinates);
-        const xy1 = map.geo2world(coordinates);
+        const xy1 = map.projectToWorld(coordinates);
         const xy2 = xy1.sub(map.prjcenter);
         transform.position.copy(xy2);
         transform.updateMatrix();

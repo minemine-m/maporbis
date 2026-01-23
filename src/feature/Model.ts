@@ -231,30 +231,30 @@ export class Model extends Point {
      * 
      * @returns Promise<void>
      */
-    async _toThreeJSGeometry(): Promise<void> {
-        this._position = this._coordsTransform() as Vector3;
+    async _buildRenderObject(): Promise<void> {
+        this._worldCoordinates = this._coordsTransform() as Vector3;
         if (this._style) {
-            if (this._threeGeometry) {
+            if (this._renderObject) {
                 this._disposeGeometry();
             }
 
             this.modelunino = await this._createObject(this._style);
-            this._threeGeometry = this.modelunino.model;
+            this._renderObject = this.modelunino.model;
             // Safety check: if model is undefined, return directly
             // 安全检查：如果model不存在，直接返回
-            if (!this._threeGeometry) {
+            if (!this._renderObject) {
                 console.error('Model load failed: model returned by _createObject is undefined');
                 console.error('模型加载失败：_createObject返回的model为undefined');
                 return;
             }
             // Temporarily use userData to store type, can be used later to identify model
             // 此处暂时用userData存储类型，后续可以根据类型判断是否为模型
-            this._threeGeometry.userData._type = 'Model';
+            this._renderObject.userData._type = 'Model';
             // Initialize animation system
             // 初始化动画系统
             if (this.modelunino.animations && this.modelunino.animations.length > 0) {
                 this._animations = this.modelunino.animations;
-                this._mixer = new AnimationMixer(this._threeGeometry);
+                this._mixer = new AnimationMixer(this._renderObject);
                 this._startAnimationLoop();
                 this.playAnimation({
                     name: this._animations[0].name,
@@ -264,7 +264,7 @@ export class Model extends Point {
                     fadeOutDuration: 0.3,
                 });
             }
-            this._updateGeometry();
+            this._refreshCoordinates();
             this.setShadows({
                 cast: this.castShadow,
                 receive: this.receiveShadow,
@@ -289,7 +289,7 @@ export class Model extends Point {
         switch (style.config.type) {
             case "fbx":
             case "gltf":
-                return _createModel(style.config, this._position as Vector3);
+                return _createModel(style.config, this._worldCoordinates as Vector3);
             default:
                 throw new Error(`Unsupported style type: ${style.config.type}`);
         }
@@ -302,8 +302,8 @@ export class Model extends Point {
      * @private
      */
     private _applyEmissionProperties(): void {
-        if (this._threeGeometry) {
-            this._threeGeometry.traverse(child => {
+        if (this._renderObject) {
+            this._renderObject.traverse(child => {
                 if ("material" in child) {
                     const material = (child as any).material;
                     if (material) {
@@ -374,14 +374,63 @@ export class Model extends Point {
     async setShadows(options: { cast: boolean; receive: boolean }) {
         this.castShadow = options.cast;
         this.receiveShadow = options.receive;
-        if (this._threeGeometry) {
-            this._threeGeometry.traverse((child: any) => {
+        if (this._renderObject) {
+            this._renderObject.traverse((child: any) => {
                 if (child.isMesh && child.material) {
                     child.castShadow = options.cast;
                     child.receiveShadow = options.receive;
                 }
             });
         }
+    }
+
+    setBloom(enabled: boolean, _options?: { intensity?: number; color?: string }): this {
+        this.userData.bloom = enabled;
+        if (this._renderObject) {
+            this._renderObject.traverse(child => {
+                if (child instanceof Mesh) {
+                    // Check if it's the original material or a clone
+                    // 检查是否是原始材质还是克隆后的
+                    if (!child.userData.originalMaterial) {
+                        child.userData.originalMaterial = child.material;
+                    }
+
+                    if (enabled) {
+                        // Apply bloom material
+                        // 应用发光材质
+                        // Note: Here we simply assume using standard material and setting emissive, actual logic may be more complex
+                        // 注意：这里简单假设使用标准材质并设置自发光，实际逻辑可能更复杂
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => {
+                                if ('emissive' in m) {
+                                    m.emissive.setHex(0xffffff);
+                                    m.emissiveIntensity = 0.5;
+                                }
+                            });
+                        } else if ('emissive' in child.material) {
+                            (child.material as any).emissive.setHex(0xffffff);
+                            (child.material as any).emissiveIntensity = 0.5;
+                        }
+                    } else {
+                        // Restore original material state
+                        // 恢复原始材质状态
+                        // child.material = child.userData.originalMaterial;
+                         if (Array.isArray(child.material)) {
+                            child.material.forEach(m => {
+                                if ('emissive' in m) {
+                                    m.emissive.setHex(0x000000);
+                                    m.emissiveIntensity = 0;
+                                }
+                            });
+                        } else if ('emissive' in child.material) {
+                            (child.material as any).emissive.setHex(0x000000);
+                            (child.material as any).emissiveIntensity = 0;
+                        }
+                    }
+                }
+            });
+        }
+        return this;
     }
 
     /* Animation control methods */
@@ -557,7 +606,7 @@ export class Model extends Point {
         this._stopAnimationLoop();
         if (this._mixer) {
             this._mixer.stopAllAction();
-            this._mixer.uncacheRoot(this._threeGeometry);
+            this._mixer.uncacheRoot(this._renderObject);
         }
         super.dispose();
     }
@@ -615,11 +664,11 @@ export class Model extends Point {
     /**
      * Compute polygon vertices in world coordinates (XZ plane) from region overlay configuration.
      * Prioritize using world coordinates (_vertexPoints) from Terra face feature.
-     * Fallback to GeoJSON + geo2world only if no feature is provided.
+     * Fallback to GeoJSON + projectToWorld only if no feature is provided.
      * 
      * 从区域蒙版配置计算世界坐标系下的多边形顶点（XZ 平面）
      * 优先使用 Terra 面 feature 中已有的世界坐标（_vertexPoints），
-     * 如果没有传 feature，才回退到 GeoJSON + geo2world。
+     * 如果没有传 feature，才回退到 GeoJSON + projectToWorld。
      */
     private _computeOverlayVertices(overlay: RegionOverlayConfig): Vector2[] | null {
         // 1. Prioritize using _vertexPoints from Terra face feature
@@ -650,8 +699,8 @@ export class Model extends Point {
             }
         }
 
-        // 2. Fallback to GeoJSON + geo2world if no feature or recovery from feature failed
-        // 2. 没有 feature 或从 feature 中无法恢复，则回退到 GeoJSON + geo2world
+        // 2. Fallback to GeoJSON + projectToWorld if no feature or recovery from feature failed
+        // 2. 没有 feature 或从 feature 中无法恢复，则回退到 GeoJSON + projectToWorld
         const map = this.getMap();
         if (!map || !overlay.geometry) return null;
 
@@ -676,7 +725,7 @@ export class Model extends Point {
         for (const coord of outerRing) {
             const lng = coord[0];
             const lat = coord[1];
-            const world = map.geo2world(new Vector3(lng, lat, 0));
+            const world = map.projectToWorld(new Vector3(lng, lat, 0));
             vertices.push(new Vector2(world.x, world.z));
         }
 

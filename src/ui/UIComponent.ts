@@ -400,7 +400,7 @@ export abstract class UIComponent extends EventMixin(
             // 地图视图变化：拖动、缩放等
             const handler = () => {
                 if (this._visible) {
-                    this._updatePosition();
+                    this._refreshDomPosition();
                 }
             };
             mapAny[type]("control-change", handler);
@@ -412,7 +412,7 @@ export abstract class UIComponent extends EventMixin(
             if (viewer && !this._viewerUpdateHandler) {
                 const vHandler = () => {
                     if (this._visible) {
-                        this._updatePosition();
+                        this._refreshDomPosition();
                     }
                 };
                 this._viewerUpdateHandler = vHandler;
@@ -439,10 +439,10 @@ export abstract class UIComponent extends EventMixin(
 
     /**
      * Internal: Derive world position from geographic coordinate / owner.
-     * Ensures unified use of map.geo2world to keep altitude / center units consistent.
+     * Ensures unified use of map.projectToWorld to keep altitude / center units consistent.
      * 
      * 内部：根据地理坐标 / owner 推导世界坐标
-     * 保证统一走 map.geo2world，从而保持 altitude / center 单位统一
+     * 保证统一走 map.projectToWorld，从而保持 altitude / center 单位统一
      */
     private _resolveWorldPosition(): Vector3 | undefined {
         const map = this._map;
@@ -453,7 +453,7 @@ export abstract class UIComponent extends EventMixin(
         if (this._coordinate) {
             const [lng, lat, alt = 0] = this._coordinate as any;
             const v = new Vector3(lng, lat, alt);
-            return map.geo2world(v);
+            return map.projectToWorld(v);
         }
 
         const owner: any = this._owner;
@@ -483,22 +483,22 @@ export abstract class UIComponent extends EventMixin(
                         coordArr[1],
                         (coordArr[2] ?? 0) as number
                     );
-                    return map.geo2world(v);
+                    return map.projectToWorld(v);
                 }
             }
 
             // Then consider Three geometry / internal position (avoid incorrect world coordinates during initialization)
             // 再考虑 Three 几何 / 内部位置（避免初始化阶段 world 坐标不对）
-            if (owner._threeGeometry && typeof owner._threeGeometry.getWorldPosition === "function") {
+            if (owner._renderObject && typeof owner._renderObject.getWorldPosition === "function") {
                 const world = new Vector3();
-                owner._threeGeometry.getWorldPosition(world);
+                owner._renderObject.getWorldPosition(world);
                 if (!(world.x === 0 && world.y === 0 && world.z === 0)) {
                     return world;
                 }
             }
 
-            if (owner._position instanceof Vector3) {
-                const pos = owner._position as Vector3;
+            if (owner._worldCoordinates instanceof Vector3) {
+                const pos = owner._worldCoordinates as Vector3;
                 if (!(pos.x === 0 && pos.y === 0 && pos.z === 0)) {
                     return pos.clone();
                 }
@@ -524,7 +524,7 @@ export abstract class UIComponent extends EventMixin(
      * Internal: Update DOM position based on world coordinates.
      * 内部：根据世界坐标更新 DOM 位置
      */
-    protected _updatePosition() {
+    protected _refreshDomPosition() {
         if (!this._dom || !this._map) return;
 
         // Derive world coordinates based on latest state every time (do not pass coordinate, use owner's current state)

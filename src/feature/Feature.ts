@@ -114,12 +114,12 @@ export abstract class Feature extends Handlerable(
      * Feature position (single coordinate or array of coordinates).
      * 要素位置（单个坐标或坐标数组）
      */
-    _position: Vector3 | Vector3[];
+    _worldCoordinates: Vector3 | Vector3[];
     /**
      * Three.js geometry object.
      * Three.js几何对象
      */
-    _threeGeometry: Object3D | Line2;
+    _renderObject: Object3D | Line2;
     /**
      * GeoJSON geometry data.
      * GeoJSON几何数据
@@ -209,8 +209,8 @@ export abstract class Feature extends Handlerable(
         super();
         requireParam(options.geometry, "geometry", "geometry must be specified");
         this._geometry = options.geometry as GeoJSONGeometry;
-        this._position = new Vector3(0, 0, 0);
-        this._threeGeometry = new Object3D();
+        this._worldCoordinates = new Vector3(0, 0, 0);
+        this._renderObject = new Object3D();
 
         // 初始化 options 对象供 Handler 使用
         this.options = {
@@ -241,16 +241,16 @@ export abstract class Feature extends Handlerable(
      * 初始化几何体（模板方法）
      * 
      * @description
-     * Calls _toThreeJSGeometry implemented by subclasses and processes pending style changes.
-     * 该方法会调用子类实现的_toThreeJSGeometry方法，并处理积压的样式变更
+     * Calls _buildRenderObject implemented by subclasses and processes pending style changes.
+     * 该方法会调用子类实现的_buildRenderObject方法，并处理积压的样式变更
      * 
      * @returns Promise<void>
      */
     async initializeGeometry(): Promise<void> {
-        if (this._isGeometryInitializing || this._threeGeometry) return;
+        if (this._isGeometryInitializing || this._renderObject) return;
         this._isGeometryInitializing = true;
         try {
-            await this._toThreeJSGeometry();
+            await this._buildRenderObject();
             this._processStyleQueue();
         } finally {
             this._isGeometryInitializing = false;
@@ -258,33 +258,18 @@ export abstract class Feature extends Handlerable(
     }
 
     /**
-     * Abstract method: Convert GeoJSON geometry to Three.js geometry.
-     * 抽象方法：将GeoJSON几何转换为Three.js几何
-     * 
-     * @abstract
-     * @returns Promise<void> | void
+     * 构建渲染对象 (Internal)
+     * Build the Three.js object for rendering.
      */
-    abstract _toThreeJSGeometry(): Promise<void> | void;
+    abstract _buildRenderObject(): Promise<void> | void;
 
     /**
-     * Quickly update geometry vertex positions (without rebuilding the entire geometry).
-     * 快速更新几何体顶点位置（不重建整个几何体）
-     * 
-     * @description
-     * Used for real-time interactions like dragging and editing. Updates only vertex positions without destroying and rebuilding the geometry.
-     * Subclasses can override this method to implement specific fast update logic.
-     * Default implementation calls the full _toThreeJSGeometry method.
-     * 
-     * 用于拖拽、编辑等实时交互场景，仅更新顶点位置而不销毁重建几何体。
-     * 子类可以重写此方法以实现特定的快速更新逻辑。
-     * 默认实现会调用完整的_toThreeJSGeometry方法。
-     * 
-     * @virtual
-     * @returns void
+     * 更新渲染对象的坐标 (Internal)
+     * Update the coordinates of the render object.
      */
-    protected _updateGeometryPositions(): void {
+    protected _refreshCoordinates(): void {
         // 默认实现：调用完整重建（子类应该重写此方法以提供更高效的更新）
-        this._toThreeJSGeometry();
+        this._buildRenderObject();
     }
 
     /**
@@ -338,8 +323,8 @@ export abstract class Feature extends Handlerable(
         };
 
         // 如果几何体已初始化，则直接应用到 Three 对象
-        if (this._threeGeometry) {
-            this._applyBloomToObject(this._threeGeometry);
+        if (this._renderObject) {
+            this._applyBloomToObject(this._renderObject);
         }
 
         return this;
@@ -540,11 +525,11 @@ export abstract class Feature extends Handlerable(
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                if (!this._threeGeometry!.parent) {
-                    this.add(this._threeGeometry!);
+                if (!this._renderObject!.parent) {
+                    this.add(this._renderObject!);
                     await new Promise(r => requestAnimationFrame(r));
                 }
-                await style.applyTo(this._threeGeometry!);
+                await style.applyTo(this._renderObject!);
 
                 // 样式应用完成后，自动从样式里提取 bloom 配置并应用
                 const baseStyle = style.config as any;
@@ -566,8 +551,8 @@ export abstract class Feature extends Handlerable(
                 }
 
                 // 如果有发光配置（来自样式或手动 setBloom），立即套在几何体上
-                if (this._bloomConfig && this._threeGeometry) {
-                    this._applyBloomToObject(this._threeGeometry);
+                if (this._bloomConfig && this._renderObject) {
+                    this._applyBloomToObject(this._renderObject);
                 }
 
                 return;
@@ -590,7 +575,7 @@ export abstract class Feature extends Handlerable(
      * @returns Promise<void>
      */
     private async _processStyleQueue(): Promise<void> {
-        if (!this._threeGeometry || this._isApplyingStyle || this._styleQueue.length === 0) {
+        if (!this._renderObject || this._isApplyingStyle || this._styleQueue.length === 0) {
             return;
         }
 
@@ -622,7 +607,7 @@ export abstract class Feature extends Handlerable(
      */
     _tryProcessQueue(): void {
         const shouldProcess = (
-            this._threeGeometry &&
+            this._renderObject &&
             !this._isApplyingStyle &&
             this._styleQueue.length > 0
         );
@@ -634,7 +619,7 @@ export abstract class Feature extends Handlerable(
                     this._tryProcessQueue();
                     console.warn(error);
                 });
-        } else if (!this._threeGeometry && !this._isGeometryInitializing) {
+        } else if (!this._renderObject && !this._isGeometryInitializing) {
             this.initializeGeometry();
         }
     }
@@ -684,7 +669,7 @@ export abstract class Feature extends Handlerable(
 
         // Trigger cleanup and redraw related to coordinate changes
         // 触发坐标变化相关的清理与重绘
-        this._onPositionChanged();
+        this._applyCoordinateChanges();
         return this;
     }
     /**
@@ -693,15 +678,15 @@ export abstract class Feature extends Handlerable(
      * 
      * @param fastUpdate - Whether to use fast update mode (only updates vertex positions, does not rebuild geometry) 是否使用快速更新模式（仅更新顶点位置，不重建几何体）
      */
-    protected _onPositionChanged(fastUpdate: boolean = false) {
-        if (fastUpdate && this._threeGeometry) {
+    protected _applyCoordinateChanges(fastUpdate: boolean = false) {
+        if (fastUpdate && this._renderObject) {
             // Fast update mode: only update geometry vertex positions, used for real-time interactions like dragging
             // 快速更新模式：仅更新几何体顶点位置，用于拖拽等实时交互
-            this._updateGeometryPositions();
+            this._refreshCoordinates();
         } else {
             // Full update mode: recalculate and rebuild Three.js geometry
             // 完整更新模式：重新计算并重建 Three.js 几何体
-            this._toThreeJSGeometry();
+            this._buildRenderObject();
         }
         // Trigger event notification
         // 触发事件通知
@@ -745,15 +730,15 @@ export abstract class Feature extends Handlerable(
      */
     _updateGeometry(): void {
         this._disposeGeometry();
-        if (this._threeGeometry) {
-            this._threeGeometry.position.copy(this._position as any);
-            // console.log(this._threeGeometry, 'threeGeometry')
-            if (this._threeGeometry?.userData?._type === 'Model') {
-                this._threeGeometry.renderOrder = 0;
+        if (this._renderObject) {
+            this._renderObject.position.copy(this._worldCoordinates as any);
+            // console.log(this._renderObject, 'renderObject')
+            if (this._renderObject?.userData?._type === 'Model') {
+                this._renderObject.renderOrder = 0;
             } else {
-                this._threeGeometry.renderOrder = 99;
+                this._renderObject.renderOrder = 99;
             }
-            this.add(this._threeGeometry);
+            this.add(this._renderObject);
             this.updateMatrixWorld(true);
             this._tryProcessQueue();
         }
@@ -795,11 +780,11 @@ export abstract class Feature extends Handlerable(
      * 释放几何体资源
      */
     _disposeGeometry(): void {
-        if (!this._threeGeometry) return;
+        if (!this._renderObject) return;
         this.clear();
 
         if ('traverse' in this) {
-            (this._threeGeometry as Object3D).traverse(obj => {
+            (this._renderObject as Object3D).traverse(obj => {
                 if (obj instanceof Mesh) {
                     obj.geometry?.dispose();
                     if (Array.isArray(obj.material)) {
@@ -876,7 +861,7 @@ export abstract class Feature extends Handlerable(
         try {
             // 计算世界坐标和屏幕投影
             const worldPos = new Vector3();
-            this._threeGeometry.getWorldPosition(worldPos);
+            this._renderObject.getWorldPosition(worldPos);
             const screenPos = worldPos.clone().project(camera);
 
             // 检查是否在屏幕内
@@ -1087,12 +1072,12 @@ export abstract class Feature extends Handlerable(
      * @private
      */
     _calculateCollisionBoundingBox(camera?: Camera, renderer?: WebGLRenderer): { width: number; height: number; offsetX: number; offsetY: number } | null {
-        if (!this.visible || !this._threeGeometry || !camera || !renderer) return null;
+        if (!this.visible || !this._renderObject || !camera || !renderer) return null;
 
         try {
             // Calculate world space bounding box
             // 计算世界空间包围盒
-            const bbox = new Box3().setFromObject(this._threeGeometry as any);
+            const bbox = new Box3().setFromObject(this._renderObject as any);
             if (bbox.isEmpty()) return this._getFallbackBoundingBox();
 
             // Get 8 corners of the bounding box

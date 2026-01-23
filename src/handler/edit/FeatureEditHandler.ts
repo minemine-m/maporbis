@@ -309,7 +309,7 @@ export class FeatureEditHandler extends Handler {
         // Terra-GL 当前直接编辑原 feature
         // 如果未来实现完整 shadow 机制，这里同步坐标
         if (updateGeometry && !this._updating) {
-            (this.target as any)._onPositionChanged(true);
+            (this.target as any)._refreshCoordinates();
         }
     }
     
@@ -392,7 +392,7 @@ export class FeatureEditHandler extends Handler {
         geo.coordinates = JSON.parse(JSON.stringify(coordinates));
         
         // 更新要素几何（使用快速更新）
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._refreshCoordinates();
         
         // 更新编辑手柄位置
         this._updateHandlePositions();
@@ -442,7 +442,7 @@ export class FeatureEditHandler extends Handler {
      */
     private _createPointHandles(geo: any, map: Map): void {
         const coord = geo.coordinates;
-        const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+        const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
         
         const handle = new EditHandle({
             position: worldPos as Vector3,
@@ -478,7 +478,7 @@ export class FeatureEditHandler extends Handler {
         
         // 为每个顶点创建手柄
         coords.forEach((coord: number[], index: number) => {
-            const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+            const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -540,7 +540,7 @@ export class FeatureEditHandler extends Handler {
         }
         
         // 快速更新要素几何（不重建）
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._refreshCoordinates();
         
         // 触发编辑事件
         this.target.trigger('handledragging', {
@@ -637,7 +637,7 @@ export class FeatureEditHandler extends Handler {
             // 为每个顶点创建手柄
             for (let i = 0; i < vertexCount; i++) {
                 const coord = ring[i];
-                const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+                const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                 
                 const handle = new EditHandle({
                     position: worldPos as Vector3,
@@ -720,7 +720,7 @@ export class FeatureEditHandler extends Handler {
         }
         
         // 快速更新要素几何（不重建）
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._refreshCoordinates();
         
         // 触发编辑事件
         this.target.trigger('handledragging', {
@@ -778,14 +778,14 @@ export class FeatureEditHandler extends Handler {
         
         if (this.target instanceof Point) {
             const coord = geo.coordinates as number[];
-            const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+            const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
             if (this._handles[0]) {
                 this._handles[0].updatePosition(worldPos as Vector3);
             }
         } else if (this.target instanceof LineString) {
             const coords = geo.coordinates as number[][];
             coords.forEach((coord: number[], index: number) => {
-                const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+                const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                 if (this._handles[index]) {
                     this._handles[index].updatePosition(worldPos as Vector3);
                 }
@@ -803,7 +803,7 @@ export class FeatureEditHandler extends Handler {
                 
                 for (let i = 0; i < vertexCount; i++) {
                     const coord = ring[i];
-                    const worldPos = map.geo2world(new Vector3(coord[0], coord[1], coord[2] || 0));
+                    const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                     if (this._handles[handleIndex]) {
                         this._handles[handleIndex].updatePosition(worldPos as Vector3);
                     }
@@ -885,7 +885,7 @@ export class FeatureEditHandler extends Handler {
                     (coord1[1] + coord2[1]) / 2,
                     ((coord1[2] || 0) + (coord2[2] || 0)) / 2
                 ];
-                const worldPos = map.geo2world(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+                const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
                 this._middleHandles[handleIndex].updatePosition(worldPos as Vector3);
                 handleIndex++;
              }
@@ -908,7 +908,7 @@ export class FeatureEditHandler extends Handler {
                         (coord1[1] + coord2[1]) / 2,
                         ((coord1[2] || 0) + (coord2[2] || 0)) / 2
                     ];
-                    const worldPos = map.geo2world(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+                    const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
                     this._middleHandles[handleIndex].updatePosition(worldPos as Vector3);
                     handleIndex++;
                 }
@@ -1048,7 +1048,7 @@ export class FeatureEditHandler extends Handler {
      * @private
      */
     private _setFeatureEditingStyle(editing: boolean): void {
-        const threeGeom = this.target._threeGeometry;
+        const threeGeom = this.target._renderObject;
         if (!threeGeom) return;
 
         // 遍历要素的所有mesh和line
@@ -1159,7 +1159,7 @@ export class FeatureEditHandler extends Handler {
         }
         
         // 更新几何体
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._refreshCoordinates();
         
         // 移除手柄
         handle.remove();
@@ -1198,7 +1198,7 @@ export class FeatureEditHandler extends Handler {
                 ((coord1[2] || 0) + (coord2[2] || 0)) / 2
             ];
             
-            const worldPos = map.geo2world(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+            const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -1242,7 +1242,7 @@ export class FeatureEditHandler extends Handler {
                 ((coord1[2] || 0) + (coord2[2] || 0)) / 2
             ];
             
-            const worldPos = map.geo2world(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+            const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -1331,7 +1331,7 @@ export class FeatureEditHandler extends Handler {
         }
         
         // 更新几何体
-        (this.target as any)._onPositionChanged(true);
+        (this.target as any)._applyCoordinateChanges(true);
         
         // 重新创建所有手柄
         this._clearHandles();
@@ -1413,12 +1413,12 @@ export class FeatureEditHandler extends Handler {
         
         // 如果没有海拔或海拔为0，直接转换
         if (!vertex || !vertex[2] || vertex[2] === 0) {
-            return map.world2geo(worldPos);
+            return map.unprojectFromWorld(worldPos);
         }
         
         // TODO: 实现完整的海拔补偿逻辑
 
-        const geoPos = map.world2geo(worldPos);
+        const geoPos = map.unprojectFromWorld(worldPos);
         geoPos.z = vertex[2]; // 保持原始海拔
         
         return geoPos;

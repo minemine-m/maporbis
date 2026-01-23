@@ -182,7 +182,7 @@ export class ToolTip extends UIComponent {
             // Let this update position and show directly
             // 直接让这一次更新位置并显示
             anyThis._positionedOnce = true;
-            anyThis._updatePosition();
+            anyThis._refreshDomPosition();
 
             if (anyThis._dom) {
                 anyThis._dom.style.display = "block";

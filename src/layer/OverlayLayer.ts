@@ -98,13 +98,13 @@ export abstract class OverlayLayer<T extends Feature = Feature> extends Layer {
             // }
 
             if (feature.getMap()) {
-                feature._toThreeJSGeometry();
+                feature._buildRenderObject();
             }
             // debugger
             if ((this as any)._clouds) {
                 this.map.viewer.scene.add((this as any)._clouds);
                 console.log('我是云朵被添加cloud', this.map.viewer.scene)
-                // this._clouds.add(feature._threeGeometry);
+                // this._clouds.add(feature._renderObject);
                 // console.log( this._clouds,'我是云朵被添加')
             }
             // console.log(feature, '测试灯光 ----------- ')

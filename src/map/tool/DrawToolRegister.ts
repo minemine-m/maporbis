@@ -49,8 +49,8 @@ const pointMode: DrawModeDefinition = {
             coordinates: last
         } as any;
 
-        draftMarker._position = draftMarker._coordsTransform() as any;
-        draftMarker._toThreeJSGeometry && draftMarker._toThreeJSGeometry();
+        draftMarker._worldCoordinates = draftMarker._coordsTransform() as any;
+        draftMarker._buildRenderObject && draftMarker._buildRenderObject();
     },
     generate(state: any, coords: Coordinate[]) {
         const tool: DrawTool = state.tool;

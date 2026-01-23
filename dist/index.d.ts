@@ -1532,12 +1532,12 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      * Feature position (single coordinate or array of coordinates).
      * 要素位置（单个坐标或坐标数组）
      */
-    _position: Vector3 | Vector3[];
+    _worldCoordinates: Vector3 | Vector3[];
     /**
      * Three.js geometry object.
      * Three.js几何对象
      */
-    _threeGeometry: Object3D | Line2;
+    _renderObject: Object3D | Line2;
     /**
      * GeoJSON geometry data.
      * GeoJSON几何数据
@@ -1607,37 +1607,22 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      * 初始化几何体（模板方法）
      *
      * @description
-     * Calls _toThreeJSGeometry implemented by subclasses and processes pending style changes.
-     * 该方法会调用子类实现的_toThreeJSGeometry方法，并处理积压的样式变更
+     * Calls _buildRenderObject implemented by subclasses and processes pending style changes.
+     * 该方法会调用子类实现的_buildRenderObject方法，并处理积压的样式变更
      *
      * @returns Promise<void>
      */
     initializeGeometry(): Promise<void>;
     /**
-     * Abstract method: Convert GeoJSON geometry to Three.js geometry.
-     * 抽象方法：将GeoJSON几何转换为Three.js几何
-     *
-     * @abstract
-     * @returns Promise<void> | void
+     * 构建渲染对象 (Internal)
+     * Build the Three.js object for rendering.
      */
-    abstract _toThreeJSGeometry(): Promise<void> | void;
+    abstract _buildRenderObject(): Promise<void> | void;
     /**
-     * Quickly update geometry vertex positions (without rebuilding the entire geometry).
-     * 快速更新几何体顶点位置（不重建整个几何体）
-     *
-     * @description
-     * Used for real-time interactions like dragging and editing. Updates only vertex positions without destroying and rebuilding the geometry.
-     * Subclasses can override this method to implement specific fast update logic.
-     * Default implementation calls the full _toThreeJSGeometry method.
-     *
-     * 用于拖拽、编辑等实时交互场景，仅更新顶点位置而不销毁重建几何体。
-     * 子类可以重写此方法以实现特定的快速更新逻辑。
-     * 默认实现会调用完整的_toThreeJSGeometry方法。
-     *
-     * @virtual
-     * @returns void
+     * 更新渲染对象的坐标 (Internal)
+     * Update the coordinates of the render object.
      */
-    protected _updateGeometryPositions(): void;
+    protected _refreshCoordinates(): void;
     /**
      * Set style.
      * 设置样式
@@ -1740,7 +1725,7 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      *
      * @param fastUpdate - Whether to use fast update mode (only updates vertex positions, does not rebuild geometry) 是否使用快速更新模式（仅更新顶点位置，不重建几何体）
      */
-    protected _onPositionChanged(fastUpdate?: boolean): void;
+    protected _applyCoordinateChanges(fastUpdate?: boolean): void;
     /**
      * Get feature center (geographic coordinates)
      * 获取要素中心点（地理坐标）
@@ -2368,7 +2353,7 @@ export declare class ICloud extends Point_3 {
      * Create cloud geometry based on style configuration.
      * 根据样式配置创建云朵几何体
      */
-    _toThreeJSGeometry(): Promise<void>;
+    _buildRenderObject(): Promise<void>;
     /**
      * Update geometry (override parent method).
      * 更新几何体（重写父类方法）
@@ -2377,7 +2362,7 @@ export declare class ICloud extends Point_3 {
      * Add cloud geometry to the layer's cloud container, and set position and render order.
      * 将云朵几何体添加到图层的云朵容器中，并设置位置和渲染顺序
      */
-    _updateGeometry(): void;
+    _refreshCoordinates(): void;
     /**
      * Create cloud object.
      * 创建云朵对象
@@ -2976,7 +2961,7 @@ export declare class Label extends Point_3 {
      *
      * 根据样式配置创建文本标签几何体
      */
-    _toThreeJSGeometry(): Promise<void>;
+    _buildRenderObject(): Promise<void>;
     /**
      * Quickly update geometry vertex positions (without rebuilding the entire geometry).
      * 快速更新几何体顶点位置（不重建整个几何体）
@@ -2986,7 +2971,7 @@ export declare class Label extends Point_3 {
      *
      * 用于拖拽、编辑等实时交互场景，仅更新Label的位置而不销毁重建几何体。
      */
-    protected _updateGeometryPositions(): void;
+    protected _refreshCoordinates(): void;
     /**
      * Create label object.
      * 创建标签对象
@@ -3097,7 +3082,7 @@ declare abstract class Layer extends Layer_base {
      * Layer unique identifier.
      * 图层唯一标识
      */
-    private _id;
+    private _layerId;
     /**
      * Layer opacity.
      * 图层透明度
@@ -3107,7 +3092,7 @@ declare abstract class Layer extends Layer_base {
      * Animation callback set.
      * 动画回调集合
      */
-    private _animationCallbacks;
+    private _animCallbacks;
     /**
      * Whether it is a scene layer.
      * 是否为场景层
@@ -3117,7 +3102,7 @@ declare abstract class Layer extends Layer_base {
      * Current altitude record.
      * 当前高度记录
      */
-    protected _altitude: number;
+    protected _baseAltitude: number;
     /**
      * Layer-level depth offset (default value for style depthOffset).
      * 图层级深度偏移（作为样式 depthOffset 的默认值）
@@ -3127,15 +3112,15 @@ declare abstract class Layer extends Layer_base {
      * Region overlay configuration set (common to all subclasses).
      * 区域蒙版配置集合（所有子类通用）
      */
-    private _regionOverlays;
+    private _regionConfigs;
     /**
      * Create a layer instance.
      * 创建图层实例
-     * @param id - Layer ID. 图层ID
-     * @param options - Layer configuration. 图层配置
+     * @param layerId - Layer ID. 图层ID
+     * @param config - Layer configuration. 图层配置
      * @throws Throws error if id is not provided. 如果未提供id会抛出错误
      */
-    constructor(id: string, options?: LayerOptions);
+    constructor(layerId: string, config?: LayerOptions);
     /**
      * Get layer ID.
      * 获取图层ID
@@ -3146,11 +3131,11 @@ declare abstract class Layer extends Layer_base {
     /**
      * Add layer to map.
      * 将图层添加到地图
-     * @param map Map instance
+     * @param mapInstance Map instance
      *            地图实例
      * @returns this
      */
-    addTo(map: Map_2): this;
+    addTo(mapInstance: Map_2): this;
     /**
      * Get layer z-index.
      * 获取图层层级
@@ -3175,7 +3160,7 @@ declare abstract class Layer extends Layer_base {
     /**
      * Set layer opacity.
      * 设置图层透明度
-     * @param opacity Opacity value (0-1)
+     * @param val Opacity value (0-1)
      *                透明度值 (0-1)
      *
      * @description
@@ -3187,7 +3172,7 @@ declare abstract class Layer extends Layer_base {
      * - 带有material属性的对象
      * - Sprite等特殊类型
      */
-    setOpacity(opacity: number): void;
+    setOpacity(val: number): void;
     /**
      * Get associated map instance.
      * 获取关联的地图实例
@@ -3210,13 +3195,13 @@ declare abstract class Layer extends Layer_base {
     /**
      * Set layer altitude.
      * 设置图层高度 (海拔)
-     * @param altitude Altitude value
+     * @param val Altitude value
      *                 高度值
      * @description
      * Modify layer position in vertical direction.
      * 修改图层在垂直方向上的位置。
      */
-    setAltitude(altitude: number): this;
+    setAltitude(val: number): this;
     /**
      * Get current layer altitude.
      * 获取当前图层高度
@@ -3227,12 +3212,12 @@ declare abstract class Layer extends Layer_base {
     /**
      * Bind map instance.
      * 绑定地图实例
-     * @param map Map instance
+     * @param mapInstance Map instance
      *            地图实例
      *
      * @protected
      */
-    _bindMap(map: Map_2): void;
+    _bindMap(mapInstance: Map_2): void;
     /**
      * Animation method (Optional implementation for subclasses).
      * 动画方法（子类可选实现）
@@ -3271,10 +3256,10 @@ declare abstract class Layer extends Layer_base {
     /**
      * Batch set region overlays.
      * 批量设置区域蒙版
-     * @param overlays Region overlay configuration array
+     * @param configs Region overlay configuration array
      *                 区域蒙版配置数组
      */
-    setRegionOverlays(overlays: RegionOverlayConfig[]): this;
+    setRegionOverlays(configs: RegionOverlayConfig[]): this;
     /**
      * Add a single region overlay.
      * 添加单个区域蒙版
@@ -3485,7 +3470,7 @@ declare abstract class Line extends Feature {
      *
      * @abstract
      */
-    _toThreeJSGeometry(): void;
+    _buildRenderObject(): void;
     /**
      * Create basic line geometry.
      * 创建基础线几何体
@@ -3499,7 +3484,7 @@ declare abstract class Line extends Feature {
      *
      * 创建带有默认材质的线几何体，子类可扩展或重写此方法
      */
-    protected _createThreeGeometry(): Line2;
+    protected _createRenderObject(): Line2;
 }
 
 /**
@@ -3609,7 +3594,7 @@ export declare class LineString extends Line {
      *
      * 根据样式配置创建线几何体，并进行坐标转换
      */
-    _toThreeJSGeometry(): Promise<void>;
+    _buildRenderObject(): Promise<void>;
     /**
      * Quickly update geometry vertex positions (without rebuilding the entire geometry).
      * 快速更新几何体顶点位置（不重建整个几何体）
@@ -3621,7 +3606,7 @@ export declare class LineString extends Line {
      * 用于拖拽、编辑等实时交互场景，仅更新Line2的顶点位置而不销毁重建几何体。
      * 这比完整重建快得多，并且能保持feature在拖拽过程中可见。
      */
-    protected _updateGeometryPositions(): void;
+    protected _refreshCoordinates(): void;
     /**
      * Create line object.
      * 创建线对象
@@ -3638,18 +3623,6 @@ export declare class LineString extends Line {
      * - 'basic-line': 基础线样式
      */
     _createObject(style: Style): Promise<Object3D>;
-    /**
-     * Update geometry.
-     * 更新几何体
-     *
-     * @description
-     * Updates line geometry vertex coordinates and recalculates bounding info.
-     * Automatically handles position relationship with map center.
-     *
-     * 更新线几何体的顶点坐标，并重新计算边界信息
-     * 自动处理与地图中心的位置关系
-     */
-    _updateGeometry(): void;
 }
 
 /**
@@ -3744,7 +3717,7 @@ export declare class LoaderUtils {
          * Map root object
          * 地图根对象
          */
-        private _root;
+        private _rootGroup;
         /**
          * Map layers
          * 地图图层
@@ -3754,12 +3727,12 @@ export declare class LoaderUtils {
          * Map projection
          * 地图投影
          */
-        private _projection;
+        private _mapProjection;
         /**
          * Update clock
          * 更新时钟
          */
-        private readonly _clock;
+        private readonly _animationClock;
         /**
          * Whether to automatically update
          * 是否自动更新
@@ -3783,55 +3756,55 @@ export declare class LoaderUtils {
         get projection(): MapProjection;
         get lon0(): number;
         /**
-         * Geographic coordinate to model coordinate
-         * 地理坐标转模型坐标
-         * @param geo Geographic coordinate 地理坐标
-         * @returns Model coordinate 模型坐标
+         * Project geographic coordinate to map model coordinate
+         * 地理坐标投影到地图模型坐标
+         * @param coord Geographic coordinate (Long, Lat, Alt)
+         * @returns Map model coordinate
          */
-        geo2map(geo: Vector3): Vector3;
+        project(coord: Vector3): Vector3;
         /**
-         * Geographic coordinate to world coordinate
-         * 地理坐标转世界坐标
-         * @param geo Geographic coordinate 地理坐标
-         * @returns World coordinate 世界坐标
+         * Project geographic coordinate to world coordinate
+         * 地理坐标投影到世界坐标
+         * @param coord Geographic coordinate (Long, Lat, Alt)
+         * @returns World coordinate
          */
-        geo2world(geo: Vector3): Vector3;
+        projectToWorld(coord: Vector3): Vector3;
         /**
-         * Model coordinate to geographic coordinate
-         * 模型坐标转地理坐标
-         * @param pos Model coordinate 模型坐标
-         * @returns Geographic coordinate 地理坐标
+         * Unproject map model coordinate to geographic coordinate
+         * 地图模型坐标反投影到地理坐标
+         * @param point Map model coordinate
+         * @returns Geographic coordinate (Long, Lat, Alt)
          */
-        map2geo(pos: Vector3): Vector3;
+        unproject(point: Vector3): Vector3;
         /**
-         * World coordinate to geographic coordinate
-         * 世界坐标转地理坐标
-         * @param world World coordinate 世界坐标
-         * @returns Geographic coordinate 地理坐标
+         * Unproject world coordinate to geographic coordinate
+         * 世界坐标反投影到地理坐标
+         * @param worldPos World coordinate
+         * @returns Geographic coordinate (Long, Lat, Alt)
          */
-        world2geo(world: Vector3): Vector3;
+        unprojectFromWorld(worldPos: Vector3): Vector3;
         /**
-         * Get ground info from geographic coordinate
-         * 获取指定地理坐标的地面信息
-         * @param geo Geographic coordinate 地理坐标
-         * @returns Ground info 地面信息
+         * Get intersection info from geographic coordinate
+         * 获取指定地理坐标的交互/地面信息
+         * @param geoCoord Geographic coordinate
+         * @returns Intersection info
          */
-        getLocalInfoFromGeo(geo: Vector3): LocationInfo | undefined;
+        pickFromGeo(geoCoord: Vector3): LocationInfo | undefined;
         /**
-         * Get ground info from world coordinate
-         * 获取指定世界坐标的地面信息
-         * @param pos World coordinate 世界坐标
-         * @returns Ground info 地面信息
+         * Get intersection info from world coordinate
+         * 获取指定世界坐标的交互/地面信息
+         * @param worldPos World coordinate
+         * @returns Intersection info
          */
-        getLocalInfoFromWorld(pos: Vector3): LocationInfo | undefined;
+        pickFromWorld(worldPos: Vector3): LocationInfo | undefined;
         /**
-         * Get ground info from screen coordinate
-         * 获取指定屏幕坐标的地面信息
-         * @param camera Camera 相机
-         * @param pointer Screen coordinate 屏幕坐标
-         * @returns Position info 位置信息
+         * Get intersection info from screen pixel coordinate
+         * 获取指定屏幕坐标的交互/地面信息
+         * @param camera Camera instance
+         * @param pixel Screen pixel coordinate
+         * @returns Intersection info
          */
-        getLocalInfoFromScreen(camera: Camera, pointer: Vector2): LocationInfo | undefined;
+        pickFromPixel(camera: Camera, pixel: Vector2): LocationInfo | undefined;
         /**
          * Map center coordinates.
 
@@ -3857,17 +3830,17 @@ export declare class LoaderUtils {
          * Event map table.
          * 事件映射表
          */
-        private _EventMap;
+        private _eventState;
         /**
          * Canvas manager instance.
          * 画布管理器实例
          */
-        private _canvasManager;
+        private _canvasMgr;
         /**
          * Collision engine instance.
          * 碰撞引擎实例
          */
-        private collisionEngine;
+        private _collisionEngine;
         /**
          * Load hook function array.
          * 加载钩子函数数组
@@ -3920,9 +3893,9 @@ export declare class LoaderUtils {
          * Create map instance.
          * 创建地图实例
          *
-         * @param container Map container element or element ID
+         * @param domContainer Map container element or element ID
          *                  地图容器元素或元素ID
-         * @param options Map configuration options
+         * @param config Map configuration options
          *                地图配置选项
          */
         constructor(container: HTMLElement | string, options: MapOptions);
@@ -4040,19 +4013,19 @@ export declare class LoaderUtils {
          * Add layer(s) to the map.
          * 添加图层到地图
          *
-         * @param layers Layer object or array of layer objects
+         * @param layerOrLayers Layer object or array of layer objects
          *               图层对象或图层对象数组
          * @param otherLayers Other layer objects
          *                    其他图层对象
          * @returns Current map instance
          *          当前地图实例
          */
-        addLayer(layers: Layer | Array<Layer>, ...otherLayers: Array<Layer>): this;
+        addLayer(layerOrLayers: Layer | Array<Layer>, ...otherLayers: Array<Layer>): this;
         /**
          * Remove layer.
          * 移除图层
          */
-        removeLayer(layerId: string): boolean;
+        removeLayer(id: string): boolean;
         /**
          * Add regular layer (Add to scene only).
          * 添加普通图层（只添加到场景）
@@ -4078,7 +4051,7 @@ export declare class LoaderUtils {
          * @returns Array of layers
          *          图层数组
          */
-        getLayers(): Layer[];
+        getLayers(): any[];
         /**
          * Get layer by ID.
          * 根据ID获取图层
@@ -4088,7 +4061,7 @@ export declare class LoaderUtils {
          * @returns Layer instance or undefined
          *          图层实例或undefined
          */
-        getLayerById(id: string): Layer | undefined;
+        getLayerById(id: string): any;
         /**
          * Get canvas.
          * 获取画布
@@ -4167,18 +4140,18 @@ export declare class LoaderUtils {
          * Fly to specified position.
          * 飞行到指定位置
          *
-         * @param options Flight parameters object
+         * @param flyConfig Flight parameters object
          *                飞行参数对象
          */
-        flyTo(options: FlyToOptions): void;
+        flyTo(flyConfig: FlyToOptions): void;
         /**
          * Fly to point position.
          * 飞行到指定点的位置
          *
-         * @param options Flight parameters object
+         * @param flyConfig Flight parameters object
          *                飞行参数对象
          */
-        flyToPoint(options: FlyToPointOptions): void;
+        flyToPoint(flyConfig: FlyToPointOptions): void;
         /**
          * Destroy map instance, release all resources.
          * 销毁地图实例，释放所有资源
@@ -4658,7 +4631,7 @@ export declare class LoaderUtils {
          *
          * @returns Promise<void>
          */
-        _toThreeJSGeometry(): Promise<void>;
+        _buildRenderObject(): Promise<void>;
         /**
          * Quickly update geometry vertex positions (without rebuilding the entire geometry).
          * 快速更新几何体顶点位置（不重建整个几何体）
@@ -4670,7 +4643,7 @@ export declare class LoaderUtils {
          * 用于拖拽、编辑等实时交互场景，仅更新Marker的位置而不销毁重建几何体。
          * 这比完整重建快得多，并且能保持feature在拖拽过程中可见。
          */
-        protected _updateGeometryPositions(): void;
+        protected _refreshCoordinates(): void;
         /**
          * Create marker object.
          * 创建标记点对象
@@ -4847,7 +4820,7 @@ export declare class LoaderUtils {
          *
          * @returns Promise<void>
          */
-        _toThreeJSGeometry(): Promise<void>;
+        _buildRenderObject(): Promise<void>;
         /**
          * Create model object.
          * 创建模型对象
@@ -4896,6 +4869,10 @@ export declare class LoaderUtils {
             cast: boolean;
             receive: boolean;
         }): Promise<void>;
+        setBloom(enabled: boolean, _options?: {
+            intensity?: number;
+            color?: string;
+        }): this;
         /**
          * Play animation.
          * 播放动画
@@ -4996,11 +4973,11 @@ export declare class LoaderUtils {
         /**
          * Compute polygon vertices in world coordinates (XZ plane) from region overlay configuration.
          * Prioritize using world coordinates (_vertexPoints) from Terra face feature.
-         * Fallback to GeoJSON + geo2world only if no feature is provided.
+         * Fallback to GeoJSON + projectToWorld only if no feature is provided.
          *
          * 从区域蒙版配置计算世界坐标系下的多边形顶点（XZ 平面）
          * 优先使用 Terra 面 feature 中已有的世界坐标（_vertexPoints），
-         * 如果没有传 feature，才回退到 GeoJSON + geo2world。
+         * 如果没有传 feature，才回退到 GeoJSON + projectToWorld。
          */
         private _computeOverlayVertices;
         /**
@@ -5141,7 +5118,7 @@ export declare class LoaderUtils {
          * Create separate geometry for each line segment and add to container.
          * 为每条线段创建单独的几何体，并添加到容器中
          */
-        _toThreeJSGeometry(): Promise<void>;
+        _buildRenderObject(): Promise<void>;
         /**
          * Create a single line object.
          * 创建单条线对象
@@ -5198,7 +5175,7 @@ export declare class LoaderUtils {
          * For multi-line features, simply recreating all lines is easier.
          * 对于多线要素，直接重新创建所有线更简单
          */
-        _updateGeometry(): void;
+        protected _refreshCoordinates(): void;
         /**
          * Dispose object resources.
          * 释放对象资源
@@ -5476,19 +5453,8 @@ export declare class LoaderUtils {
          *
          * @abstract
          */
-        _toThreeJSGeometry(): void;
-        /**
-         * Quickly update geometry vertex positions (without rebuilding the entire geometry).
-         * 快速更新几何体顶点位置（不重建整个几何体）
-         *
-         * @description
-         * Used for real-time interactions like editing. Updates only point position without destroying and rebuilding geometry.
-         * This is much faster than full rebuild and keeps the feature visible during editing.
-         *
-         * 用于编辑等实时交互场景，仅更新点的位置而不销毁重建几何体。
-         * 这比完整重建快得多，并且能保持feature在编辑过程中可见。
-         */
-        protected _updateGeometryPositions(): void;
+        _buildRenderObject(): Promise<void>;
+        protected _refreshCoordinates(): void;
         /**
          * Create basic point geometry.
          * 创建基础点几何体
@@ -5502,7 +5468,7 @@ export declare class LoaderUtils {
          *
          * 创建带有默认材质的点几何体，子类可扩展或重写此方法
          */
-        protected _createThreeGeometry(): Points<BufferGeometry<NormalBufferAttributes, BufferGeometryEventMap>, PointsMaterial, Object3DEventMap>;
+        protected _createRenderObject(): Points<BufferGeometry<NormalBufferAttributes, BufferGeometryEventMap>, PointsMaterial, Object3DEventMap>;
     }
 
     /**
@@ -5612,7 +5578,7 @@ export declare class LoaderUtils {
          *
          * 根据样式配置创建多边形几何体，并进行坐标转换
          */
-        _toThreeJSGeometry(): Promise<void>;
+        _buildRenderObject(): Promise<void>;
         /**
          * Quickly update geometry vertex positions (without rebuilding the entire geometry).
          * 快速更新几何体顶点位置（不重建整个几何体）
@@ -5626,7 +5592,7 @@ export declare class LoaderUtils {
          * 对于basic-polygon类型，实现快速更新避免重建；
          * 对于复杂类型（extrude/water），仍然调用完整重建。
          */
-        protected _updateGeometryPositions(): void;
+        protected _refreshCoordinates(): void;
         /**
          * Create polygon object.
          * 创建多边形对象
@@ -6115,6 +6081,7 @@ export declare class LoaderUtils {
          *                表面配置
          */
         constructor(options: SurfaceOptions);
+        _buildRenderObject(): void;
         /**
          * Coordinate transformation method.
          * 坐标转换方法
@@ -6124,11 +6091,11 @@ export declare class LoaderUtils {
          *
          * @description
          * Handles coordinate transformation for Polygon and MultiPolygon, returning:
-         * - _positions: Array of transformed coordinates
+         * - _worldCoordinates: Array of transformed coordinates
          * - _vertexPoints: Array of flattened vertex coordinates
          *
          * 处理多边形和多面体的坐标转换，返回：
-         * - _positions: 转换后的坐标数组
+         * - _worldCoordinates: 转换后的坐标数组
          * - _vertexPoints: 展平的顶点坐标数组
          *
          * @throws Throws error if geometry type is not supported
@@ -6150,7 +6117,7 @@ export declare class LoaderUtils {
          * - 'extrude-polygon': 挤出多边形
          * - 'water': 水面效果
          */
-        _updateGeometry(): void;
+        protected _refreshCoordinates(): void;
         /**
          * Create basic geometry.
          * 创建基础几何体
@@ -6164,7 +6131,7 @@ export declare class LoaderUtils {
          *
          * 创建带有默认材质的线几何体，子类可扩展或重写此方法
          */
-        protected _createThreeGeometry(): Line2;
+        protected _createRenderObject(): Line2;
     }
 
     /**
@@ -6361,15 +6328,15 @@ export declare class LoaderUtils {
      * 继承自带有BufferGeometry和Material的Mesh类。
      */
     export declare class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
-        private static _activeDownloadThreads;
-        private _isDataOnlyMode;
+        private static _activeDownloads;
+        private _dataMode;
         /** Vector Data 矢量数据 */
-        vectorData: any;
+        _vectorData: any;
         /**
          * Set data only mode (do not create Mesh, only return data)
          * 设置为数据模式（不创建Mesh，只返回数据）
          */
-        setDataOnlyMode(enabled: boolean): this;
+        setDataOnlyMode(isDataOnly: boolean): this;
         /**
          * Check if it is data only mode
          * 检查是否是数据模式
@@ -6397,9 +6364,9 @@ export declare class LoaderUtils {
         readonly children: this[];
         private _isReady;
         /** return this.minLevel < map.minLevel, True mean do not needs load tile data. True表示不需要加载瓦片数据 */
-        private _isDummyTile;
+        private _isVirtualTile;
         get isDummy(): boolean;
-        private _isShowing;
+        private _isVisible;
         /**
          * Gets the showing state of the tile.
          * 获取瓦片的显示状态。
@@ -6439,7 +6406,7 @@ export declare class LoaderUtils {
          * 获取瓦片的加载状态。
          */
         get loaded(): boolean;
-        private _isInFrustum;
+        private _inFrustum;
         /** Is tile in frustum ? 瓦片是否在视锥体中？ */
         get inFrustum(): boolean;
         /**
@@ -6480,13 +6447,10 @@ export declare class LoaderUtils {
         /**
          * LOD (Level of Detail).
          * LOD（细节层次）。
-         * @param loader - The tile loader. 瓦片加载器。
-         * @param minLevel - The minimum level. 最小层级。
-         * @param maxLevel - The maximum level. 最大层级。
-         * @param threshold - The threshold. 阈值。
+         * @param params - The tile loader. 瓦片加载器。
          * @returns this
          */
-        protected updateLOD(params: TileUpdateParams): {
+        protected _updateLOD(params: TileUpdateParams): {
             action: LODAction;
             newTiles?: undefined;
         } | {
@@ -6496,23 +6460,23 @@ export declare class LoaderUtils {
         /**
          * Checks the visibility of the tile.
          */
-        private _checkVisible;
+        private _checkVisibility;
         /**
          * Asynchronously load tile data
          *
          * @param loader Tile loader
          * @returns this
          */
-        private _load;
+        private _loadData;
         /** New tile init */
-        private _init;
+        private _initTile;
         /**
          * Updates the tile.
          * @param params - The update parameters.
          * @returns this
          */
         update(params: TileUpdateParams): this;
-        private handleLODAction;
+        private _processLODAction;
         /**
          * Reloads the tile data.
          * @returns this
@@ -6522,13 +6486,13 @@ export declare class LoaderUtils {
          * Checks if the tile is ready to render.
          * @returns this
          */
-        private _checkReady;
+        private _checkReadyState;
         /**
          * UnLoads the tile data.
-         * @param unLoadSelf - Whether to unload tile itself.
+         * @param disposeSelf - Whether to unload tile itself.
          * @returns this.
          */
-        private _unLoad;
+        private _disposeResources;
     }
 
     /**
@@ -6745,7 +6709,7 @@ export declare class LoaderUtils {
          * Create TPoints geometry based on style configuration.
          * 根据样式配置创建TPoints几何体
          */
-        _toThreeJSGeometry(): Promise<void>;
+        _buildRenderObject(): Promise<void>;
         /**
          * Update geometry (override parent method).
          * 更新几何体（重写父类方法）
@@ -6754,7 +6718,7 @@ export declare class LoaderUtils {
          * Add TPoints geometry to the container, and set position and render order.
          * 将TPoints几何体添加到容器中，并设置位置和渲染顺序
          */
-        _updateGeometry(): void;
+        _refreshCoordinates(): void;
         /**
          * Create TPoints object.
          * 创建TPoints对象
@@ -6943,17 +6907,17 @@ export declare class LoaderUtils {
         private _bindMapEvents;
         /**
          * Internal: Derive world position from geographic coordinate / owner.
-         * Ensures unified use of map.geo2world to keep altitude / center units consistent.
+         * Ensures unified use of map.projectToWorld to keep altitude / center units consistent.
          *
          * 内部：根据地理坐标 / owner 推导世界坐标
-         * 保证统一走 map.geo2world，从而保持 altitude / center 单位统一
+         * 保证统一走 map.projectToWorld，从而保持 altitude / center 单位统一
          */
         private _resolveWorldPosition;
         /**
          * Internal: Update DOM position based on world coordinates.
          * 内部：根据世界坐标更新 DOM 位置
          */
-        protected _updatePosition(): void;
+        protected _refreshDomPosition(): void;
     }
 
     declare const UIComponent_base: {
@@ -7468,7 +7432,7 @@ export declare class LoaderUtils {
         private gorund;
         /** 地图实例 */
         map: Map_2;
-        centerPostion: Vector3;
+        centerWorldPos: Vector3;
         private _isInteracting;
         /** 是否启用调试模式 */
         private debug;
@@ -7592,12 +7556,12 @@ export declare class LoaderUtils {
         /**
          * Fly to specified position
          * 飞行到指定位置
-         * @param centerPostion Map center target position (world coordinates) 地图中心目标位置（世界坐标）
-         * @param cameraPostion Camera target position (world coordinates) 相机目标位置（世界坐标）
+         * @param centerWorldPos Map center target position (world coordinates) 地图中心目标位置（世界坐标）
+         * @param cameraWorldPos Camera target position (world coordinates) 相机目标位置（世界坐标）
          * @param animate Whether to enable animation 是否启用动画
          * @param onComplete Completion callback 完成回调
          */
-        flyTo(centerPostion: Vector3, cameraPostion: Vector3, animate?: boolean, onComplete?: (obj: Vector3) => void): void;
+        flyTo(centerWorldPos: Vector3, cameraWorldPos: Vector3, animate?: boolean, onComplete?: (obj: Vector3) => void): void;
         /**
          * Advanced fly to specified position method
          * 高级飞行到指定位置的方法

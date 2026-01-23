@@ -68,10 +68,10 @@ export abstract class Line extends Feature {
      */
     constructor(options: LineOptions) {
         super(options);
-        this._threeGeometry = this._createThreeGeometry();
+        this._renderObject = this._createRenderObject();
         this._vertexPoints = [0, 0, 0];
         if (this._style) {
-            this._style.applyTo(this._threeGeometry);
+            this._style.applyTo(this._renderObject);
         }
     }
 
@@ -94,15 +94,15 @@ export abstract class Line extends Feature {
 
         if (this._geometry.type === 'LineString') {
             const coordinates = geometry.coordinates as Coordinate[];
-            let _position = coordinates.map(coord => {
+            let _worldCoordinates = coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                const worldPos = map ? map.geo2world(vec) : vec;
+                const worldPos = map ? map.projectToWorld(vec) : vec;
                 return worldPos.sub(center);
             });
 
-            let _vertexPoints = (_position as Vector3[]).flatMap(v => [v.x, v.y, v.z]);
+            let _vertexPoints = (_worldCoordinates as Vector3[]).flatMap(v => [v.x, v.y, v.z]);
             return {
-                _position,
+                _worldCoordinates,
                 _vertexPoints
             }
         }
@@ -114,7 +114,7 @@ export abstract class Line extends Feature {
      * 
      * @abstract
      */
-    _toThreeJSGeometry() {
+    _buildRenderObject() {
         // Implemented by subclasses
     }
 
@@ -131,7 +131,7 @@ export abstract class Line extends Feature {
      * 
      * 创建带有默认材质的线几何体，子类可扩展或重写此方法
      */
-    protected _createThreeGeometry() {
+    protected _createRenderObject() {
         const geometry = new LineGeometry();
         const material = new LineMaterial({
             color: 0x888888,

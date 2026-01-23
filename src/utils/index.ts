@@ -14,10 +14,10 @@ import { Object3D, Mesh, Texture, TextureLoader, Matrix4, Frustum, Camera, WebGL
  * @throws Will throw an error if a key is missing in data.
  * @category Utils
  */
-export function interpolate(template: string, data: Record<string, any>): string {
-    return template.replace(/\{(\w+)\}/g, (match, key) => {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-            const value = data[key];
+export function interpolate(tmpl: string, context: Record<string, any>): string {
+    return tmpl.replace(/\{(\w+)\}/g, (match, key) => {
+        if (Object.prototype.hasOwnProperty.call(context, key)) {
+            const value = context[key];
             return value !== undefined ? String(value) : match;
         }
         throw new Error(`Missing required parameter for template interpolation: "${key}"`);
@@ -35,33 +35,33 @@ export function now(): number {
 
 /**
  * Merges properties from source objects into the destination object.
- * @param target The target object.
- * @param sources The source objects.
+ * @param dest The target object.
+ * @param srcs The source objects.
  * @returns The modified target object.
  * @category Utils
  */
-export function assign<T extends object>(target: T, ...sources: any[]): any {
-    return Object.assign(target, ...sources);
+export function assign<T extends object>(dest: T, ...srcs: any[]): any {
+    return Object.assign(dest, ...srcs);
 }
 
 /**
  * Checks if a value is null or undefined.
- * @param value The value to check.
+ * @param val The value to check.
  * @returns True if null or undefined, false otherwise.
  * @category Utils
  */
-export function isNullOrUndefined(value: any): value is null | undefined {
-    return value == null;
+export function isNullOrUndefined(val: any): val is null | undefined {
+    return val == null;
 }
 
 /**
  * Checks if a value is a valid number (typeof number and not NaN).
- * @param value The value to check.
+ * @param val The value to check.
  * @returns True if it is a valid number.
  * @category Utils
  */
-export function isValidNumber(value: any): value is number {
-    return typeof value === 'number' && !Number.isNaN(value);
+export function isValidNumber(val: any): val is number {
+    return typeof val === 'number' && !Number.isNaN(val);
 }
 
 /**
@@ -86,76 +86,76 @@ export function waitUntil(conditionFn: () => boolean, intervalMs = 100): Promise
 
 /**
  * Checks if a number is an integer.
- * @param n The number to check.
+ * @param val The number to check.
  * @returns True if integer.
  * @category Utils
  */
-export function isInteger(n: number): boolean {
-    return Number.isInteger(n);
+export function isInteger(val: number): boolean {
+    return Number.isInteger(val);
 }
 
 /**
  * Checks if a value is a non-null object.
- * @param value The value to check.
+ * @param val The value to check.
  * @returns True if it is an object.
  * @category Utils
  */
-export function isObject(value: any): value is object {
-    return typeof value === 'object' && value !== null;
+export function isObject(val: any): val is object {
+    return typeof val === 'object' && val !== null;
 }
 
 /**
  * Checks if a value is a string.
- * @param value The value to check.
+ * @param val The value to check.
  * @returns True if it is a string.
  * @category Utils
  */
-export function isString(value: any): value is string {
-    return typeof value === 'string' || (value instanceof String);
+export function isString(val: any): val is string {
+    return typeof val === 'string' || (val instanceof String);
 }
 
 /**
  * Checks if a value is a function.
- * @param value The value to check.
+ * @param val The value to check.
  * @returns True if it is a function.
  * @category Utils
  */
-export function isFunction(value: any): value is Function {
-    return typeof value === 'function';
+export function isFunction(val: any): val is Function {
+    return typeof val === 'function';
 }
 
 /**
  * Checks if an object has a specific property.
- * @param obj The object.
- * @param key The property key.
+ * @param target The object.
+ * @param prop The property key.
  * @returns True if the object has the property.
  * @category Utils
  */
-export function hasOwn(obj: object, key: string): boolean {
-    return Object.prototype.hasOwnProperty.call(obj, key);
+export function hasOwn(target: object, prop: string): boolean {
+    return Object.prototype.hasOwnProperty.call(target, prop);
 }
 
 /**
  * Joins array elements with a separator.
- * @param arr The array.
- * @param separator The separator.
+ * @param list The array.
+ * @param sep The separator.
  * @returns The joined string.
  * @category Utils
  */
-export function join(arr: any[], separator = ','): string {
-    return arr.join(separator);
+export function join(list: any[], sep = ','): string {
+    return list.join(sep);
 }
 
 /**
  * Checks if an object is empty (has no enumerable properties).
- * @param obj The object.
+ * @param target The object.
  * @returns True if empty.
  * @category Utils
  */
-export function isEmpty(obj: object): boolean {
-    if (isNullOrUndefined(obj)) return true;
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) return false;
+export function isEmpty(target: object): boolean {
+    if (isNullOrUndefined(target)) return true;
+    for (const key in target) {
+        if (Object.prototype.hasOwnProperty.call(target, key)) return false;
     }
     return true;
 }
@@ -165,43 +165,43 @@ const RAD2DEG = 180 / Math.PI;
 
 /**
  * Converts degrees to radians.
- * @param degrees Angle in degrees.
+ * @param deg Angle in degrees.
  * @returns Angle in radians.
  * @category Utils
  */
-export function toRadians(degrees: number): number {
-    return degrees * DEG2RAD;
+export function toRadians(deg: number): number {
+    return deg * DEG2RAD;
 }
 
 /**
  * Converts radians to degrees.
- * @param radians Angle in radians.
+ * @param rad Angle in radians.
  * @returns Angle in degrees.
  * @category Utils
  */
-export function toDegrees(radians: number): number {
-    return radians * RAD2DEG;
+export function toDegrees(rad: number): number {
+    return rad * RAD2DEG;
 }
 
 /**
  * Checks if a Three.js object is a Mesh.
- * @param object The object to check.
+ * @param obj The object to check.
  * @returns True if it is a Mesh.
  * @category Utils
  */
-export function isMesh(object: Object3D): object is Mesh {
-    return (object as any).isMesh === true;
+export function isMesh(obj: Object3D): obj is Mesh {
+    return (obj as any).isMesh === true;
 }
 
 /**
  * Loads a texture asynchronously.
- * @param url The texture URL.
+ * @param path The texture URL.
  * @returns Promise resolving to the Texture.
  * @category Utils
  */
-export async function loadTextureAsync(url: string): Promise<Texture> {
+export async function loadTextureAsync(path: string): Promise<Texture> {
     const loader = new TextureLoader();
-    return loader.loadAsync(url);
+    return loader.loadAsync(path);
 }
 
 /**
@@ -225,30 +225,30 @@ export function formatDate(date: Date = new Date()): string {
 
 /**
  * Checks if an object is within the camera's frustum.
- * @param object The object to check.
- * @param camera The camera.
+ * @param obj The object to check.
+ * @param cam The camera.
  * @returns True if intersecting frustum.
  * @category Utils
  */
-export function isObjectInFrustum(object: Object3D, camera: Camera): boolean {
+export function isObjectInFrustum(obj: Object3D, cam: Camera): boolean {
     const frustum = new Frustum();
-    const matrix = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    const matrix = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
     frustum.setFromProjectionMatrix(matrix);
-    return frustum.intersectsObject(object);
+    return frustum.intersectsObject(obj);
 }
 
 /**
  * Calculates the pixel to unit ratio for a given camera and renderer.
- * @param camera The perspective camera.
+ * @param cam The perspective camera.
  * @param renderer The WebGL renderer.
  * @returns The ratio of world units per pixel at the camera's target distance.
  * @category Utils
  */
-export function getPixelToUnitRatio(camera: PerspectiveCamera, renderer: WebGLRenderer): number {
-    const distance = camera.position.length(); // Assuming looking at origin or similar
+export function getPixelToUnitRatio(cam: PerspectiveCamera, renderer: WebGLRenderer): number {
+    const distance = cam.position.length(); // Assuming looking at origin or similar
     // Note: This logic seems specific to a certain setup. Keeping as is but cleaning up.
     // Ideally distance should be from camera to the plane of interest.
-    const fovRad = camera.fov * DEG2RAD;
+    const fovRad = cam.fov * DEG2RAD;
     const height = 2 * Math.tan(fovRad / 2) * distance;
     const clientHeight = renderer.domElement.clientHeight;
     return clientHeight > 0 ? height / clientHeight : 0;

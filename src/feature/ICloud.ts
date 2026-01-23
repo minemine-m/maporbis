@@ -70,15 +70,15 @@ export class ICloud extends Point {
      * Create cloud geometry based on style configuration.
      * 根据样式配置创建云朵几何体
      */
-    async _toThreeJSGeometry(): Promise<void> {
-        this._position = this._coordsTransform() as Vector3;
+    async _buildRenderObject(): Promise<void> {
+        this._worldCoordinates = this._coordsTransform() as Vector3;
         if (this._style) {
-            if (this._threeGeometry) {
+            if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._threeGeometry = await this._createObject(this._style) as any;
-            this._updateGeometry();
+            this._renderObject = await this._createObject(this._style) as any;
+            this._refreshCoordinates();
         }
     }
 
@@ -90,16 +90,16 @@ export class ICloud extends Point {
      * Add cloud geometry to the layer's cloud container, and set position and render order.
      * 将云朵几何体添加到图层的云朵容器中，并设置位置和渲染顺序
      */
-    override _updateGeometry(): void {
+    override _refreshCoordinates(): void {
         this._disposeGeometry();
         const layer = this.getLayer();
 
-        if (this._threeGeometry) {
-            this._threeGeometry.position.copy(this._position as any);
-            this._threeGeometry.renderOrder = 99;
+        if (this._renderObject) {
+            this._renderObject.position.copy(this._worldCoordinates as any);
+            this._renderObject.renderOrder = 99;
             
             if (layer) {
-                layer._clouds.add(this._threeGeometry);
+                layer._clouds.add(this._renderObject);
                 layer._clouds.updateMatrixWorld();
             }
         }
@@ -121,7 +121,7 @@ export class ICloud extends Point {
     async _createObject(style: Style): Promise<any> {
         switch (style.config.type) {
             case "cloud":
-                return _createClouds(style.config, this._position as Vector3);
+                return _createClouds(style.config, this._worldCoordinates as Vector3);
             default:
                 throw new Error(`Unsupported style type: ${style.config.type}`);
         }

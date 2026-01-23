@@ -41,7 +41,7 @@ export function getLocalInfoFromRay(map: Map, ray: Raycaster) {
             // const point = map.worldToLocal(intersect.point.clone());
             const point = intersect.point.clone(); 
             
-            const lonlat = map.map2geo(point);
+            const lonlat = map.unproject(point);
             return Object.assign(intersect, {
                 location: lonlat,
             }) as LocationInfo;
@@ -83,7 +83,7 @@ export function getLocalInfoFromScreen(camera: Camera, map: Map, pointer: Vector
 }
 
 export function getLocalInfoFromGeo(map: Map, geo: Vector3) {
-    const pointer = map.geo2world(geo);
+    const pointer = map.projectToWorld(geo);
     return getLocalInfoFromWorld(map, pointer);
 }
 

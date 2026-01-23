@@ -137,7 +137,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      * Layer unique identifier.
      * 图层唯一标识
      */
-    private _id: string;
+    private _layerId: string;
     /**
      * Layer opacity.
      * 图层透明度
@@ -147,7 +147,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      * Animation callback set.
      * 动画回调集合
      */
-    private _animationCallbacks = new Set<() => void>();
+    private _animCallbacks = new Set<() => void>();
     /**
      * Whether it is a scene layer.
      * 是否为场景层
@@ -157,7 +157,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      * Current altitude record.
      * 当前高度记录
      */
-    protected _altitude: number = 0;
+    protected _baseAltitude: number = 0;
     /**
      * Layer-level depth offset (default value for style depthOffset).
      * 图层级深度偏移（作为样式 depthOffset 的默认值）
@@ -167,37 +167,37 @@ export abstract class Layer extends Handlerable(EventMixin(
      * Region overlay configuration set (common to all subclasses).
      * 区域蒙版配置集合（所有子类通用）
      */
-    private _regionOverlays: RegionOverlayConfig[] = [];
+    private _regionConfigs: RegionOverlayConfig[] = [];
 
     /**
      * Create a layer instance.
      * 创建图层实例
-     * @param id - Layer ID. 图层ID
-     * @param options - Layer configuration. 图层配置
+     * @param layerId - Layer ID. 图层ID
+     * @param config - Layer configuration. 图层配置
      * @throws Throws error if id is not provided. 如果未提供id会抛出错误
      */
-    constructor(id: string, options?: LayerOptions) {
+    constructor(layerId: string, config?: LayerOptions) {
         super();
-        requireParam(id, "id", "Layer ID must be specified 图层ID必须指定");
-        if (options) {
-            this.setOptions(options as any);
-            this.opacity = options.opacity || 1;
-            this.isSceneLayer = options.isSceneLayer ?? false;
+        requireParam(layerId, "id", "Layer ID must be specified 图层ID必须指定");
+        if (config) {
+            this.setOptions(config as any);
+            this.opacity = config.opacity || 1;
+            this.isSceneLayer = config.isSceneLayer ?? false;
             // console.log(this._type, 'this._type');
             // Initialize altitude
             // 初始化高度
-            if (options.altitude !== undefined) {
-                this.setAltitude(options.altitude);
+            if (config.altitude !== undefined) {
+                this.setAltitude(config.altitude);
             }
         }
-        this._id = id;
+        this._layerId = layerId;
 
         // Automatically register subclass animate method
         // 自动注册子类的animate方法
         if (typeof (this as any).animate === 'function') {
             this._registerAnimate();
         }
-        // alert(this._id)
+        // alert(this._layerId)
     }
 
     /**
@@ -207,18 +207,18 @@ export abstract class Layer extends Handlerable(EventMixin(
      *          图层ID
      */
     getId(): string {
-        return this._id;
+        return this._layerId;
     }
 
     /**
      * Add layer to map.
      * 将图层添加到地图
-     * @param map Map instance
+     * @param mapInstance Map instance
      *            地图实例
      * @returns this
      */
-    addTo(map: Map) {
-        map.addLayer(this);
+    addTo(mapInstance: Map) {
+        mapInstance.addLayer(this);
         return this;
     }
 
@@ -256,7 +256,7 @@ export abstract class Layer extends Handlerable(EventMixin(
     /**
      * Set layer opacity.
      * 设置图层透明度
-     * @param opacity Opacity value (0-1)
+     * @param val Opacity value (0-1)
      *                透明度值 (0-1)
      * 
      * @description
@@ -268,8 +268,8 @@ export abstract class Layer extends Handlerable(EventMixin(
      * - 带有material属性的对象
      * - Sprite等特殊类型
      */
-    setOpacity(opacity: number) {
-        this.opacity = opacity;
+    setOpacity(val: number) {
+        this.opacity = val;
 
         this.traverse((child) => {
             // Handle material objects
@@ -281,8 +281,8 @@ export abstract class Layer extends Handlerable(EventMixin(
 
                 materials.forEach(mat => {
                     if ('opacity' in mat) {
-                        mat.transparent = opacity < 1;
-                        mat.opacity = opacity;
+                        mat.transparent = val < 1;
+                        mat.opacity = val;
                         mat.needsUpdate = true;
                     }
                 });
@@ -291,8 +291,8 @@ export abstract class Layer extends Handlerable(EventMixin(
             // Handle Sprite
             // 处理Sprite
             if (child instanceof Sprite) {
-                child.material.opacity = opacity;
-                child.material.transparent = opacity < 1;
+                child.material.opacity = val;
+                child.material.transparent = val < 1;
                 child.material.needsUpdate = true;
             }
         });
@@ -348,15 +348,15 @@ export abstract class Layer extends Handlerable(EventMixin(
     /**
      * Set layer altitude.
      * 设置图层高度 (海拔)
-     * @param altitude Altitude value
+     * @param val Altitude value
      *                 高度值
      * @description 
      * Modify layer position in vertical direction.
      * 修改图层在垂直方向上的位置。
      */
-    setAltitude(altitude: number) {
+    setAltitude(val: number) {
 
-        this.position.y = altitude;
+        this.position.y = val;
         this.updateMatrix(); // Ensure matrix update 确保矩阵更新
         this.updateMatrixWorld(true);
 
@@ -378,15 +378,15 @@ export abstract class Layer extends Handlerable(EventMixin(
     /**
      * Bind map instance.
      * 绑定地图实例
-     * @param map Map instance
+     * @param mapInstance Map instance
      *            地图实例
-     * 
+     *
      * @protected
      */
-    _bindMap(map: Map) {
-        if (!map) return;
+    _bindMap(mapInstance: Map) {
+        if (!mapInstance) return;
 
-        this.map = map;
+        this.map = mapInstance;
         if (typeof (this as any).animate === 'function') {
             this._registerAnimate();
         }
@@ -421,7 +421,7 @@ export abstract class Layer extends Handlerable(EventMixin(
             this.animate?.(delta, elapsedtime, context);
         });
 
-        this._animationCallbacks.add(removeCallback);
+        this._animCallbacks.add(removeCallback);
     }
 
     /**
@@ -431,8 +431,8 @@ export abstract class Layer extends Handlerable(EventMixin(
      * @protected
      */
     protected _clearAnimationCallbacks() {
-        this._animationCallbacks.forEach(remove => remove());
-        this._animationCallbacks.clear();
+        this._animCallbacks.forEach(remove => remove());
+        this._animCallbacks.clear();
     }
     /**
      * Get layer configuration.
@@ -446,11 +446,11 @@ export abstract class Layer extends Handlerable(EventMixin(
     /**
      * Batch set region overlays.
      * 批量设置区域蒙版
-     * @param overlays Region overlay configuration array
+     * @param configs Region overlay configuration array
      *                 区域蒙版配置数组
      */
-    setRegionOverlays(overlays: RegionOverlayConfig[]): this {
-        this._regionOverlays = (overlays || []).map(o => ({
+    setRegionOverlays(configs: RegionOverlayConfig[]): this {
+        this._regionConfigs = (configs || []).map(o => ({
             id: o.id ?? this._generateRegionOverlayId(),
             color: o.color ?? '#00FF88',
             opacity: o.opacity ?? 0.3,
@@ -481,7 +481,7 @@ export abstract class Layer extends Handlerable(EventMixin(
             geometry: overlay.geometry,
             feature: overlay.feature
         };
-        this._regionOverlays.push(normalized);
+        this._regionConfigs.push(normalized);
         return id;
     }
 
@@ -492,7 +492,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      *           区域蒙版 id
      */
     removeRegionOverlay(id: string): this {
-        this._regionOverlays = this._regionOverlays.filter(o => o.id !== id);
+        this._regionConfigs = this._regionConfigs.filter(o => o.id !== id);
         return this;
     }
 
@@ -501,7 +501,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      * 清空所有区域蒙版
      */
     clearRegionOverlays(): this {
-        this._regionOverlays = [];
+        this._regionConfigs = [];
         return this;
     }
 
@@ -510,7 +510,7 @@ export abstract class Layer extends Handlerable(EventMixin(
      * 获取当前所有区域蒙版（返回副本，避免外部直接修改）
      */
     getRegionOverlays(): RegionOverlayConfig[] {
-        return this._regionOverlays.slice();
+        return this._regionConfigs.slice();
     }
 
     /**

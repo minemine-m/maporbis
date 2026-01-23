@@ -220,7 +220,7 @@ export class InfoWindow extends UIComponent {
                 // Try to get actual screen height of sprite
                 // 尝试获取 sprite 的实际屏幕高度
                 let iconScreenHeight = 0;
-                const sprite = owner._threeGeometry;
+                const sprite = owner._renderObject;
 
                 if (sprite && sprite instanceof Sprite) {
                     // Calculate actual screen height by calculating screen position difference between top and bottom of sprite
@@ -399,10 +399,10 @@ export class InfoWindow extends UIComponent {
             if (!anyThis._dom || !anyThis._map || !anyThis._visible) {
                 return;
             }
-            // 2. Let _updatePosition show directly this time (skip "first time not show" protection)
-            // 2. 让 _updatePosition 这一次就可以直接显示（跳过“第一次不显示”的保护）
+            // 2. Let _refreshDomPosition show directly this time (skip "first time not show" protection)
+            // 2. 让 _refreshDomPosition 这一次就可以直接显示（跳过“第一次不显示”的保护）
             anyThis._positionedOnce = true;
-            anyThis._updatePosition();
+            anyThis._refreshDomPosition();
         };
 
         // Prefer waiting for viewer's first frame update, then show (camera and render size are stable at this time)

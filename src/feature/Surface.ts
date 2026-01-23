@@ -68,11 +68,20 @@ export abstract class Surface extends Feature {
      */
     constructor(options: SurfaceOptions) {
         super(options);
-        this._threeGeometry = this._createThreeGeometry();
+        this._buildRenderObject();
         this._vertexPoints = [0, 0, 0];
-        if (this._style) {
-            this._style.applyTo(this._threeGeometry);
+        if (this._style && this._renderObject) {
+            this._style.applyTo(this._renderObject);
         }
+    }
+
+    _buildRenderObject(): void {
+        if (this._renderObject) return;
+        const geometry = this._geometry;
+        if (!geometry) return;
+        const { _vertexPoints } = this._coordsTransform();
+        this._vertexPoints = _vertexPoints;
+        this._renderObject = this._createRenderObject();
     }
 
     /**
@@ -84,11 +93,11 @@ export abstract class Surface extends Feature {
      * 
      * @description
      * Handles coordinate transformation for Polygon and MultiPolygon, returning:
-     * - _positions: Array of transformed coordinates
+     * - _worldCoordinates: Array of transformed coordinates
      * - _vertexPoints: Array of flattened vertex coordinates
      * 
      * 处理多边形和多面体的坐标转换，返回：
-     * - _positions: 转换后的坐标数组
+     * - _worldCoordinates: 转换后的坐标数组
      * - _vertexPoints: 展平的顶点坐标数组
      * 
      * @throws Throws error if geometry type is not supported
@@ -103,25 +112,25 @@ export abstract class Surface extends Feature {
         // Handle Polygon
         if (geometry.type === 'Polygon') {
             const coordinates = geometry.coordinates as Coordinate[][];
-            let _positions: Vector3[][] = [];
+            let _worldCoordinates: Vector3[][] = [];
             let _vertexPoints: number[] = [];
 
             coordinates.forEach(ring => {
                 const ringPositions = ring.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    const worldPos = map ? map.geo2world(vec) : vec;
+                    const worldPos = map ? map.projectToWorld(vec) : vec;
                     return worldPos.sub(center);
                 });
-                _positions.push(ringPositions);
+                _worldCoordinates.push(ringPositions);
                 _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));
             });
 
-            return { _positions, _vertexPoints };
+            return { _worldCoordinates, _vertexPoints };
         }
         // Handle MultiPolygon
         else if (geometry.type === 'MultiPolygon') {
             const coordinates = geometry.coordinates as Coordinate[][][];
-            let _positions: Vector3[][][] = [];
+            let _worldCoordinates: Vector3[][][] = [];
             let _vertexPoints: number[] = [];
 
             coordinates.forEach(polygon => {
@@ -129,16 +138,16 @@ export abstract class Surface extends Feature {
                 polygon.forEach(ring => {
                     const ringPositions = ring.map(coord => {
                         const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                        const worldPos = map ? map.geo2world(vec) : vec;
+                        const worldPos = map ? map.projectToWorld(vec) : vec;
                         return worldPos.sub(center);
                     });
                     polygonPositions.push(ringPositions);
                     _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));
                 });
-                _positions.push(polygonPositions);
+                _worldCoordinates.push(polygonPositions);
             });
 
-            return { _positions, _vertexPoints };
+            return { _worldCoordinates, _vertexPoints };
         } else {
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
         }
@@ -159,16 +168,16 @@ export abstract class Surface extends Feature {
      * - 'extrude-polygon': 挤出多边形
      * - 'water': 水面效果
      */
-    _updateGeometry(): void {
+    protected _refreshCoordinates(): void {
         const styletype = this._style?.config.type;
         this.clear();
 
-        if (!this._threeGeometry || !this._vertexPoints?.length) {
+        if (!this._renderObject || !this._vertexPoints?.length) {
             console.warn('Cannot update geometry: missing geometry or vertex data');
             return;
         }
 
-        // const mesh = this._threeGeometry as Mesh;
+        // const mesh = this._renderObject as Mesh;
         // const geometry = mesh.geometry as BufferGeometry;
         const map = this.getMap();
 
@@ -176,16 +185,16 @@ export abstract class Surface extends Feature {
             if (styletype === 'basic-polygon') {
                 // basic-polygon is now same as water/base-water:
                 // _createBasePolygon has completed triangulation, here only responsible for displacement to map center
-                this._threeGeometry.renderOrder = 90;
-                this._threeGeometry.position.add(map?.prjcenter as Vector3);
-                this._threeGeometry.updateMatrix();
-                this.add(this._threeGeometry);
+                this._renderObject.renderOrder = 90;
+                this._renderObject.position.add(map?.prjcenter as Vector3);
+                this._renderObject.updateMatrix();
+                this.add(this._renderObject);
             }
             else if (styletype === 'extrude-polygon' || styletype?.includes('water')) {
-                this._threeGeometry.renderOrder = 90;
-                this._threeGeometry.position.add(map?.prjcenter as Vector3);
-                this._threeGeometry.updateMatrix();
-                this.add(this._threeGeometry);
+                this._renderObject.renderOrder = 90;
+                this._renderObject.position.add(map?.prjcenter as Vector3);
+                this._renderObject.updateMatrix();
+                this.add(this._renderObject);
             }
         } catch (error) {
             console.error('Failed to update polygon position:', error);
@@ -208,7 +217,7 @@ export abstract class Surface extends Feature {
      * 
      * 创建带有默认材质的线几何体，子类可扩展或重写此方法
      */
-    protected _createThreeGeometry() {
+    protected _createRenderObject() {
         const geometry = new LineGeometry();
         const material = new LineMaterial({
             color: 0x888888,

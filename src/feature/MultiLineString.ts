@@ -82,9 +82,9 @@ export class MultiLineString extends Line {
      * Create separate geometry for each line segment and add to container.
      * 为每条线段创建单独的几何体，并添加到容器中
      */
-    async _toThreeJSGeometry(): Promise<void> {
+    async _buildRenderObject(): Promise<void> {
         debugger
-        const { _position } = this._coordsTransform();
+        const { _worldCoordinates } = this._coordsTransform();
         const map = this.getMap();
 
         // Clear existing line objects
@@ -95,7 +95,7 @@ export class MultiLineString extends Line {
         if (this._style) {
             // Create separate geometry for each line
             // 为每条线创建单独的几何体
-            for (const linePositions of _position as Vector3[][]) {
+            for (const linePositions of _worldCoordinates as Vector3[][]) {
                 const vertexPoints = linePositions.flatMap(v => [v.x, v.y, v.z]);
                 const lineObject = await this._createLineObject(this._style, vertexPoints);
                 lineObject.position.add(map?.prjcenter as Vector3);
@@ -111,11 +111,11 @@ export class MultiLineString extends Line {
             // Set container group render order and attach as geometry object to Feature
             // 统一设置容器组的渲染顺序，并作为几何对象挂到 Feature 上
             this._linesContainer.renderOrder = 99;
-            this._threeGeometry = this._linesContainer;
-            this.add(this._threeGeometry);
+            this._renderObject = this._linesContainer;
+            this.add(this._renderObject);
             this._updateContainer();
             this.updateMatrixWorld(true);
-            this._threeGeometry.updateMatrixWorld(true);
+            this._renderObject.updateMatrixWorld(true);
             this._tryProcessQueue();
         }
     }
@@ -167,15 +167,15 @@ export class MultiLineString extends Line {
 
         if (this._geometry.type === 'MultiLineString') {
             const center = map?.prjcenter as Vector3;
-            const _position = geometry.coordinates.map(line => {
+            const _worldCoordinates = geometry.coordinates.map(line => {
                 return line.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    const worldPos = map ? map.geo2world(vec) : vec;
+                    const worldPos = map ? map.projectToWorld(vec) : vec;
                     return worldPos.sub(center);
                 });
             });
 
-            return { _position };
+            return { _worldCoordinates };
         }
     }
 
@@ -224,8 +224,8 @@ export class MultiLineString extends Line {
      * For multi-line features, simply recreating all lines is easier.
      * 对于多线要素，直接重新创建所有线更简单
      */
-    _updateGeometry() {
-        this._toThreeJSGeometry();
+    protected _refreshCoordinates() {
+        this._buildRenderObject();
     }
 
     /**

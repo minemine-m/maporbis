@@ -58,9 +58,9 @@ export abstract class Point extends Feature {
      */
     constructor(options: PointOptions) {
         super(options);
-        this._threeGeometry = this._createThreeGeometry();
+        this._renderObject = this._createRenderObject();
         if (this._style) {
-            this._style.applyTo(this._threeGeometry);
+            this._style.applyTo(this._renderObject);
         }
     }
 
@@ -84,7 +84,7 @@ export abstract class Point extends Feature {
             this._geometry.coordinates[2] as number || 0 // Default height 500
         );
 
-        return map ? map.geo2world(coordinates) : coordinates;
+        return map ? map.projectToWorld(coordinates) : coordinates;
     }
 
     /**
@@ -93,46 +93,35 @@ export abstract class Point extends Feature {
      * 
      * @abstract
      */
-    _toThreeJSGeometry() {
-        // Implemented by subclasses
+    async _buildRenderObject() {
+        if (!this.map) return;
     }
 
-    /**
-     * Quickly update geometry vertex positions (without rebuilding the entire geometry).
-     * 快速更新几何体顶点位置（不重建整个几何体）
-     * 
-     * @description
-     * Used for real-time interactions like editing. Updates only point position without destroying and rebuilding geometry.
-     * This is much faster than full rebuild and keeps the feature visible during editing.
-     * 
-     * 用于编辑等实时交互场景，仅更新点的位置而不销毁重建几何体。
-     * 这比完整重建快得多，并且能保持feature在编辑过程中可见。
-     */
-    protected _updateGeometryPositions(): void {
+    protected _refreshCoordinates(): void {
         // Recalculate coordinates
         const worldPos = this._coordsTransform();
-        this._position = worldPos;
+        this._worldCoordinates = worldPos;
 
         // If geometry exists, only update position
-        if (this._threeGeometry) {
+        if (this._renderObject) {
             // Update geometry position
             const map = this.getMap();
             if (map?.prjcenter) {
-                this._threeGeometry.position.copy(worldPos).sub(map.prjcenter as Vector3);
+                this._renderObject.position.copy(worldPos).sub(map.prjcenter as Vector3);
             } else {
-                this._threeGeometry.position.copy(worldPos);
+                this._renderObject.position.copy(worldPos);
             }
 
             // Ensure geometry is in the scene (Critical: prevent disappearance during editing)
-            if (!this.children.includes(this._threeGeometry as Object3D)) {
-                this.add(this._threeGeometry);
+            if (!this.children.includes(this._renderObject as Object3D)) {
+                this.add(this._renderObject);
             }
 
             // Force update matrix
             this.updateMatrixWorld(true);
         } else {
             // If geometry doesn't exist, call full rebuild
-            this._toThreeJSGeometry();
+            this._buildRenderObject();
         }
     }
 
@@ -149,7 +138,7 @@ export abstract class Point extends Feature {
      * 
      * 创建带有默认材质的点几何体，子类可扩展或重写此方法
      */
-    protected _createThreeGeometry() {
+    protected _createRenderObject() {
         return new Points(
             new BufferGeometry(),
             new PointsMaterial({ size: 1, color: 0x888888 })

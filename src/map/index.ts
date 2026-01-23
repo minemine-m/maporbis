@@ -151,7 +151,7 @@ export class Map extends Handlerable(
      * Map root object
      * 地图根对象
      */
-    private _root: Group = new Group();
+    private _rootGroup: Group = new Group();
     
     /**
      * Map layers
@@ -163,13 +163,13 @@ export class Map extends Handlerable(
      * Map projection
      * 地图投影
      */
-    private _projection: IProjection = new ProjMCT(0);
+    private _mapProjection: IProjection = new ProjMCT(0);
     
     /**
      * Update clock
      * 更新时钟
      */
-    private readonly _clock = new Clock();
+    private readonly _animationClock = new Clock();
     
     /**
      * Whether to automatically update
@@ -195,82 +195,82 @@ export class Map extends Handlerable(
      */
     public maxLevel = 19;
     
-    public get projection() { return this._projection; }
+    public get projection() { return this._mapProjection; }
     public get lon0() { return this.projection.centralMeridian; }
 
     /**
-     * Geographic coordinate to model coordinate
-     * 地理坐标转模型坐标
-     * @param geo Geographic coordinate 地理坐标
-     * @returns Model coordinate 模型坐标
-     */
-    public geo2map(geo: Vector3) {
-        const pos = this.projection.project(geo.x, geo.y);
-        return new Vector3(pos.x, pos.y, geo.z);
-    }
+	 * Project geographic coordinate to map model coordinate
+	 * 地理坐标投影到地图模型坐标
+	 * @param coord Geographic coordinate (Long, Lat, Alt)
+	 * @returns Map model coordinate
+	 */
+	public project(coord: Vector3) {
+		const pos = this.projection.project(coord.x, coord.y);
+		return new Vector3(pos.x, pos.y, coord.z);
+	}
 
-    /**
-     * Geographic coordinate to world coordinate
-     * 地理坐标转世界坐标
-     * @param geo Geographic coordinate 地理坐标
-     * @returns World coordinate 世界坐标
-     */
-    public geo2world(geo: Vector3) {
-        return this._root.localToWorld(this.geo2map(geo));
-    }
+	/**
+	 * Project geographic coordinate to world coordinate
+	 * 地理坐标投影到世界坐标
+	 * @param coord Geographic coordinate (Long, Lat, Alt)
+	 * @returns World coordinate
+	 */
+	public projectToWorld(coord: Vector3) {
+		return this._rootGroup.localToWorld(this.project(coord));
+	}
 
-    /**
-     * Model coordinate to geographic coordinate
-     * 模型坐标转地理坐标
-     * @param pos Model coordinate 模型坐标
-     * @returns Geographic coordinate 地理坐标
-     */
-    public map2geo(pos: Vector3) {
-        const position = this.projection.unProject(pos.x, pos.y);
-        return new Vector3(position.lon, position.lat, pos.z);
-    }
+	/**
+	 * Unproject map model coordinate to geographic coordinate
+	 * 地图模型坐标反投影到地理坐标
+	 * @param point Map model coordinate
+	 * @returns Geographic coordinate (Long, Lat, Alt)
+	 */
+	public unproject(point: Vector3) {
+		const pos = this.projection.unProject(point.x, point.y);
+		return new Vector3(pos.lon, pos.lat, point.z);
+	}
 
-    /**
-     * World coordinate to geographic coordinate
-     * 世界坐标转地理坐标
-     * @param world World coordinate 世界坐标
-     * @returns Geographic coordinate 地理坐标
-     */
-    public world2geo(world: Vector3) {
-        return this.map2geo(this._root.worldToLocal(world.clone()));
-    }
+	/**
+	 * Unproject world coordinate to geographic coordinate
+	 * 世界坐标反投影到地理坐标
+	 * @param worldPos World coordinate
+	 * @returns Geographic coordinate (Long, Lat, Alt)
+	 */
+	public unprojectFromWorld(worldPos: Vector3) {
+		return this.unproject(this._rootGroup.worldToLocal(worldPos.clone()));
+	}
 
-    /**
-     * Get ground info from geographic coordinate
-     * 获取指定地理坐标的地面信息
-     * @param geo Geographic coordinate 地理坐标
-     * @returns Ground info 地面信息
-     */
-    public getLocalInfoFromGeo(geo: Vector3) {
-        const pointer = this.geo2world(geo);
-        return getLocalInfoFromWorld(this, pointer);
-    }
+	/**
+	 * Get intersection info from geographic coordinate
+	 * 获取指定地理坐标的交互/地面信息
+	 * @param geoCoord Geographic coordinate
+	 * @returns Intersection info
+	 */
+	public pickFromGeo(geoCoord: Vector3) {
+		const pointer = this.projectToWorld(geoCoord);
+		return getLocalInfoFromWorld(this, pointer);
+	}
 
-    /**
-     * Get ground info from world coordinate
-     * 获取指定世界坐标的地面信息
-     * @param pos World coordinate 世界坐标
-     * @returns Ground info 地面信息
-     */
-    public getLocalInfoFromWorld(pos: Vector3) {
-        return getLocalInfoFromWorld(this, pos);
-    }
+	/**
+	 * Get intersection info from world coordinate
+	 * 获取指定世界坐标的交互/地面信息
+	 * @param worldPos World coordinate
+	 * @returns Intersection info
+	 */
+	public pickFromWorld(worldPos: Vector3) {
+		return getLocalInfoFromWorld(this, worldPos);
+	}
 
-    /**
-     * Get ground info from screen coordinate
-     * 获取指定屏幕坐标的地面信息
-     * @param camera Camera 相机
-     * @param pointer Screen coordinate 屏幕坐标
-     * @returns Position info 位置信息
-     */
-    public getLocalInfoFromScreen(camera: Camera, pointer: Vector2) {
-        return getLocalInfoFromScreen(camera, this, pointer);
-    }
+	/**
+	 * Get intersection info from screen pixel coordinate
+	 * 获取指定屏幕坐标的交互/地面信息
+	 * @param camera Camera instance
+	 * @param pixel Screen pixel coordinate
+	 * @returns Intersection info
+	 */
+	public pickFromPixel(camera: Camera, pixel: Vector2) {
+		return getLocalInfoFromScreen(camera, this, pixel);
+	}
 
     /**
      * Map center coordinates.
@@ -292,24 +292,24 @@ export class Map extends Handlerable(
      * Layer container instance.
      * 图层容器实例
      */
-    private _layerContainer: LayerContainer;
+    private _layerContainer!: LayerContainer;
     /**
      * Event map table.
      * 事件映射表
      */
-    private _EventMap: EventMap = {
+    private _eventState: EventMap = {
         loaded: { listened: false }, // Load event parameters 加载事件参数
     };
     /**
      * Canvas manager instance.
      * 画布管理器实例
      */
-    private _canvasManager = new CanvasManager();
+    private _canvasMgr = new CanvasManager();
     /**
      * Collision engine instance.
      * 碰撞引擎实例
      */
-    private collisionEngine: CollisionEngine;
+    private _collisionEngine: CollisionEngine;
     /**
      * Load hook function array.
      * 加载钩子函数数组
@@ -371,9 +371,9 @@ export class Map extends Handlerable(
      * Create map instance.
      * 创建地图实例
      * 
-     * @param container Map container element or element ID
+     * @param domContainer Map container element or element ID
      *                  地图容器元素或元素ID
-     * @param options Map configuration options
+     * @param config Map configuration options
      *                地图配置选项
      */
     constructor(
@@ -419,14 +419,14 @@ export class Map extends Handlerable(
 
         // Default enable shadow
         // 默认开启阴影
-        this._root.receiveShadow = true;
-        this._root.up.set(0, 0, 1);
-        this._root.rotation.x = -Math.PI / 2;
-        this.viewer.scene.add(this._root);
+        this._rootGroup.receiveShadow = true;
+        this._rootGroup.up.set(0, 0, 1);
+        this._rootGroup.rotation.x = -Math.PI / 2;
+        this.viewer.scene.add(this._rootGroup);
         // Map center (Target point) world coordinates
         // 地图中心（目标点）世界坐标
-        const centerPostion = this.geo2world(new Vector3(this.center[0], this.center[1], 0));
-        this.prjcenter = centerPostion;
+        const centerWorldPos = this.projectToWorld(new Vector3(this.center[0], this.center[1], 0));
+        this.prjcenter = centerWorldPos;
         
         // Register update loop
         // 注册更新循环
@@ -456,10 +456,10 @@ export class Map extends Handlerable(
 
         const initialDistance = this._getCameraDistance();
         this._lastCameraDistance = initialDistance;
-        // this.viewer.camera.position.set(this.centerPostion.x, 100, this.centerPostion.z);
+        // this.viewer.camera.position.set(this.centerWorldPos.x, 100, this.centerWorldPos.z);
 
-        this._layerContainer = new LayerContainer();
-        this.viewer.scene.add(this._layerContainer);
+        this._layerGroup = new LayerContainer();
+        this.viewer.scene.add(this._layerGroup);
         // === Initialize zoom mapping: Based on control distance limits ===
         // === 初始化缩放映射：基于控制器的距离限制 ===
         const controls = this.viewer.controls as any;
@@ -500,9 +500,9 @@ export class Map extends Handlerable(
 
         // === Determine initial zoom, and pull camera to corresponding height based on zoom ===
         // === 决定初始 zoom，并根据 zoom 拉相机到对应高度 ===
-        const icenterPostion = this.prjcenter;
+        const initialCenterPos = this.prjcenter;
         const currentCameraPos = this.viewer.camera.position.clone();
-        const dir = currentCameraPos.clone().sub(icenterPostion).normalize(); // View direction 视线方向
+        const viewDirection = currentCameraPos.clone().sub(initialCenterPos).normalize(); // View direction 视线方向
 
         // Initial zoom: prioritize external input, otherwise use default value (e.g. 13)
         // 初始 zoom：优先使用外部传入，否则用一个默认值（比如 13）
@@ -514,11 +514,11 @@ export class Map extends Handlerable(
         // 根据 zoom 计算目标距离，并沿当前视线方向移动相机
         const targetDistance = this._computeDistanceFromZoom(initZoom);
         // @ts-ignore TODO: Temporarily comment out zoom initialization related code TODO:暂时注释掉zoom初始化相关的代码
-        const newCameraPos = centerPostion.clone().addScaledVector(dir, targetDistance);
+        const newCameraPos = centerWorldPos.clone().addScaledVector(viewDirection, targetDistance);
 
         // this.viewer.camera.position.copy(newCameraPos);
-        // this.viewer.camera.lookAt(centerPostion);
-        // this.viewer.controls.target.copy(centerPostion);
+        // this.viewer.camera.lookAt(centerWorldPos);
+        // this.viewer.controls.target.copy(centerWorldPos);
 
         // Initialize "last zoom" to current tile level
         // 初始化“上一次 zoom”为当前瓦片级别
@@ -527,7 +527,7 @@ export class Map extends Handlerable(
         this._zoomStartValue = initialTileZoom;
         // Initialize collision engine
         // 初始化碰撞引擎
-        this.collisionEngine = new CollisionEngine(this.viewer.renderer, {
+        this._collisionEngine = new CollisionEngine(this.viewer.renderer, {
             padding: 8,
             updateInterval: 16, // ~60fps
             animationDuration: 200,
@@ -540,7 +540,7 @@ export class Map extends Handlerable(
         });
 
         // this.on('control-change', debounce((evt: any) => {
-        //     this.collisionEngine.update(evt.camera);
+        //     this._collisionEngine.update(evt.camera);
         // }, 10, {  // Increase delay to 100ms 增加延迟到100ms
         //     leading: false,
         //     trailing: true
@@ -551,7 +551,7 @@ export class Map extends Handlerable(
         this.on('control-change', debounce((evt: any) => {
             // Safety check: if object destroyed, return directly
         // 安全检查：如果对象已销毁，直接返回
-        if (!this._root || !this.collisionEngine) {
+        if (!this._rootGroup || !this._collisionEngine) {
             return;
         }
 
@@ -624,7 +624,7 @@ export class Map extends Handlerable(
                 this._lastZoomForControls = newZoom;
             }
             // console.log('dataZoom', dataZoom, 'overZoom', this._overZoom, 'zoom', this.getZoom());
-            this.collisionEngine.update(evt.camera);
+            this._collisionEngine.update(evt.camera);
         }, 10, {
             leading: false,
             trailing: true
@@ -930,12 +930,12 @@ export class Map extends Handlerable(
      * Initialize map.
      * 初始化地图
      */
-    private initMap(options: TileMapParams) {
-        this.minLevel = options.minLevel ?? 2;
-        this.maxLevel = options.maxLevel ?? 19;
+    private initMap(params: TileMapParams) {
+        this.minLevel = params.minLevel ?? 2;
+        this.maxLevel = params.maxLevel ?? 19;
         
-        if (options.Baselayers?.length) {
-            for (const layer of options.Baselayers) {
+        if (params.Baselayers?.length) {
+            for (const layer of params.Baselayers) {
                 layer.isBaseLayer = true;
                 this.addTileLayer(layer);
             }
@@ -946,7 +946,7 @@ export class Map extends Handlerable(
                 timestamp: formatDate(),
                 targrt: this
             };
-            this._EventMap["loaded"] = {
+            this._eventState["loaded"] = {
                 listened: true
             };
             this.trigger("loaded", eventData);
@@ -959,7 +959,7 @@ export class Map extends Handlerable(
      */
     public update(camera: Camera) {
         if (!this.autoUpdate) return;
-        const elapseTime = this._clock.getElapsedTime();
+        const elapseTime = this._animationClock.getElapsedTime();
         if (elapseTime > this.updateInterval / 1000) {
             // console.log(`Map update loop. Layers count: ${this._layers.size}`);
             // Update all layers
@@ -969,7 +969,7 @@ export class Map extends Handlerable(
                     layer.update(camera);
                 }
             });
-            this._clock.start();
+            this._animationClock.start();
         }
     }
 
@@ -977,29 +977,29 @@ export class Map extends Handlerable(
      * Add layer(s) to the map.
      * 添加图层到地图
      * 
-     * @param layers Layer object or array of layer objects
+     * @param layerOrLayers Layer object or array of layer objects
      *               图层对象或图层对象数组
      * @param otherLayers Other layer objects
      *                    其他图层对象
      * @returns Current map instance
      *          当前地图实例
      */
-    addLayer(layers: Layer | Array<Layer>, ...otherLayers: Array<Layer>): this {
-        if (!layers) {
+    addLayer(layerOrLayers: Layer | Array<Layer>, ...otherLayers: Array<Layer>): this {
+        if (!layerOrLayers) {
             return this;
         }
-        if (!Array.isArray(layers)) {
-            layers = [layers];
+        if (!Array.isArray(layerOrLayers)) {
+            layerOrLayers = [layerOrLayers];
         }
         if (otherLayers?.length) {
-            layers = layers.concat(otherLayers);
+            layerOrLayers = layerOrLayers.concat(otherLayers);
         }
         if (otherLayers?.length) {
-            layers = layers.concat(otherLayers);
+            layerOrLayers = layerOrLayers.concat(otherLayers);
         }
 
-        for (let i = 0, len = layers.length; i < len; i++) {
-            const layer = layers[i];
+        for (let i = 0, len = layerOrLayers.length; i < len; i++) {
+            const layer = layerOrLayers[i];
             const id = layer.getId();
 
             if (isNullOrUndefined(id)) {
@@ -1022,46 +1022,46 @@ export class Map extends Handlerable(
     * Remove layer.
     * 移除图层
     */
-    removeLayer(layerId: string): boolean {
+    removeLayer(id: string): boolean {
         // Check if it is TileLayer (including VectorTileLayer)
         // 先看是不是 TileLayer（包括 VectorTileLayer）
-        const tileLayer = this._layers.get(layerId);
+        const tileLayer = this._layers.get(id);
         if (tileLayer) {
             // If it is vector tile layer, remove its renderer layer first
             // 如果是矢量瓦片图层，先移除其渲染图层
             if (tileLayer instanceof VectorTileLayer) {
                 const renderer = tileLayer._getRenderer();
                 if (renderer) {
-                    // renderer is OverlayLayer, stored in _layerContainer
-                    // renderer 是 OverlayLayer，存放在 _layerContainer 里
-                    this._layerContainer.remove(renderer as any);
+                    // renderer is OverlayLayer, stored in _layerGroup
+                    // renderer 是 OverlayLayer，存放在 _layerGroup 里
+                    this._layerGroup.remove(renderer as any);
                     // console.log(`✅ Render layer removed from scene 渲染图层从场景移除: ${renderer.getId()}`);
                 }
             }
 
             // Remove tile layer from map
             // 从地图中移除瓦片图层
-            this._layers.delete(layerId);
-            this._root.remove(tileLayer);
-            // console.log(`✅ Tile layer removed from manager 瓦片图层从管理器移除: ${layerId}`);
+            this._layers.delete(id);
+            this._rootGroup.remove(tileLayer);
+            // console.log(`✅ Tile layer removed from manager 瓦片图层从管理器移除: ${id}`);
             return true;
         }
 
         // Otherwise treat as regular layer (OverlayLayer / Other 3D layers)
         // 否则按普通图层处理（OverlayLayer / 其他三维图层）
-        const layer = this._layerContainer.getLayerById(layerId);
+        const layer = this._layerGroup.getLayerById(id);
         if (!layer) {
-            console.warn(`⚠️ Layer does not exist 图层不存在: ${layerId}`);
+            console.warn(`⚠️ Layer does not exist 图层不存在: ${id}`);
             return false;
         }
 
         this._layerContainer.remove(layer);
-        // console.log(`✅ Layer removed from scene 图层从场景移除: ${layerId}`);
+        // console.log(`✅ Layer removed from scene 图层从场景移除: ${id}`);
 
         // Special handling: OverlayLayer collision
         // 特殊处理：OverlayLayer 的碰撞
         if (layer instanceof OverlayLayer && (layer as any)?._collision) {
-            // this.collisionEngine.unregisterLayer(layerId);
+            // this.collisionEngine.unregisterLayer(id);
         }
 
         // If layer.dispose() needs to be called in future, call it here
@@ -1079,14 +1079,14 @@ export class Map extends Handlerable(
 
         // Add to scene container only
         // 只添加到场景容器
-        this._layerContainer.add(layer);
+        this._layerGroup.add(layer);
         layer._bindMap(this);
 
         // Special handling for OverlayLayer
         // OverlayLayer 的特殊处理
         if (layer instanceof OverlayLayer && layer?._collision) {
-            this.collisionEngine.registerLayer(layer);
-            layer.setCollisionEngine(this.collisionEngine);
+            this._collisionEngine.registerLayer(layer);
+            layer.setCollisionEngine(this._collisionEngine);
         }
 
         // console.log(`📁 Regular layer added to scene 普通图层已添加到场景: ${id}`);
@@ -1102,7 +1102,7 @@ export class Map extends Handlerable(
     addTileLayer(layer: ITileLayer): this {
 
         this._layers.set(layer.getId(), layer);
-        this._root.add(layer);
+        this._rootGroup.add(layer);
         layer._bindMap(this);
 
         // If vt layer, bind render layer
@@ -1136,9 +1136,9 @@ export class Map extends Handlerable(
      *          图层容器实例
      */
     clearLayers() {
-        this._layerContainer.clear();
+        this._layerGroup.clear();
         this._layers.forEach(layer => {
-             this._root.remove(layer);
+             this._rootGroup.remove(layer);
         });
         this._layers.clear();
         return this;
@@ -1154,9 +1154,9 @@ export class Map extends Handlerable(
     getLayers() {
         // Regular layers in scene (Exclude internal VectorTileRenderLayer)
         // 场景中的普通图层（排除内部使用的 VectorTileRenderLayer）
-        const sceneLayers = this._layerContainer
+        const sceneLayers = this._layerGroup
             .getLayers()
-            .filter(layer => !(layer instanceof VectorTileRenderLayer));
+            .filter((layer: any) => !(layer instanceof VectorTileRenderLayer));
 
         // Tile layers in Map
         // Map 中的瓦片图层
@@ -1180,7 +1180,7 @@ export class Map extends Handlerable(
             return this._layers.get(id);
         }
 
-        const layer = this._layerContainer.getLayerById(id);
+        const layer = this._layerGroup.getLayerById(id);
         if (layer) {
             // Do not expose VectorTileRenderLayer externally
             // 对外不暴露 VectorTileRenderLayer
@@ -1208,7 +1208,7 @@ export class Map extends Handlerable(
      *          画布实例
      */
     _getCanvas(width: number = 40, height: number = 30, keySuffix?: string) {
-        return this._canvasManager.getCanvas(width, height, 1, keySuffix);
+        return this._canvasMgr.getCanvas(width, height, 1, keySuffix);
     }
     /**
      * Get map container.
@@ -1323,7 +1323,7 @@ export class Map extends Handlerable(
         // controls.target always points to world coordinates of current view center
         // controls.target 始终指向当前视图中心的世界坐标
         const worldCenter = this.viewer.controls.target.clone();
-        const geo = this.world2geo(worldCenter); // Vector3(lng, lat, z)
+        const geo = this.unprojectFromWorld(worldCenter); // Vector3(lng, lat, z)
         return [geo.x, geo.y, geo.z];
     }
     /**
@@ -1419,22 +1419,22 @@ export class Map extends Handlerable(
      * Fly to specified position.
      * 飞行到指定位置
      * 
-     * @param options Flight parameters object
+     * @param flyConfig Flight parameters object
      *                飞行参数对象
      */
-    public flyTo(options: FlyToOptions) {
-        this.viewer.flyToAdvanced(options);
+    public flyTo(flyConfig: FlyToOptions) {
+        this.viewer.flyToAdvanced(flyConfig);
     }
 
     /**
      * Fly to point position.
      * 飞行到指定点的位置
      * 
-     * @param options Flight parameters object
+     * @param flyConfig Flight parameters object
      *                飞行参数对象
      */
-    public flyToPoint(options: FlyToPointOptions) {
-        this.viewer.flyToPoint(options);
+    public flyToPoint(flyConfig: FlyToPointOptions) {
+        this.viewer.flyToPoint(flyConfig);
     }
 
     /**
@@ -1490,18 +1490,18 @@ export class Map extends Handlerable(
 
             // 4. Destroy collision engine
             // 4. 销毁碰撞引擎
-            if (this.collisionEngine) {
+            if (this._collisionEngine) {
                 // @ts-ignore
-                this.collisionEngine = null;
+                this._collisionEngine = null;
                 // console.log('✅ Collision engine destroyed 碰撞引擎已销毁');
             }
 
             // 5. Destroy layer container
             // 5. 销毁图层容器
-            if (this._layerContainer) {
-                this._layerContainer.clear();
+            if (this._layerGroup) {
+                this._layerGroup.clear();
                 // @ts-ignore
-                this._layerContainer = null;
+                this._layerGroup = null;
                 // console.log('✅ Layer container destroyed 图层容器已销毁');
             }
 
@@ -1509,9 +1509,9 @@ export class Map extends Handlerable(
 
             // 7. Destroy canvas manager
             // 7. 销毁画布管理器
-            if (this._canvasManager) {
+            if (this._canvasMgr) {
                 // @ts-ignore
-                this._canvasManager = null;
+                this._canvasMgr = null;
                 // console.log('✅ Canvas manager destroyed 画布管理器已销毁');
             }
 
@@ -1526,7 +1526,7 @@ export class Map extends Handlerable(
 
             // 9. Clear event map
             // 9. 清空事件映射表
-            this._EventMap = {
+            this._eventState = {
                 loaded: { listened: false }
             };
 

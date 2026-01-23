@@ -68,18 +68,18 @@ const frustum = new Frustum();
  * 继承自带有BufferGeometry和Material的Mesh类。
  */
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
-	private static _activeDownloadThreads = 0;
+	private static _activeDownloads = 0;
 	// Data mode switch 数据模式开关
-	private _isDataOnlyMode: boolean = false;
+	private _dataMode: boolean = false;
 	/** Vector Data 矢量数据 */
-	public vectorData: any = null;
+	public _vectorData: any = null;
 	/**
 		* Set data only mode (do not create Mesh, only return data)
 		* 设置为数据模式（不创建Mesh，只返回数据）
 		*/
-	public setDataOnlyMode(enabled: boolean): this {
-		this._isDataOnlyMode = enabled;
-		if (enabled) {
+	public setDataOnlyMode(isDataOnly: boolean): this {
+		this._dataMode = isDataOnly;
+		if (isDataOnly) {
 			this.visible = false; // Hide Mesh 隐藏Mesh
 		}
 		return this;
@@ -89,7 +89,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * 检查是否是数据模式
 	  */
 	public isDataOnlyMode(): boolean {
-		return this._isDataOnlyMode;
+		return this._dataMode;
 	}
 
 	/**
@@ -97,14 +97,14 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * 获取矢量数据（仅数据模式有效）
 	 */
 	public getVectorData(): any {
-		return (this as any).vectorData;
+		return (this as any)._vectorData;
 	}
 	/**
 	 * Number of download threads.
 	 * 下载线程数
 	 */
 	public static get downloadThreads() {
-		return Tile._activeDownloadThreads;
+		return Tile._activeDownloads;
 	}
 
 	/** Coordinate of tile 瓦片坐标 */
@@ -124,12 +124,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private _isReady = false;
 
 	/** return this.minLevel < map.minLevel, True mean do not needs load tile data. True表示不需要加载瓦片数据 */
-	private _isDummyTile = false;
+	private _isVirtualTile = false;
 	public get isDummy() {
-		return this._isDummyTile;
+		return this._isVirtualTile;
 	}
 
-	private _isShowing = false;
+	private _isVisible = false;
 	// private _wasShowing = false; // Record last showing value 记录上一次 showing 的值
 
 	/**
@@ -137,7 +137,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * 获取瓦片的显示状态。
 	 */
 	public get showing() {
-		return this._isShowing;
+		return this._isVisible;
 	}
 
 	/**
@@ -146,13 +146,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @param value - The new showing state. 新的显示状态。
 	 */
 	public set showing(value) {
-		const oldValue = this._isShowing;
-		this._isShowing = value;
+		const oldValue = this._isVisible;
+		this._isVisible = value;
 		this.material.forEach(mat => (mat.visible = value));
 
 		// 🔥 Critical Fix: When tile changes from hidden to shown, if loaded but not rendered, trigger render
 		// 🔥 关键修复：当瓦片从隐藏变为显示时，如果已加载但未渲染，触发渲染
-		if (oldValue === false && this._isShowing === true && this._isLoaded) {
+		if (oldValue === false && this._isVisible === true && this._isLoaded) {
 			// Trigger an event to notify VectorTileLayer to check and render this tile
 			// 触发一个事件，通知 VectorTileLayer 检查并渲染这个瓦片
 			// console.log('Tile shown', this.z, this.x, this.y);
@@ -161,7 +161,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 		// 🔥 When tile changes from shown to hidden, trigger tile-hidden event
 		// 🔥 当瓦片从显示变为隐藏时，触发 tile-hidden 事件
-		if (oldValue === true && this._isShowing === false) {
+		if (oldValue === true && this._isVisible === false) {
 			// console.log('Tile hidden', this.z, this.x, this.y);
 			this.dispatchEvent({ type: "tile-hidden", tile: this });
 		}
@@ -211,11 +211,11 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return this._isLoaded;
 	}
 
-	private _isInFrustum = false;
+	private _inFrustum = false;
 
 	/** Is tile in frustum ? 瓦片是否在视锥体中？ */
 	public get inFrustum() {
-		return this._isInFrustum;
+		return this._inFrustum;
 	}
 
 	/**
@@ -224,7 +224,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @param value - The new frustum state. 新的视锥体状态。
 	 */
 	protected set inFrustum(value) {
-		this._isInFrustum = value;
+		this._inFrustum = value;
 	}
 
 	/** Tile is a leaf ? 瓦片是否是叶子节点？ */
@@ -239,7 +239,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @param y - Tile Y-coordinate, default: 0. 瓦片Y坐标，默认0。
 	 * @param z - Tile level, default: 0. 瓦片层级，默认0。
 	 */
-	public constructor(x = 0, y = 0, z = 0) {
+	public constructor(x: number = 0, y: number = 0, z: number = 0) {
 		super(defaultGeometry, []);
 		this.x = x;
 		this.y = y;
@@ -290,13 +290,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	/**
 	 * LOD (Level of Detail).
 	 * LOD（细节层次）。
-	 * @param loader - The tile loader. 瓦片加载器。
-	 * @param minLevel - The minimum level. 最小层级。
-	 * @param maxLevel - The maximum level. 最大层级。
-	 * @param threshold - The threshold. 阈值。
+	 * @param params - The tile loader. 瓦片加载器。
 	 * @returns this
 	 */
-	protected updateLOD(params: TileUpdateParams) {
+	protected _updateLOD(params: TileUpdateParams) {
 		if (Tile.downloadThreads > THREADSNUM) {
 			return { action: LODAction.none };
 		}
@@ -314,7 +311,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	/**
 	 * Checks the visibility of the tile.
 	 */
-	private _checkVisible() {
+	private _checkVisibility() {
 		const parent = this.parent;
 		if (parent && parent.isTile) {
 			const children = parent.children.filter(child => child.isTile);
@@ -331,25 +328,25 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @param loader Tile loader
 	 * @returns this
 	 */
-	private async _load(loader: ICompositeLoader): Promise<Tile> {
-		Tile._activeDownloadThreads++;
+	private async _loadData(loader: ICompositeLoader): Promise<Tile> {
+		Tile._activeDownloads++;
 		const { x, y, z } = this;
 
 		// 如果是数据模式，只获取数据不创建Mesh
-		if (this._isDataOnlyMode) {
+		if (this._dataMode) {
 			try {
 				// 调用加载器获取数据
 				const meshData = await loader.load({
 					x, y, z,
 					bounds: [-Infinity, -Infinity, Infinity, Infinity],
 				});
-				(this as any).vectorData = (meshData as any).geometry?.userData || {};
+				(this as any)._vectorData = (meshData as any).geometry?.userData || {};
 
 				this._isLoaded = true;
 				// 触发数据加载事件
 				this.dispatchEvent({
 					type: "vector-data-loaded",
-					data: (this as any).vectorData,
+					data: (this as any)._vectorData,
 					tile: this
 				});
 
@@ -376,13 +373,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			this._isLoaded = true;
 		}
 
-		Tile._activeDownloadThreads--;
-		// this._checkVisible();
+		Tile._activeDownloads--;
+		// this._checkVisibility();
 		return this;
 	}
 
 	/** New tile init */
-	private _init() {
+	private _initTile() {
 		this.updateMatrix();
 		this.updateMatrixWorld();
 		this.sizeInWorld = getTileSize(this);
@@ -443,30 +440,30 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			tile.distToCamera = getDistance(tile, cameraWorldPosition);
 			// console.log(params, 'params------------')
 			// LOD
-			const { action, newTiles } = tile.updateLOD(params);
+			const { action, newTiles } = tile._updateLOD(params);
 			// console.log(action, 'action------------')
-			this.handleLODAction(tile, action, newTiles, params);
+			this._processLODAction(tile, action, newTiles, params);
 		});
 
-		this._checkReady();
+		this._checkReadyState();
 
 		// console.log(this, '此时更新的tile -------------')
 		return this;
 	}
 
-	private handleLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
+	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
 		// console.log(action, 'action------------')
 		// console.log(LODAction, 'LODAction------------')
 		if (action === LODAction.create) {
 			// Load new tiles data
 			newTiles?.forEach(newTile => {
-				newTile._init();
-				newTile._isDummyTile = newTile.z < params.minLevel;
+				newTile._initTile();
+				newTile._isVirtualTile = newTile.z < params.minLevel;
 				this.dispatchEvent({ type: "tile-created", tile: newTile });
 				if (!newTile.isDummy) {
-					newTile._load(params.loader).then(() => {
+					newTile._loadData(params.loader).then(() => {
 						// Show tile when all children has loaded
-						newTile._checkVisible();
+						newTile._checkVisibility();
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
 					});
 				}
@@ -474,7 +471,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		} else if (action === LODAction.remove) {
 			currentTile.showing = true;
 			// unload children tiles
-			currentTile._unLoad(false, params.loader);
+			currentTile._disposeResources(false, params.loader);
 			this.dispatchEvent({ type: "tile-unload", tile: currentTile });
 		}
 		return this;
@@ -485,7 +482,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @returns this
 	 */
 	public reload(loader: ICompositeLoader) {
-		this._unLoad(true, loader);
+		this._disposeResources(true, loader);
 		return this;
 	}
 
@@ -493,7 +490,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * Checks if the tile is ready to render.
 	 * @returns this
 	 */
-	private _checkReady() {
+	private _checkReadyState() {
 		if (!this._isReady) {
 			this._isReady = true;
 			this.traverse(child => {
@@ -511,27 +508,27 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	/**
 	 * UnLoads the tile data.
-	 * @param unLoadSelf - Whether to unload tile itself.
+	 * @param disposeSelf - Whether to unload tile itself.
 	 * @returns this.
 	 */
-	// private _unLoad(unLoadSelf: boolean, loader: ITileLoader) {
-	// 	if (unLoadSelf && this.isTile && !this.isDummy) {
+	// private _disposeResources(disposeSelf: boolean, loader: ITileLoader) {
+	// 	if (disposeSelf && this.isTile && !this.isDummy) {
 	// 		this.dispatchEvent({ type: "unload" });
 	// 		loader?.unload?.(this);
 	// 	}
 	// 	// remove all children recursively
-	// 	this.children.forEach(child => child._unLoad(true, loader));
+	// 	this.children.forEach(child => child._disposeResources(true, loader));
 	// 	this.clear();
 	// 	return this;
 	// }
 
-	private _unLoad(unLoadSelf: boolean, loader: ICompositeLoader) {
-		if (unLoadSelf && this.isTile && !this.isDummy) {
+	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
+		if (disposeSelf && this.isTile && !this.isDummy) {
 			this.dispatchEvent({ type: "unload" });
 			loader?.unload?.(this);
 		}
 		// remove all children recursively
-		this.children.forEach(child => child._unLoad(true, loader));
+		this.children.forEach(child => child._disposeResources(true, loader));
 		this.clear();
 		return this;
 	}

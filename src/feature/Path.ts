@@ -82,7 +82,7 @@ export abstract class Path extends Feature {
             const coordinates = geometry.coordinates as Coordinate[];
             return coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                return map ? map.geo2world(vec) : vec;
+                return map ? map.projectToWorld(vec) : vec;
             });
         }
 
@@ -93,7 +93,7 @@ export abstract class Path extends Feature {
             return coordinates.map(line =>
                 line.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    return map ? map.geo2world(vec) : vec;
+                    return map ? map.projectToWorld(vec) : vec;
                 })
             );
         }
@@ -106,7 +106,7 @@ export abstract class Path extends Feature {
                 polygon.map(ring =>
                     ring.map(coord => {
                         const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                        return map ? map.geo2world(vec) : vec;
+                        return map ? map.projectToWorld(vec) : vec;
                     })
                 )
             );
@@ -125,7 +125,7 @@ export abstract class Path extends Feature {
      * Subclasses must implement this method to convert transformed coordinates to Three.js geometry.
      * 子类必须实现此方法，将转换后的坐标转换为Three.js几何体
      */
-    _toThreeJSGeometry() {
+    _buildRenderObject() {
         // Implemented by subclass
         // 由子类实现具体逻辑
     }

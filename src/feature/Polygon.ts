@@ -76,19 +76,19 @@ export class Polygon extends Surface {
      * 
      * 根据样式配置创建多边形几何体，并进行坐标转换
      */
-    async _toThreeJSGeometry(): Promise<void> {
+    async _buildRenderObject(): Promise<void> {
         let { _vertexPoints } = this._coordsTransform();
         this._vertexPoints = _vertexPoints;
 
         if (this._style) {
-            if (this._threeGeometry) {
-                this.remove(this._threeGeometry);
+            if (this._renderObject) {
+                this.remove(this._renderObject);
             }
 
-            this._threeGeometry = await this._createObject(this._style);
+            this._renderObject = await this._createObject(this._style);
 
-            this._updateGeometry();
-            await this._style.applyTo(this._threeGeometry);
+            this._refreshCoordinates();
+            await this._style.applyTo(this._renderObject);
         }
     }
 
@@ -105,22 +105,22 @@ export class Polygon extends Surface {
      * 对于basic-polygon类型，实现快速更新避免重建；
      * 对于复杂类型（extrude/water），仍然调用完整重建。
      */
-    protected _updateGeometryPositions(): void {
+    protected _refreshCoordinates(): void {
         const styletype = this._style?.config.type;
         
         // Temporarily disable quick update because:
         // 1. _createBasePolygon rotates and translates the mesh, direct vertex update causes coordinate disorder (vertical surface appears)
         // 2. Quick update does not sync border update (borderLine)
-        // 3. Full rebuild (_toThreeJSGeometry) ensures correctness, and performance loss is acceptable for single Polygon
+        // 3. Full rebuild (_buildRenderObject) ensures correctness, and performance loss is acceptable for single Polygon
         
         /*
         // For basic-polygon, implement quick update
-        if (styletype === 'basic-polygon' && this._threeGeometry) {
+        if (styletype === 'basic-polygon' && this._renderObject) {
             // Recalculate coordinates
             let { _vertexPoints } = this._coordsTransform();
             this._vertexPoints = _vertexPoints;
             
-            const mesh = this._threeGeometry as Mesh;
+            const mesh = this._renderObject as Mesh;
             const geometry = mesh.geometry as BufferGeometry;
             
             if (geometry) {
@@ -138,13 +138,13 @@ export class Polygon extends Surface {
                     geometry.computeBoundingBox();
                     
                     // Ensure geometry is in scene
-                    if (!this.children.includes(this._threeGeometry as Object3D)) {
-                        this.add(this._threeGeometry);
+                    if (!this.children.includes(this._renderObject as Object3D)) {
+                        this.add(this._renderObject);
                     }
                     
                     // Force update matrix
                     this.updateMatrixWorld(true);
-                    this._threeGeometry.updateMatrixWorld(true);
+                    this._renderObject.updateMatrixWorld(true);
                     return; // Quick update success, return directly
                 }
             }
@@ -152,11 +152,11 @@ export class Polygon extends Surface {
         */
         
         // Other cases: complex types or vertex count mismatch, call full rebuild
-        console.warn('[Polygon] _updateGeometryPositions: Fallback to full rebuild', {
+        console.warn('[Polygon] _refreshCoordinates: Fallback to full rebuild', {
             styleType: styletype,
-            hasGeometry: !!this._threeGeometry
+            hasGeometry: !!this._renderObject
         });
-        this._toThreeJSGeometry();
+        this._buildRenderObject();
     }
 
     /**

@@ -316,10 +316,10 @@ export class EditHandle extends EventMixin(Object) {
         const dy = currentCoord[1] - this._lastCoordinate[1];
         
         // 获取当前高度（海拔）
-        const currentGeo = this.map.world2geo(this.options.position);
+        const currentGeo = this.map.unprojectFromWorld(this.options.position);
 
         // 更新位置（地理坐标转世界坐标）
-        const worldPos = this.map.geo2world(new Vector3(
+        const worldPos = this.map.projectToWorld(new Vector3(
             currentCoord[0],
             currentCoord[1],
             currentGeo.z

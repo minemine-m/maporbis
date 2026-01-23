@@ -248,7 +248,7 @@ export class Viewer extends ViewerBase {
     private gorund: Mesh;
     /** 地图实例 */
     public map: Map;
-    public centerPostion: Vector3;
+    public centerWorldPos: Vector3;
     private _isInteracting = false;
     /** 是否启用调试模式 */
     private debug = false;
@@ -308,7 +308,7 @@ export class Viewer extends ViewerBase {
 
         const { antialias = false, stencil = true, logarithmicDepthBuffer = true, skybox, map, bloom, minDistance, maxDistance, draggable = true } = options;
         this.map = map as Map;
-        this.centerPostion = this.map.geo2world(new Vector3(this.map.center[0], this.map.center[1], 0));
+        this.centerWorldPos = this.map.projectToWorld(new Vector3(this.map.center[0], this.map.center[1], 0));
         this.renderer = this._createRenderer(antialias, stencil, logarithmicDepthBuffer);
         this.scene = this._createScene(skybox);
         this.camera = this._createCamera();
@@ -714,9 +714,9 @@ export class Viewer extends ViewerBase {
         const bias = (-0.0001 * 0);
         const intensity = 10;
         const dirLight = new DirectionalLight('rgb(255, 255, 255)', intensity);
-        dirLight.position.set(this.centerPostion.x + (size * x), (size * y), this.centerPostion.z + (size * z));
+        dirLight.position.set(this.centerWorldPos.x + (size * x), (size * y), this.centerWorldPos.z + (size * z));
         const targetObject = new Object3D();
-        targetObject.position.copy(this.centerPostion);
+        targetObject.position.copy(this.centerWorldPos);
         this.scene.add(targetObject);
         dirLight.target = targetObject;
         dirLight.castShadow = true;
@@ -756,9 +756,9 @@ export class Viewer extends ViewerBase {
         const z1 = -1;
         const y1 = 1.5;
         const auxLight1 = this._createAuxLightInstance(
-            this.centerPostion.x + (size * x1),
+            this.centerWorldPos.x + (size * x1),
             size * y1,
-            this.centerPostion.z + (size * z1),
+            this.centerWorldPos.z + (size * z1),
             intensity
         );
         auxLight1.name = 'AuxDirLight_BackFill';
@@ -772,9 +772,9 @@ export class Viewer extends ViewerBase {
         const z2 = 1.2;
         const y2 = 1.5;
         const auxLight2 = this._createAuxLightInstance(
-            this.centerPostion.x + (size * x2),
+            this.centerWorldPos.x + (size * x2),
             size * y2,
-            this.centerPostion.z + (size * z2),
+            this.centerWorldPos.z + (size * z2),
             intensity
         );
         auxLight2.name = 'AuxDirLight_LeftRim';
@@ -786,11 +786,11 @@ export class Viewer extends ViewerBase {
         // ----------------------------------------------------
         const x3 = 1.0;
         const z3 = -1.2;
-        const y3 = 1.5;
+        // const y3 = 1.5;
         const auxLight3 = this._createAuxLightInstance(
-            this.centerPostion.x + (size * x3),
-            size * y3,
-            this.centerPostion.z + (size * z3),
+            this.centerWorldPos.x + (size * x3),
+            size * y1,
+            this.centerWorldPos.z + (size * z3),
             intensity
         );
         auxLight3.name = 'AuxDirLight_RightRim';
@@ -815,7 +815,7 @@ export class Viewer extends ViewerBase {
 
         // 目标点：始终指向场景中心
         const targetObject = new Object3D();
-        targetObject.position.copy(this.centerPostion);
+        targetObject.position.copy(this.centerWorldPos);
         this.scene.add(targetObject);
         auxLight.target = targetObject;
         auxLight.castShadow = false;
@@ -882,26 +882,26 @@ export class Viewer extends ViewerBase {
     /**
      * Fly to specified position
      * 飞行到指定位置
-     * @param centerPostion Map center target position (world coordinates) 地图中心目标位置（世界坐标）
-     * @param cameraPostion Camera target position (world coordinates) 相机目标位置（世界坐标）
+     * @param centerWorldPos Map center target position (world coordinates) 地图中心目标位置（世界坐标）
+     * @param cameraWorldPos Camera target position (world coordinates) 相机目标位置（世界坐标）
      * @param animate Whether to enable animation 是否启用动画
      * @param onComplete Completion callback 完成回调
      */
-    public flyTo(centerPostion: Vector3, cameraPostion: Vector3, animate = true, onComplete?: (obj: Vector3) => void) {
-        this.controls.target.copy(centerPostion);
+    public flyTo(centerWorldPos: Vector3, cameraWorldPos: Vector3, animate = true, onComplete?: (obj: Vector3) => void) {
+        this.controls.target.copy(centerWorldPos);
         if (animate) {
             const start = this.camera.position;
             new Tween(start)
                 .to({ y: 2e7, z: 0 }, 500)
                 .chain(
                     new Tween(start)
-                        .to(cameraPostion, 2000)
+                        .to(cameraWorldPos, 2000)
                         .easing(Easing.Quintic.Out)
                         .onComplete(obj => onComplete && onComplete(obj))
                 )
                 .start();
         } else {
-            this.camera.position.copy(cameraPostion);
+            this.camera.position.copy(cameraWorldPos);
         }
     }
     /**
@@ -946,17 +946,17 @@ export class Viewer extends ViewerBase {
 
         if (!centerGeo || !cameraGeo) return;
 
-        const centerPostion = this.map.geo2world(new Vector3(centerGeo[0], centerGeo[1], 0));
-        const cameraPostion = this.map.geo2world(new Vector3(cameraGeo[0], cameraGeo[1], cameraGeo[2]));
+        const centerWorldPos = this.map.projectToWorld(new Vector3(centerGeo[0], centerGeo[1], 0));
+        const cameraWorldPos = this.map.projectToWorld(new Vector3(cameraGeo[0], cameraGeo[1], cameraGeo[2]));
 
-        if (!camera || !controls || !centerPostion || !cameraPostion) return;
+        if (!camera || !controls || !centerWorldPos || !cameraWorldPos) return;
 
         // 克隆目标和相机位置
         const targetStart = controls.target.clone();
         const positionStart = camera.position.clone();
 
-        const targetEnd = new Vector3(centerPostion.x, centerPostion.y, centerPostion.z);
-        const positionEnd = new Vector3(cameraPostion.x, cameraPostion.y, cameraPostion.z);
+        const targetEnd = new Vector3(centerWorldPos.x, centerWorldPos.y, centerWorldPos.z);
+        const positionEnd = new Vector3(cameraWorldPos.x, cameraWorldPos.y, cameraWorldPos.z);
 
         // 停止之前的动画
         if (this.flyTween) {
@@ -1116,12 +1116,12 @@ export class Viewer extends ViewerBase {
         const complete = options.complete;
         const useCurvePath = !!options.curvePath;
 
-        const targetWorld = this.map.geo2world(new Vector3(center[0], center[1], 0));
+        const targetWorld = this.map.projectToWorld(new Vector3(center[0], center[1], 0));
         const newCameraPosition = this.calculateCameraPosition(targetWorld, distance, polarAngle, azimuthAngle);
         // const minHeight = distance * 0.5;
         // if (newCameraPosition.y < minHeight) newCameraPosition.y = minHeight;
 
-        const newCameraGeo = this.map.world2geo(newCameraPosition);
+        const newCameraGeo = this.map.unprojectFromWorld(newCameraPosition);
 
         this.flyToAdvanced({
             center: [center[0], center[1], 0],
@@ -1230,7 +1230,7 @@ export class Viewer extends ViewerBase {
 
     _createGorund() {
         // const view = this.map.view;
-        const centerPostion = this.centerPostion;
+        const centerWorldPos = this.centerWorldPos;
         const material = new MeshStandardMaterial({
             transparent: false,
             color: new Color('rgb(45,52,60)').multiplyScalar(0.7),
@@ -1243,7 +1243,7 @@ export class Viewer extends ViewerBase {
         mesh.castShadow = false;
         mesh.receiveShadow = false;
         mesh.position.y = 0;
-        mesh.position.add(centerPostion);
+        mesh.position.add(centerWorldPos);
         mesh.rotateX(-Math.PI / 2);
         mesh.visible = false;
         return mesh;
