@@ -29,6 +29,7 @@ export interface BaseStyle {
     depthTest?: boolean;       // 默认 true
     depthWrite?: boolean;      // 默认 true
     transparent?: boolean;    // 默认 true
+    alphaTest?: number;       // 默认 0.05
     /** 发光配置（可选，配合全局 bloom 后处理） */
     bloom?: boolean | {
         /** 是否启用发光（默认 true） */

@@ -122,6 +122,7 @@ export async function _createIconPoint(config: IconPointStyle, position: Vector3
         sizeAttenuation: config.sizeAttenuation ?? true,
         depthTest: config.depthTest ?? true,
         depthWrite: config.depthWrite ?? true,
+        alphaTest: config.alphaTest ?? 0.05,
         premultipliedAlpha: false,  // 与纹理设置保持一致
         blending: NormalBlending,  // 正常混合模式
     });
