@@ -1,6 +1,6 @@
 import { Vector3, AnimationMixer, LoopOnce, LoopRepeat, Clock, Mesh, Color, Box3, RepeatWrapping, Vector2 } from "three";
 import { PointOptions, Point } from "./Point";
-import { Style } from "../style";
+import { Paint } from "../style";
 import { _createModel } from "../utils/createobject";
 import { MeshBuildGradientMaterial } from "../utils/build/material/MeshBuildGradientMaterial";
 // import type { GeoJSONPolygon, GeoJSONMultiPolygon } from 'geojson';
@@ -285,7 +285,7 @@ export class Model extends Point {
      * @throws Throws error if style type is not supported
      *         如果样式类型不支持会抛出错误
      */
-    async _createObject(style: Style): Promise<any> {
+    async _createObject(paint: Paint): Promise<any> {
         switch (style.config.type) {
             case "fbx":
             case "gltf":

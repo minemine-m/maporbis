@@ -2,7 +2,7 @@ import { Texture, MeshBasicMaterial } from 'three';
 import { OverlayLayerOptions, OverlayLayer } from './OverlayLayer';
 import { ICloud } from '../feature/ICloud';
 import { Clouds } from "@pmndrs/vanilla";
-import { Style } from '../style';
+import { Paint } from '../style';
 import { requireProp } from "../utils/validate";
 
 /**
@@ -88,7 +88,7 @@ export class CloudsLayer extends OverlayLayer<ICloud> {
     private async _createClouds(texture: string | Texture) {
         // Load texture
         // 加载纹理
-        const loadedTexture = await Style._loadTexture(texture as string);
+        const loadedTexture = await Paint._loadTexture(texture as string);
         
         // Create cloud effects
         // 创建云层特效

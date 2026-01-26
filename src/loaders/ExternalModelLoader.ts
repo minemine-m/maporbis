@@ -1,6 +1,6 @@
 import { Group, LoadingManager } from 'three';
 import { DRACOLoader, FBXLoader, GLTFLoader } from 'three-stdlib';
-import { ModelStyle } from '../style';
+import { ModelPaint } from '../style';
 
 /**
  * 模型缓存项
@@ -50,7 +50,7 @@ export class ExternalModelLoader {
      * 加载模型
      * @param options 模型样式配置
      */
-    public async load(options: ModelStyle): Promise<{ model: Group; animations: any[] }> {
+    public async load(options: ModelPaint): Promise<{ model: Group; animations: any[] }> {
         const cacheKey = `${options.type}:${options.url}`;
 
         // 1. 检查缓存
@@ -109,7 +109,7 @@ export class ExternalModelLoader {
      * @param cacheKey 
      * @param options 
      */
-    private cloneCachedModel(cacheKey: string, options: ModelStyle): { model: Group; animations: any[] } {
+    private cloneCachedModel(cacheKey: string, options: ModelPaint): { model: Group; animations: any[] } {
         const cached = this.cache.get(cacheKey)!;
         const clone = cached.model.clone();
         
@@ -135,7 +135,7 @@ export class ExternalModelLoader {
      * @param model 
      * @param options 
      */
-    private processModel(model: Group, options: ModelStyle): Group {
+    private processModel(model: Group, options: ModelPaint): Group {
         // 应用位置
         if (options.position) {
             model.position.copy(options.position);

@@ -31,7 +31,7 @@ export interface FeatureEditHandlerOptions {
  * 编辑历史记录项
  */
 interface EditHistoryItem {
-    /** Coordinate snapshot 坐标快照 */
+    /** LngLat snapshot 坐标快照 */
     coordinates: any;
     /** Timestamp 时间戳 */
     timestamp: number;
@@ -160,7 +160,7 @@ export class FeatureEditHandler extends Handler {
         this._createHandles();
         
         // 触发编辑开始事件
-        this.target.trigger('editstart');
+        this.target.fire('editstart');
         
         // 启用拖拽（如果之前未启用）
         this._draggableOriginalState = this.target.options.draggable || false;
@@ -208,7 +208,7 @@ export class FeatureEditHandler extends Handler {
         this._removeShadow();
         
         // 触发编辑结束事件
-        this.target.trigger('editend');
+        this.target.fire('editend');
         
         return this;
     }
@@ -363,7 +363,7 @@ export class FeatureEditHandler extends Handler {
             this._historyIndex--;
             const item = this._history[this._historyIndex];
             this._restoreCoordinates(item.coordinates);
-            this.target.trigger('editundo');
+            this.target.fire('editundo');
         }
         return this;
     }
@@ -377,7 +377,7 @@ export class FeatureEditHandler extends Handler {
             this._historyIndex++;
             const item = this._history[this._historyIndex];
             this._restoreCoordinates(item.coordinates);
-            this.target.trigger('editredo');
+            this.target.fire('editredo');
         }
         return this;
     }
@@ -543,13 +543,13 @@ export class FeatureEditHandler extends Handler {
         (this.target as any)._refreshCoordinates();
         
         // 触发编辑事件
-        this.target.trigger('handledragging', {
+        this.target.fire('handledragging', {
             index: index,
             coordinate: [geoPos.x, geoPos.y, geoPos.z]
         });
         
         // 保持兼容性，同时触发 editing 事件
-        this.target.trigger('editing', {
+        this.target.fire('editing', {
             index: index,
             coordinate: [geoPos.x, geoPos.y, geoPos.z]
         });
@@ -567,7 +567,7 @@ export class FeatureEditHandler extends Handler {
         this._updating = true;
         
         // 触发手柄拖拽开始事件
-        this.target.trigger('handledragstart', {
+        this.target.fire('handledragstart', {
             index: index,
             coordinate: event.coordinate
         });
@@ -588,7 +588,7 @@ export class FeatureEditHandler extends Handler {
         this._addHistory(geo.coordinates);
         
         // 触发手柄拖拽结束事件
-        this.target.trigger('handledragend', {
+        this.target.fire('handledragend', {
             index: index,
             coordinate: this.target instanceof Point 
                 ? geo.coordinates 
@@ -596,7 +596,7 @@ export class FeatureEditHandler extends Handler {
         });
         
         // 保持兼容性，同时触发 editvertex 事件
-        this.target.trigger('editvertex', {
+        this.target.fire('editvertex', {
             index: index,
             coordinate: this.target instanceof Point 
                 ? geo.coordinates 
@@ -681,7 +681,7 @@ export class FeatureEditHandler extends Handler {
     private _onPolygonHandleDragStart(event: any, index: number, ringIndex: number): void {
         this._updating = true;
         
-        this.target.trigger('handledragstart', {
+        this.target.fire('handledragstart', {
             index: index,
             ringIndex: ringIndex,
             coordinate: event.coordinate
@@ -723,13 +723,13 @@ export class FeatureEditHandler extends Handler {
         (this.target as any)._refreshCoordinates();
         
         // 触发编辑事件
-        this.target.trigger('handledragging', {
+        this.target.fire('handledragging', {
             index: index,
             ringIndex: ringIndex,
             coordinate: [geoPos.x, geoPos.y, geoPos.z]
         });
         
-        this.target.trigger('editing', {
+        this.target.fire('editing', {
             index: index,
             ringIndex: ringIndex,
             coordinate: [geoPos.x, geoPos.y, geoPos.z]
@@ -751,13 +751,13 @@ export class FeatureEditHandler extends Handler {
         this._addHistory(geo.coordinates);
         
         // 触发编辑事件
-        this.target.trigger('handledragend', {
+        this.target.fire('handledragend', {
             index: index,
             ringIndex: ringIndex,
             coordinate: rings[ringIndex]?.[index] || null
         });
         
-        this.target.trigger('editvertex', {
+        this.target.fire('editvertex', {
             index: index,
             ringIndex: ringIndex,
             coordinate: rings[ringIndex]?.[index] || null
@@ -1172,7 +1172,7 @@ export class FeatureEditHandler extends Handler {
         this._addHistory(geo.coordinates);
         
         // 触发删除事件
-        this.target.trigger('handleremove', {
+        this.target.fire('handleremove', {
             index: vertexIndex,
             ringIndex: ringIndex,
             coordinate: removedCoordinate
@@ -1341,7 +1341,7 @@ export class FeatureEditHandler extends Handler {
         this._addHistory(geo.coordinates);
         
         // 触发插入事件
-        this.target.trigger('vertexinsert', {
+        this.target.fire('vertexinsert', {
             index: afterIndex + 1,
             ringIndex: ringIndex
         });

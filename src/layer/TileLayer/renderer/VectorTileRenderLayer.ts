@@ -6,8 +6,8 @@ import { Marker, LineString } from '../../../feature';
 // import { Map as MapClass } from '../../../map/index';
 // import { Camera } from 'three';
 
-import { Style, StyleConfig } from '../../../style';
-import { StyleRule } from '../../../style/Layerstyle';
+import { Paint, PaintConfig } from '../../../style';
+import { PaintRule } from '../../../style/Layerstyle';
 import { matchFilter } from '../../../style/filter';
 
 /**
@@ -28,10 +28,10 @@ interface FeatureTileData {
 
 export type VectorTileRenderLayerOptions = OverlayLayerOptions<Feature> & {
     /** 
-     * Style configuration: Global StyleRule array, applied to all vector layers.
-     * 样式配置：全局 StyleRule 数组，应用于所有矢量图层 
+     * Paint configuration: Global PaintRule array, applied to all vector layers.
+     * 样式配置：全局 PaintRule 数组，应用于所有矢量图层 
      */
-    style: StyleRule[];
+    paint: PaintRule[];
     // Physical size of tile in Three.js world (e.g., 256 or 1)
     // 瓦片在 Three.js 世界中的物理尺寸（例如 256 或 1）
     tileSize?: number;
@@ -56,7 +56,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
 
     private readonly TILE_SIZE: number;
     private readonly EXTENT: number;
-    public style: StyleRule[];
+    public paint: PaintRule[];
 
     /**
      * Store Features corresponding to each tile for lifecycle management and updates.
@@ -78,7 +78,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         this.EXTENT = options.extent ?? 4096;
         // Initialize as array
         // 初始化为数组
-        this.style = options.style || [];
+        this.paint = options.paint || [];
 
         // Ensure _onMapUpdate 'this' binding is correct
         // 确保 _onMapUpdate 的 this 指向正确
@@ -129,12 +129,12 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
 
         // this._removeFeaturesByTileKey(tileKey);
 
-        // Check basic conditions and style configuration
+        // Check basic conditions and paint configuration
         // 检查基本条件和样式配置
-        if (!vectorData || !vectorData.layers || !map || this.style.length === 0) return;
+        if (!vectorData || !vectorData.layers || !map || this.paint.length === 0) return;
 
         const newFeatures: Feature[] = [];
-        const globalStyleRules = this.style; // Get global style rules array 获取全局样式规则数组
+        const globalPaintRules = this.paint; // Get global paint rules array 获取全局样式规则数组
 
         Object.keys(vectorData.layers).forEach(layerName => {
             const vectorLayer = vectorData.layers[layerName];
@@ -156,20 +156,20 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
 
                 // console.log(`Creating feature ${layerName}`, rawFeature);
 
-                let matchedStyleConfig: StyleConfig | null = null;
+                let matchedPaintConfig: PaintConfig | null = null;
 
-                // Iterate through global style rules array, attempt to match
+                // Iterate through global paint rules array, attempt to match
                 // 遍历全局样式规则数组，尝试匹配
-                for (const rule of globalStyleRules) {
+                for (const rule of globalPaintRules) {
                     if (this._evaluateFilter(rule.filter, rawFeature.properties, layerName, rawFeature.geometry.type)) {
-                        matchedStyleConfig = rule.style;
+                        matchedPaintConfig = rule.paint;
                         break;
                     }
                 }
 
-                // If matching style found
+                // If matching paint found
                 // 如果找到匹配的样式
-                if (matchedStyleConfig) {
+                if (matchedPaintConfig) {
 
                     const tileData: FeatureTileData = {
                         isVectorTile: true,
@@ -185,15 +185,15 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                     const feature = this._createFeatureInstance(
                         rawFeature.geometry,
                         rawFeature.geometry.type,
-                        matchedStyleConfig,
+                        matchedPaintConfig,
                         rawFeature.properties
                     );
                     // console.log(feature, 'Created feature')
                     if (feature) {
-                        // Inject tile data and style
+                        // Inject tile data and paint
                         // 注入瓦片数据和样式
                         feature.userData.tileData = tileData;
-                        feature.style = Style.create(matchedStyleConfig);
+                        feature.paint = Paint.create(matchedPaintConfig);
 
                         // Add Feature to current Layer (OverlayLayer)
                         // 将 Feature 添加到当前 Layer (OverlayLayer)
@@ -288,14 +288,14 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      * Create corresponding Feature instance based on GeoJSON type.
      * 根据 GeoJSON 类型创建对应的 Feature 实例
      */
-    private _createFeatureInstance(geometry: any, type: string, style: any, properties: any): Feature | null {
+    private _createFeatureInstance(geometry: any, type: string, paint: any, properties: any): Feature | null {
         const dummyGeometry = geometry;
         const options = {
             geometry: {
                 ismvt: true,
                 ...dummyGeometry
             },
-            style: style,
+            paint: paint,
             userData: properties
         };
         // 1 = Point, 2 = LineString, 3 = Polygon
@@ -315,7 +315,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         }
     }
 
-    // --- Lifecycle, Style and Update ---
+    // --- Lifecycle, Paint and Update ---
     // --- 生命周期、样式和更新 ---
 
     public setFeatureFilter(filter: (feature: any) => boolean): void {

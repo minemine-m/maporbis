@@ -1,7 +1,7 @@
 import { Vector3 } from "three";
 import { PointOptions, Point } from "./Point";
 import { _createClouds } from "../utils/createobject";
-import { Style } from "../style";
+import { Paint } from "../style";
 
 /**
  * Cloud feature configuration options.
@@ -118,7 +118,7 @@ export class ICloud extends Point {
      * 
      * @private
      */
-    async _createObject(style: Style): Promise<any> {
+    async _createObject(paint: Paint): Promise<any> {
         switch (style.config.type) {
             case "cloud":
                 return _createClouds(style.config, this._worldCoordinates as Vector3);

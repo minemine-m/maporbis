@@ -2,7 +2,7 @@ import { Object3D, Vector3 } from 'three';
 import { LineOptions, Line } from './Line';
 import { _createBasicLine, _createFlowLine, _createArrowLine, _createFlowTextureLine } from '../utils/createobject';
 import { Line2 } from 'three-stdlib';
-import { Style } from '../style';
+import { Paint } from '../style';
 
 /**
  * LineString feature configuration options.
@@ -156,7 +156,7 @@ export class LineString extends Line {
      * 当前支持样式类型：
      * - 'basic-line': 基础线样式
      */
-    async _createObject(style: Style): Promise<Object3D> {
+    async _createObject(paint: Paint): Promise<Object3D> {
         switch (style.config.type) {
             case 'basic-line':
                 return _createBasicLine(style.config, this._vertexPoints);

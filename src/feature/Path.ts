@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { Feature, FeatureOptions } from './Feature';
 import { LineString as GeoJSONLineString, MultiLineString as GeoJSONMultiLineString } from 'geojson';
-import { Coordinate } from '../types';
+import { LngLatLike } from '../types';
 
 /**
  * Path feature configuration options.
@@ -25,7 +25,7 @@ export type PathOptions = FeatureOptions & {
  * @description
  * Represents a path feature in the 3D scene, inheriting from Feature class.
  * Provides basic functionality for path features, including:
- * - Coordinate transformation
+ * - LngLatLike transformation
  * - Geometry creation
  * 
  * 表示3D场景中的路径要素，继承自Feature类
@@ -50,7 +50,7 @@ export abstract class Path extends Feature {
     }
 
     /**
-     * Coordinate transformation method.
+     * LngLatLike transformation method.
      * 坐标转换方法
      * 
      * @returns Transformed coordinate array
@@ -79,7 +79,7 @@ export abstract class Path extends Feature {
         // Process LineString type
         // 处理线类型 (LineString)
         if (geometry.type === 'LineString') {
-            const coordinates = geometry.coordinates as Coordinate[];
+            const coordinates = geometry.coordinates as LngLatLike[];
             return coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
                 return map ? map.projectToWorld(vec) : vec;
@@ -89,7 +89,7 @@ export abstract class Path extends Feature {
         // Process MultiLineString or Polygon type
         // 处理多线类型 (MultiLineString) 或面类型 (Polygon)
         if (geometry.type === 'MultiLineString' || geometry.type === 'Polygon') {
-            const coordinates = geometry.coordinates as Coordinate[][];
+            const coordinates = geometry.coordinates as LngLatLike[][];
             return coordinates.map(line =>
                 line.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
@@ -101,7 +101,7 @@ export abstract class Path extends Feature {
         // Process MultiPolygon type
         // 处理多多边形类型 (MultiPolygon)
         if (geometry.type === 'MultiPolygon') {
-            const coordinates = geometry.coordinates as Coordinate[][][];
+            const coordinates = geometry.coordinates as LngLatLike[][][];
             return coordinates.map(polygon =>
                 polygon.map(ring =>
                     ring.map(coord => {

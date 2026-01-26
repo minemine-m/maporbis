@@ -31,8 +31,8 @@ export interface ILightConfig {
 }
 
 /**
- * Internal scene light manager for Viewer class.
- * Viewer类的内部场景光照管理器
+ * Internal scene light manager for SceneRenderer class.
+ * SceneRenderer类的内部场景光照管理器
  * 
  * @description
  * Manages ambient light, directional lights, and auxiliary lights for the 3D scene.

@@ -5,13 +5,13 @@ import { BaseMixin, EventMixin } from "../core/mixins";
 import { requireParam } from "../utils/validate";
 import { OverlayLayer } from '../layer/OverlayLayer';
 import { Layer } from '../layer/Layer';
-import { Style, StyleInput } from '../style/index';
+import { Paint, PaintInput } from '../style/index';
 import { v4 as uuidv4 } from 'uuid';
 import Handlerable from '../handler/Handlerable';
 import { ICollidable } from '../core/collision/interfaces/ICollidable';
 import { CollisionType, CollisionReason, IBoundingBox } from '../core/collision/types/CollisionTypes';
 import { FeatureDragHandler } from '../handler/drag/FeatureDragHandler';
-import { FeatureStyleManager, FeatureBloomHelper } from './internal';
+import { FeaturePaintManager, FeatureBloomHelper } from './internal';
 
 import type { Map } from '../map';
 
@@ -45,7 +45,7 @@ export type FeatureOptions = {
      * Style configuration.
      * 样式配置
      */
-    style?: StyleInput;
+    paint?: PaintInput;
     /**
      * Custom user data.
      * 自定义数据
@@ -132,10 +132,10 @@ export abstract class Feature extends Handlerable(
     _layer?: Layer;
 
     /**
-     * Current style.
+     * Current paint.
      * 当前样式
      */
-    _style?: Style;
+    _paint?: Paint;
     /**
      * Feature ID.
      * 要素ID
@@ -143,10 +143,10 @@ export abstract class Feature extends Handlerable(
     _id: string;
     
     /**
-     * Internal style manager.
+     * Internal paint manager.
      * 内部样式管理器
      */
-    private _styleManager: FeatureStyleManager;
+    private _paintManager: FeaturePaintManager;
     
     /**
      * Internal bloom helper.
@@ -188,12 +188,12 @@ export abstract class Feature extends Handlerable(
         }
         
         // Initialize internal managers
-        this._styleManager = new FeatureStyleManager(
+        this._paintManager = new FeaturePaintManager(
             () => this._renderObject,
             () => this._ensureRenderObjectInScene()
         );
-        this._styleManager.setOnStyleApplied((style) => {
-            this._onStyleApplied(style);
+        this._paintManager.setOnPaintApplied((paint) => {
+            this._onPaintApplied(paint);
         });
         
         this._bloomHelper = new FeatureBloomHelper();
@@ -204,8 +204,8 @@ export abstract class Feature extends Handlerable(
                 JSON.parse(JSON.stringify(options.userData))
             );
         }
-        if (options.style) {
-            this.setStyle(options.style);
+        if (options.paint) {
+            this.setPaint(options.paint);
         }
         // Register handler
         this.addHandler('draggable', FeatureDragHandler);
@@ -243,13 +243,13 @@ export abstract class Feature extends Handlerable(
     }
 
     /**
-     * Called when style is successfully applied.
+     * Called when paint is successfully applied.
      * 样式成功应用后调用
      */
-    private _onStyleApplied(style: Style): void {
+    private _onPaintApplied(paint: Paint): void {
         // Apply bloom configuration if present
-        if (style.config.bloom !== undefined) {
-            this._bloomHelper.applyStyleBloom(style.config.bloom);
+        if (paint.config.bloom !== undefined) {
+            this._bloomHelper.applyStyleBloom(paint.config.bloom);
             this._bloomHelper.applyBloomToObject(this._renderObject);
         }
     }
@@ -259,7 +259,7 @@ export abstract class Feature extends Handlerable(
      * 初始化几何体（模板方法）
      * 
      * @description
-     * Calls _buildRenderObject implemented by subclasses and processes pending style changes.
+     * Calls _buildRenderObject implemented by subclasses and processes pending paint changes.
      * 该方法会调用子类实现的_buildRenderObject方法，并处理积压的样式变更
      * 
      * @returns Promise<void>
@@ -269,7 +269,7 @@ export abstract class Feature extends Handlerable(
         this._isGeometryInitializing = true;
         try {
             await this._buildRenderObject();
-            this._styleManager._tryProcessStyleQueue();
+            this._paintManager._tryProcessPaintQueue();
         } finally {
             this._isGeometryInitializing = false;
         }
@@ -291,25 +291,38 @@ export abstract class Feature extends Handlerable(
     }
 
     /**
-     * Set style.
+     * Set paint.
      * 设置样式
      * 
-     * @param input - Style configuration or style instance. 样式配置或样式实例
+     * @param input - Paint configuration or paint instance. 样式配置或样式实例
      * @returns Current feature instance (supports method chaining). 当前要素实例（支持链式调用）
      */
-    setStyle(input: StyleInput): this {
-        this._style = this._styleManager.enqueueStyle(input);
+    setPaint(input: PaintInput): this {
+        this._paint = this._paintManager.enqueuePaint(input);
         return this;
     }
 
     /**
-     * Get current style.
+     * Get current paint.
      * 获取当前样式
      * 
-     * @returns Current style or undefined. 当前样式或undefined
+     * @returns Current paint or undefined. 当前样式或undefined
      */
-    getStyle(): Style | undefined {
-        return this._style;
+    getPaint(): Paint | undefined {
+        return this._paint;
+    }
+
+    /**
+     * Paint property getter/setter for convenience.
+     */
+    get paint(): Paint | undefined {
+        return this._paint;
+    }
+
+    set paint(value: PaintInput | undefined) {
+        if (value) {
+            this.setPaint(value);
+        }
     }
 
 
@@ -403,7 +416,7 @@ export abstract class Feature extends Handlerable(
         }
         // Trigger event notification
         // 触发事件通知
-        this.trigger('positionchange');
+        this.fire('move');
     }
 
     /**
@@ -553,7 +566,7 @@ export abstract class Feature extends Handlerable(
      */
     getCollisionPriority(): number {
         return this.userData.collisionPriority ??        // 用户数据优先级
-            this._style?.config.collisionPriority ??  // 样式配置优先级  
+            this._paint?.config.collisionPriority ??  // 样式配置优先级  
             this._collisionConfig.priority;           // 默认优先级
     }
 
@@ -768,7 +781,7 @@ export abstract class Feature extends Handlerable(
         return {
             featureType: this.constructor.name,
             userData: this.userData,
-            styleConfig: this._style?.config
+            paintConfig: this._paint?.config
         };
     }
 

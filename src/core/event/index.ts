@@ -110,15 +110,16 @@ export class EventClass {
   }
 
   /**
+   * Fire an event.
    * 触发事件
-   * @param type 事件类型
-   * @param data 要传递的事件数据（可选）
-   * @returns 当前实例（支持链式调用）
+   * @param type Event type. 事件类型
+   * @param data Event data to pass (optional). 要传递的事件数据（可选）
+   * @returns Current instance (supports chaining). 当前实例（支持链式调用）
    * 
    * @example
-   * event.trigger('update', { time: Date.now() });
+   * event.fire('update', { time: Date.now() });
    */
-  trigger(type: string, data?: any): this {
+  fire(type: string, data?: any): this {
     const event = { type, data };
     (this._dispatcher as any).dispatchEvent(event);
     return this;

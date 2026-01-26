@@ -8,8 +8,8 @@ import {
     Group, 
     Camera
 } from "three";
-import { Viewer, ViewerOptions, FlyToOptions, FlyToPointOptions } from "../viewer";
-import { Coordinate } from "../types";
+import { SceneRenderer, SceneRendererOptions, FlyToOptions, FlyToPointOptions } from "../viewer";
+import { LngLatLike } from "../types";
 import { requireParam, requireProp } from "../utils/validate";
 import { BaseMixin, EventMixin } from "../core/mixins";
 import { Layer } from "../layer/Layer";
@@ -67,10 +67,10 @@ export type MapOptionsType = {
  */
 export type MapOptions = {
     /**
-     * Viewer configuration options.
-     * 查看器配置选项
+     * SceneRenderer configuration options.
+     * 渲染器配置选项
      */
-    viewer?: ViewerOptions;
+    renderer?: SceneRendererOptions;
     /**
      * Tile map parameter configuration.
      * 瓦片地图参数配置
@@ -80,7 +80,7 @@ export type MapOptions = {
      * Map center coordinates (Required).
      * 地图中心点坐标（必填项）
      */
-    center: Coordinate;
+    center: LngLatLike;
     /**
      * Initial zoom level (View level).
      * 初始缩放级别（视图级别）
@@ -104,9 +104,9 @@ export type MapOptions = {
  * 地图事件类型定义
  */
 interface EventMap {
-    loaded: { timestamp?: any; targrt?: Map; listened?: boolean }; // Load event parameters 加载事件参数
+    load: { timestamp?: any; target?: Map; listened?: boolean }; // Load event parameters 加载事件参数
     zoomstart?: { from: number; to: number };
-    zooming?: { from: number; to: number };
+    zoom?: { from: number; to: number };
     zoomend?: { from: number; to: number };
 }
 
@@ -142,10 +142,10 @@ export class Map extends Handlerable(
     )
 ) {
     /**
-     * Viewer instance.
-     * 查看器实例
+     * SceneRenderer instance.
+     * 场景渲染器实例
      */
-    viewer: Viewer;
+    sceneRenderer: SceneRenderer;
     
     /**
      * Map root object
@@ -277,7 +277,7 @@ export class Map extends Handlerable(
 
      * 地图中心点坐标
      */
-    public readonly center: Coordinate;
+    public readonly center: LngLatLike;
     /**
      * Projected map center coordinates.
      * 投影后的地图中心点坐标
@@ -298,7 +298,7 @@ export class Map extends Handlerable(
      * 事件映射表
      */
     private _eventState: EventMap = {
-        loaded: { listened: false }, // Load event parameters 加载事件参数
+        load: { listened: false }, // Load event parameters 加载事件参数
     };
     /**
      * Canvas manager instance.
@@ -386,10 +386,10 @@ export class Map extends Handlerable(
         for (const path of configPaths) {
             requireProp<string>(options, path)
         }
-        // Default options (Only effective for optional property viewer)
-        // 默认配置（仅对可选属性 viewer 生效）
-        const defaultOptions: Pick<Required<MapOptions>, "viewer"> = {
-            viewer: {
+        // Default options (Only effective for optional property renderer)
+        // 默认配置（仅对可选属性 renderer 生效）
+        const defaultOptions: Pick<Required<MapOptions>, "renderer"> = {
+            renderer: {
                 antialias: true,
                 stencil: true,
                 logarithmicDepthBuffer: true,
@@ -400,7 +400,7 @@ export class Map extends Handlerable(
         // 合并配置
         const opts = {
             ...options,
-            viewer: { ...defaultOptions.viewer, ...options.viewer },
+            renderer: { ...defaultOptions.renderer, ...options.renderer },
 
         };
 
@@ -415,18 +415,18 @@ export class Map extends Handlerable(
         registerDefaultLoaders();
 
         this.center = this.options.center;
-        this.viewer = new Viewer(container, { ...opts.viewer, map: this });
+        this.sceneRenderer = new SceneRenderer(container, { ...opts.renderer, map: this });
 
         // Default enable shadow
         // 默认开启阴影
         this._rootGroup.receiveShadow = true;
         this._rootGroup.up.set(0, 0, 1);
         this._rootGroup.rotation.x = -Math.PI / 2;
-        this.viewer.scene.add(this._rootGroup);
+        this.sceneRenderer.scene.add(this._rootGroup);
         
         // Update default ground position now that rootGroup transform is finalized
         // 更新默认地面位置，此时 rootGroup 变换已完成
-        this.viewer._updateDefaultGroundPosition();
+        this.sceneRenderer._updateDefaultGroundPosition();
         // Map center (Target point) world coordinates
         // 地图中心（目标点）世界坐标
         const centerWorldPos = this.projectToWorld(new Vector3(this.center[0], this.center[1], 0));
@@ -434,39 +434,36 @@ export class Map extends Handlerable(
         
         // Register update loop
         // 注册更新循环
-        this.viewer.on('update', () => {
-             this.update(this.viewer.camera);
+        this.sceneRenderer.on('update', () => {
+             this.update(this.sceneRenderer.camera);
         });
 
         // ========= Use same parameter semantics as flyToPoint, initialize camera =========
         // ========= 使用与 flyToPoint 同一套参数语义，初始化相机 =========
-        const viewerOpts = this.options.viewer ?? {};
+        const rendererOpts = this.options.renderer ?? {};
 
-        this.viewer.flyToPoint({
+        this.sceneRenderer.flyToPoint({
             center: this.center,
             distance: typeof this.center[2] === 'number' ? this.center[2] : undefined,
-            // Angle prioritizes Deg, then fallback to Angle, then fallback to current controls
-            // 角度同样优先用 Deg，再 fallback 到 Angle，再 fallback 到当前 controls
-            polarDeg: typeof viewerOpts.polarDeg === 'number' ? viewerOpts.polarDeg : undefined,
-            azimuthDeg: typeof viewerOpts.azimuthDeg === 'number' ? viewerOpts.azimuthDeg : undefined,
-            polarAngle: viewerOpts.polarAngle,
-            azimuthAngle: viewerOpts.azimuthAngle,
+            // Use pitch/bearing in degrees
+            pitch: typeof rendererOpts.pitch === 'number' ? rendererOpts.pitch : undefined,
+            bearing: typeof rendererOpts.bearing === 'number' ? rendererOpts.bearing : undefined,
             duration: 0,
             curvePath: false
         });
-        // const controls = this.viewer.controls as any;
-        this._minZoomDistance = this.viewer.controls.minDistance;
-        this._maxZoomDistance = this.viewer.controls.maxDistance;
+        // const controls = this.sceneRenderer.controls as any;
+        this._minZoomDistance = this.sceneRenderer.controls.minDistance;
+        this._maxZoomDistance = this.sceneRenderer.controls.maxDistance;
 
         const initialDistance = this._getCameraDistance();
         this._lastCameraDistance = initialDistance;
-        // this.viewer.camera.position.set(this.centerWorldPos.x, 100, this.centerWorldPos.z);
+        // this.sceneRenderer.camera.position.set(this.centerWorldPos.x, 100, this.centerWorldPos.z);
 
         this._layerGroup = new LayerContainer();
-        this.viewer.scene.add(this._layerGroup);
+        this.sceneRenderer.scene.add(this._layerGroup);
         // === Initialize zoom mapping: Based on control distance limits ===
         // === 初始化缩放映射：基于控制器的距离限制 ===
-        const controls = this.viewer.controls as any;
+        const controls = this.sceneRenderer.controls as any;
         this._minZoomDistance = typeof controls?.minDistance === 'number' ? controls.minDistance : 500;
         this._maxZoomDistance = typeof controls?.maxDistance === 'number' ? controls.maxDistance : 80000;
 
@@ -493,7 +490,7 @@ export class Map extends Handlerable(
         this._zoomStartValue = initialTileZoom;
         // Initialize collision engine
         // 初始化碰撞引擎
-        this._collisionEngine = new CollisionEngine(this.viewer.renderer, {
+        this._collisionEngine = new CollisionEngine(this.sceneRenderer.renderer, {
             padding: 8,
             updateInterval: 16, // ~60fps
             animationDuration: 200,
@@ -507,7 +504,7 @@ export class Map extends Handlerable(
 
         // Listen to control changes: update zoom, and drive collision and zoom events
         // 监听控制器变化：更新 zoom，并驱动碰撞与缩放事件
-        this.on('control-change', debounce((evt: any) => {
+        this.on('viewchange', debounce((evt: any) => {
             // Safety check: if object destroyed, return directly
         // 安全检查：如果对象已销毁，直接返回
         if (!this._rootGroup || !this._collisionEngine) {
@@ -569,12 +566,12 @@ export class Map extends Handlerable(
                 if (!this._isZooming) {
                     this._isZooming = true;
                     this._zoomStartValue = this._lastZoomForControls;
-                    this.trigger('zoomstart', {
+                    this.fire('zoomstart', {
                         from: this._zoomStartValue,
                         to: newZoom
                     });
                 } else {
-                    this.trigger('zooming', {
+                    this.fire('zoom', {
                         from: this._zoomStartValue,
                         to: newZoom
                     });
@@ -590,11 +587,11 @@ export class Map extends Handlerable(
 
         // When control interaction ends, if actual zoom happened, trigger zoomend
         // 控制器交互结束时，如果本次确实有缩放，则触发 zoomend
-        this.on('control-end', () => {
+        this.on('moveend', () => {
             if (!this._isZooming) return;
 
             this._isZooming = false;
-            this.trigger('zoomend', {
+            this.fire('zoomend', {
                 from: this._zoomStartValue,
                 to: this.getZoom()    // View zoom at end 结束时的视图 zoom
             });
@@ -759,7 +756,7 @@ export class Map extends Handlerable(
 
         // Sync limit control physical zoom distance (Still used for setZoom camera pushing)
         // 同步限制控制器的物理缩放距离（仍然用于 setZoom 推相机）
-        const controls = this.viewer.controls as any;
+        const controls = this.sceneRenderer.controls as any;
         if (controls) {
             const minDist = this._computeDistanceFromZoom(this._maxZoom);
             const maxDist = this._computeDistanceFromZoom(this._minZoom);
@@ -803,9 +800,9 @@ export class Map extends Handlerable(
         const prevZoom = this.getZoom();   // Previous view zoom 之前的视图 zoom
         const distance = this._computeDistanceFromZoom(targetZoom);
 
-        const controls = this.viewer.controls as any;
+        const controls = this.sceneRenderer.controls as any;
         const target = controls?.target ?? this.prjcenter;
-        const camera = this.viewer.camera;
+        const camera = this.sceneRenderer.camera;
 
         // Push/Pull camera along current view direction
         // 沿当前视线方向推拉相机
@@ -825,7 +822,7 @@ export class Map extends Handlerable(
 
         // Programmatic set zoom, emit zoomend event directly (View Zoom)
         // 编程式设置 zoom，直接发一个 zoomend 事件（视图 zoom）
-        this.trigger('zoomend', {
+        this.fire('zoomend', {
             from: prevZoom,
             to: this.getZoom()
         });
@@ -909,14 +906,14 @@ export class Map extends Handlerable(
         }
 
         setTimeout(() => {
-            const eventData: EventMap["loaded"] = {
+            const eventData: EventMap["load"] = {
                 timestamp: formatDate(),
-                targrt: this
+                target: this
             };
-            this._eventState["loaded"] = {
+            this._eventState["load"] = {
                 listened: true
             };
-            this.trigger("loaded", eventData);
+            this.fire("load", eventData);
         }, 0);
     }
 
@@ -934,15 +931,15 @@ export class Map extends Handlerable(
     private _updateDefaultGroundVisibility(): void {
         // Guard: viewer may not be initialized yet during constructor
         // 守卫：在构造函数期间 viewer 可能尚未初始化
-        if (!this.viewer) {
+        if (!this.sceneRenderer) {
             return;
         }
         
         const hasTileLayers = this._layers.size > 0;
         if (hasTileLayers) {
-            this.viewer.hideDefaultGround();
+            this.sceneRenderer.hideDefaultGround();
         } else {
-            this.viewer.showDefaultGround();
+            this.sceneRenderer.showDefaultGround();
         }
     }
 
@@ -955,9 +952,9 @@ export class Map extends Handlerable(
      */
     public setDefaultGroundVisible(visible: boolean): this {
         if (visible) {
-            this.viewer.showDefaultGround();
+            this.sceneRenderer.showDefaultGround();
         } else {
-            this.viewer.hideDefaultGround();
+            this.sceneRenderer.hideDefaultGround();
         }
         return this;
     }
@@ -969,7 +966,7 @@ export class Map extends Handlerable(
      * @returns Whether the ground is visible. 地面是否可见
      */
     public isDefaultGroundVisible(): boolean {
-        return this.viewer.isDefaultGroundVisible();
+        return this.sceneRenderer.isDefaultGroundVisible();
     }
 
     /**
@@ -1140,7 +1137,7 @@ export class Map extends Handlerable(
 
             const vtrenderer = new VectorTileRenderLayer(layer.getId() + '-vtrender', {
                 altitude: layer.getAltitude(),
-                style: layer.getStyle(),
+                paint: layer.getPaint(),
                 collision: layer._collision,
                 // Let render layer inherit vector tile layer's zIndex / depthOffset
                 // 让渲染层继承矢量瓦片图层的 zIndex / depthOffset
@@ -1251,7 +1248,7 @@ export class Map extends Handlerable(
      *          地图容器实例
      */
     getContainer() {
-        return this.viewer.container
+        return this.sceneRenderer.container
     }
     /**
      * Get renderer.
@@ -1262,7 +1259,7 @@ export class Map extends Handlerable(
      */
 
     getRenderer() {
-        return this.viewer.renderer;
+        return this.sceneRenderer.renderer;
     }
     /**
      * Get camera.
@@ -1272,7 +1269,7 @@ export class Map extends Handlerable(
      *          相机实例
      */
     getCamera() {
-        return this.viewer.camera;
+        return this.sceneRenderer.camera;
     }
     /**
      * Find all Features at a specific position.
@@ -1352,10 +1349,10 @@ export class Map extends Handlerable(
      * 
      * @returns Coordinate [lng, lat, height]
      */
-    getCenter(): Coordinate {
+    getCenter(): LngLatLike {
         // controls.target always points to world coordinates of current view center
         // controls.target 始终指向当前视图中心的世界坐标
-        const worldCenter = this.viewer.controls.target.clone();
+        const worldCenter = this.sceneRenderer.controls.target.clone();
         const geo = this.unprojectFromWorld(worldCenter); // Vector3(lng, lat, z)
         return [geo.x, geo.y, geo.z];
     }
@@ -1386,16 +1383,16 @@ export class Map extends Handlerable(
     get isInteracting() {
         // Safety check: return false if viewer destroyed
         // 安全检查：如果viewer已销毁，返回false
-        if (!this.viewer) return false;
-        return this.viewer.isInteracting;
+        if (!this.sceneRenderer) return false;
+        return this.sceneRenderer.isInteracting;
     }
     /**
      * Internal tool: Get distance from current camera to target point.
      * 内部工具：获取当前相机到目标点的距离
      */
     private _getCameraDistance(): number {
-        const controls = this.viewer.controls as any;
-        const cam = this.viewer.camera;
+        const controls = this.sceneRenderer.controls as any;
+        const cam = this.sceneRenderer.camera;
         const target = controls?.target ?? this.prjcenter;
 
         if (controls && typeof controls.getDistance === "function") {
@@ -1410,7 +1407,7 @@ export class Map extends Handlerable(
      * @returns {Object} `{ min: number, max: number }`
      */
     private _getViewZoomRange(): { min: number; max: number } {
-        const controls = this.viewer.controls as any;
+        const controls = this.sceneRenderer.controls as any;
 
         // Actual zoomable distance range of controls
         // 控制器实际可缩放的距离范围
@@ -1456,7 +1453,7 @@ export class Map extends Handlerable(
      *                飞行参数对象
      */
     public flyTo(flyConfig: FlyToOptions) {
-        this.viewer.flyToAdvanced(flyConfig);
+        this.sceneRenderer.flyToAdvanced(flyConfig);
     }
 
     /**
@@ -1467,7 +1464,7 @@ export class Map extends Handlerable(
      *                飞行参数对象
      */
     public flyToPoint(flyConfig: FlyToPointOptions) {
-        this.viewer.flyToPoint(flyConfig);
+        this.sceneRenderer.flyToPoint(flyConfig);
     }
 
     /**
@@ -1500,7 +1497,7 @@ export class Map extends Handlerable(
 
             // 2. Remove all event listeners (Critical step to avoid triggering events during cleanup)
             // 2. 移除所有事件监听器（关键步骤，避免后续操作触发事件）
-            const eventTypes = ['control-change', 'control-start', 'control-end', 'zoomstart', 'zooming', 'zoomend', 'loaded'];
+            const eventTypes = ['viewchange', 'movestart', 'moveend', 'zoomstart', 'zoom', 'zoomend', 'load'];
             eventTypes.forEach(eventType => {
                 const listeners = (this as any)._listenerMap?.get(eventType);
                 if (listeners) {
@@ -1550,10 +1547,10 @@ export class Map extends Handlerable(
 
             // 8. Destroy viewer (Most important step)
             // 8. 销毁viewer（最重要的一步）
-            if (this.viewer) {
-                this.viewer.destroy();
+            if (this.sceneRenderer) {
+                this.sceneRenderer.destroy();
                 // @ts-ignore
-                this.viewer = null;
+                this.sceneRenderer = null;
                 // console.log('✅ Viewer destroyed Viewer已销毁');
             }
 

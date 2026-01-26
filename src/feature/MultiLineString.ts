@@ -2,7 +2,7 @@ import { Group, Mesh } from 'three';
 import { LineOptions, Line } from './Line';
 import { _createBasicLine, _createFlowLine, _createArrowLine, _createFlowTextureLine } from '../utils/createobject';
 import { Line2 } from 'three-stdlib';
-import { Style } from '../style';
+import { Paint } from '../style';
 import { MultiLineString as GeoJSONMultiLineString } from 'geojson';
 import { Vector3 } from 'three';
 
@@ -135,7 +135,7 @@ export class MultiLineString extends Line {
      * 
      * @private
      */
-    private async _createLineObject(style: Style, vertexPoints: number[]): Promise<Line2 | Mesh> {
+    private async _createLineObject(paint: Paint, vertexPoints: number[]): Promise<Line2 | Mesh> {
         switch (style.config.type) {
             case 'basic-line':
                 return _createBasicLine(style.config, vertexPoints);

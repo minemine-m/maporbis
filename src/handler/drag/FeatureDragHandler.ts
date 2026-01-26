@@ -49,13 +49,14 @@ export class FeatureDragHandler extends Handler {
         this._isDragging = true;
         this._lastCoord = e.coordinate; // 记录起始点击的经纬度
 
+        // Disable map panning to prevent interference
         // 禁止地图平移，防止干扰
-        map.viewer.config('draggable', false);
+        map.viewer.configure('draggable', false);
 
         map.on('mousemove', this._boundOnMouseMove);
         map.on('mouseup', this._boundOnMouseUp);
 
-        this.target.trigger('dragstart', e);
+        this.target.fire('dragstart', e);
     }
 
     private _onMouseMove(e: any) {
@@ -71,12 +72,12 @@ export class FeatureDragHandler extends Handler {
         this._translate(dx, dy);
 
         this._lastCoord = currentCoord;
-        this.target.trigger('dragging', e);
+        this.target.fire('dragging', e);
     }
 
     private _onMouseUp(e: any) {
         this._stopDrag();
-        this.target.trigger('dragend', e);
+        this.target.fire('dragend', e);
     }
 
     /**
@@ -87,7 +88,7 @@ export class FeatureDragHandler extends Handler {
         this._isDragging = false;
         const map = this.target.getMap();
         if (map) {
-            map.viewer.config('draggable', true); // 恢复地图平移
+            map.viewer.configure('draggable', true); // Restore map panning 恢复地图平移
             map.off('mousemove', this._boundOnMouseMove);
             map.off('mouseup', this._boundOnMouseUp);
         }

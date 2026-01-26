@@ -1,6 +1,6 @@
 import { Object3D } from 'three';
 import { _createBasePolygon, _createExtrudedPolygon, _createWaterSurface, _createBaseWaterSurface } from '../utils/createobject';
-import { Style } from '../style';
+import { Paint } from '../style';
 import { Surface, SurfaceOptions } from './Surface';
 import { Polygon as GeoJSONPolygon, MultiPolygon as GeoJSONMultiPolygon } from 'geojson';
 import { Map } from '../map';
@@ -183,7 +183,7 @@ export class Polygon extends Surface {
      * - 'water': 水面效果
      * - 'base-water': 基础水面效果
      */
-    async _createObject(style: Style): Promise<Object3D> {
+    async _createObject(paint: Paint): Promise<Object3D> {
         switch (style.config.type) {
             case 'basic-polygon':
                 return _createBasePolygon(style.config, this._vertexPoints);

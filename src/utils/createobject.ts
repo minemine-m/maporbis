@@ -5,7 +5,7 @@ import {
 import { Line2, LineMaterial, LineGeometry, Water } from 'three-stdlib';
 import { ExternalModelLoader } from '../loaders/ExternalModelLoader';
 import { Map } from '../map';
-import { BasicPointStyle, BaseLineStyle, IconPointStyle, ModelStyle, BasePolygonStyle, ExtrudeStyle, WaterStyle, CloudStyle, LabelStyle, IconLabelStyle, LightStyle, Style, FlowLineStyle, ArrowLineStyle, FlowTextureLineStyle } from '../style';
+import { CirclePaint, LinePaint, IconPaint, ModelPaint, FillPaint, ExtrusionPaint, WaterPaint, CloudPaint, TextPaint, SymbolPaint, LightPaint, Paint, FlowTubePaint, ArrowPaint, FlowTexturePaint } from '../style';
 import { Cloud as vanillaCloud } from "@pmndrs/vanilla";
 
 /**
@@ -56,7 +56,7 @@ interface LabelSettings {
  * @returns 点要素对象
   * @category Utils
  */
-export function _createBasicPoint(config: BasicPointStyle, position: Vector3): Points {
+export function _createBasicPoint(config: CirclePaint, position: Vector3): Points {
     const geometry = new BufferGeometry();
     geometry.setAttribute('position', new BufferAttribute(new Float32Array([0, 0, 0]), 3));
 
@@ -97,11 +97,11 @@ export function _createBasicPoint(config: BasicPointStyle, position: Vector3): P
  * @param position 点位置
  * @returns Promise<Sprite> 图标精灵对象
  */
-export async function _createIconPoint(config: IconPointStyle, position: Vector3): Promise<Sprite> {
+export async function _createIconPoint(config: IconPaint, position: Vector3): Promise<Sprite> {
     // 尝试加载纹理，但不让异常向外抛出
     let texture: Texture | null = null;
     try {
-        texture = await Style._loadTexture(config.url);
+        texture = await Paint._loadTexture(config.url);
         texture.magFilter = LinearFilter;
         texture.minFilter = LinearMipmapLinearFilter;
         texture.colorSpace = SRGBColorSpace;
@@ -172,7 +172,7 @@ export async function _createIconPoint(config: IconPointStyle, position: Vector3
   * @category Utils
  */
 export function _createBasicLine(
-    config: BaseLineStyle,
+    config: LinePaint,
     positions: Vector3[] | number[] | Float32Array
 ): Line2 {
     // 统一坐标数组格式
@@ -222,7 +222,7 @@ export function _createBasicLine(
   * @category Utils
  */
 export function _createFlowLine(
-    config: FlowLineStyle,
+    config: FlowTubePaint,
     positions: Vector3[] | number[]
 ): Mesh {
     // 统一坐标数组格式
@@ -383,7 +383,7 @@ export function _createFlowLine(
   * @category Utils
  */
 export function _createArrowLine(
-    config: ArrowLineStyle,
+    config: ArrowPaint,
     positions: Vector3[] | number[]
 ): Mesh {
     // 统一坐标数组格式
@@ -630,7 +630,7 @@ export function _createArrowLine(
  * @returns 线状 Mesh
  */
 export async function _createFlowTextureLine(
-    config: FlowTextureLineStyle,
+    config: FlowTexturePaint,
     positions: Vector3[] | number[] | Float32Array
 ): Promise<Mesh> {
     // 统一坐标数组格式为 Vector3[] (此部分逻辑不变)
@@ -760,7 +760,7 @@ export async function _createFlowTextureLine(
     geometry.computeVertexNormals();
 
     // 加载流动纹理
-    const texture = await Style._loadTexture(config.flowTexture);
+    const texture = await Paint._loadTexture(config.flowTexture);
     texture.wrapS = RepeatWrapping;
     texture.wrapT = RepeatWrapping;
     // 关键修复5：设置各向异性过滤，提升纹理显示质量[8](@ref)
@@ -857,7 +857,7 @@ export async function _createFlowTextureLine(
  * @param position 模型位置
  * @returns Promise<Group> 模型组
  */
-export async function _createModel(style: ModelStyle, position: Vector3): Promise<Group> {
+export async function _createModel(style: ModelPaint, position: Vector3): Promise<Group> {
     const type = style.type || (style.url.toLowerCase().endsWith('.fbx') ? 'fbx' : 'gltf');
     const result = await ExternalModelLoader.getInstance().load({
         ...style,
@@ -875,7 +875,7 @@ export async function _createModel(style: ModelStyle, position: Vector3): Promis
   * @category Utils
  */
 export function _createBasePolygon(
-    config: BasePolygonStyle,
+    config: FillPaint,
     positions: number[]
 ): Mesh {
     const { geometry, center, avgY } = _createPolygonGeometry(positions);
@@ -910,7 +910,7 @@ export function _createBasePolygon(
     if (hasBorder) {
         const borderColor = config.borderColor ?? config.color ?? 0x000000;
 
-        const borderStyle: BaseLineStyle = {
+        const borderStyle: LinePaint = {
             type: "basic-line",
             color: borderColor,
             width: config.borderWidth,
@@ -953,7 +953,7 @@ export function _createBasePolygon(
   * @category Utils
  */
 export function _createExtrudedPolygon(
-    config: ExtrudeStyle,
+    config: ExtrusionPaint,
     flatPositions: number[]
 ): Mesh {
     const height = config.extrude?.height || 2000;
@@ -1049,7 +1049,7 @@ export function _createExtrudedPolygon(
   * @category Utils
  */
 export function _createWaterSurface(
-    config: WaterStyle,
+    config: WaterPaint,
     map: Map,
     vertices: number[]
 ): Water {
@@ -1144,14 +1144,14 @@ export function _createPolygonGeometry(
  * @returns Promise<Mesh> 水面网格
  */
 export async function _createBaseWaterSurface(
-    config: WaterStyle,
+    config: WaterPaint,
     vertices: number[],
 ): Promise<Mesh> {
     const { geometry, center, avgY } = _createPolygonGeometry(vertices);
 
     // 加载多层法线贴图
-    const normalMap1 = await Style._loadTexture(config.normalMap);
-    const normalMap2 = await Style._loadTexture(config.normalMap); // 可以用不同的法线贴图
+    const normalMap1 = await Paint._loadTexture(config.normalMap);
+    const normalMap2 = await Paint._loadTexture(config.normalMap); // 可以用不同的法线贴图
 
     normalMap1.wrapS = normalMap1.wrapT = RepeatWrapping;
     normalMap2.wrapS = normalMap2.wrapT = RepeatWrapping;
@@ -1225,7 +1225,7 @@ function noise(x: any) {
   * @category Utils
  */
 export function _createClouds(
-    config: CloudStyle, position: Vector3
+    config: CloudPaint, position: Vector3
 ) {
     config.color = new Color(config.hexcolor);
     if (config.boundstext) {
@@ -1245,7 +1245,7 @@ export function _createClouds(
  * @param position 文本位置
  * @returns Promise<Sprite> 文本精灵
  */
-export async function _createTextSprite(config: LabelStyle, position: Vector3): Promise<Sprite> {
+export async function _createTextSprite(config: TextPaint, position: Vector3): Promise<Sprite> {
     // 默认配置
     const textStyleConfig = {
         fontSizeDpi: 48,
@@ -1434,7 +1434,7 @@ export async function _createTextSprite(config: LabelStyle, position: Vector3): 
  * @returns Promise<Sprite> 文本精灵
  */
 export async function _createFixedSizeTextSprite(
-    config: LabelStyle,
+    config: TextPaint,
     position: Vector3,
     map: Map,
 ): Promise<Sprite> {
@@ -1643,7 +1643,7 @@ export async function _createFixedSizeTextSprite(
 /**
  * 创建带有图标和文本的Sprite标签
  */
-export async function _createIconLabelSprite(options: IconLabelStyle, position: Vector3): Promise<Sprite> {
+export async function _createIconLabelSprite(options: SymbolPaint, position: Vector3): Promise<Sprite> {
     // 1. 在这里统一处理默认值
     // 支持 size 或 iconSize 两种写法，保持和 _createIconPoint 入参习惯一致
     const rawIconSize = (options as any).size ?? options.iconSize;
@@ -2096,7 +2096,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 
 // 路灯 points
-export async function createLight(config: LightStyle, geometries: any, map: Map) {
+export async function createLight(config: LightPaint, geometries: any, map: Map) {
     // const sprite = createSprite({
     //     image: 'light.png',
     //     position: [0, 0],
@@ -2108,7 +2108,7 @@ export async function createLight(config: LightStyle, geometries: any, map: Map)
     const h = 1.5;
     const colGeometry = new CylinderGeometry(0.2, 0.2, h * 16, 12);
     const colMaterial = new MeshBasicMaterial({ color: config.color });
-    const texture = await Style._loadTexture(config.icon as string);
+    const texture = await Paint._loadTexture(config.icon as string);
     // const texture = await map.viewer.dataLoader.loadTexture("/threescene/resources/img/texture/effects/proceduralcity/lensflare2_alpha.png");
     const material = new PointsMaterial({
         // color: new THREE.Color(color).multiplyScalar(0.5),

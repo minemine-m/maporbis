@@ -1,5 +1,5 @@
 /**
- * @module Style
+ * @module Paint
  */
 import {
     Color, Object3D, Points, PointsMaterial,
@@ -12,10 +12,11 @@ import { _createBasicPoint, _createIconPoint, _createBasicLine } from '../utils/
 import { Feature } from '../feature/Feature';
 
 /**
+ * Base paint interface.
  * 基础样式接口
-  * @category Style
+ * @category Paint
  */
-export interface BaseStyle {
+export interface BasePaint {
     /** 是否可见 */
     visible?: boolean;
     /** 透明度 (0-1) */
@@ -42,11 +43,12 @@ export interface BaseStyle {
 }
 
 /**
+ * Circle paint configuration.
  * 基础点样式配置
-  * @category Style
+ * @category Paint
  */
-export interface BasicPointStyle extends BaseStyle {
-    type: 'basic-point';
+export interface CirclePaint extends BasePaint {
+    type: 'circle';
     /** 点颜色 */
     color?: string | number | Color;
     /** 点大小 */
@@ -58,11 +60,12 @@ export interface BasicPointStyle extends BaseStyle {
 }
 
 /**
+ * Icon paint configuration.
  * 图标点样式配置
-  * @category Style
+ * @category Paint
  */
-export interface IconPointStyle extends BaseStyle {
-    type: 'icon-point';
+export interface IconPaint extends BasePaint {
+    type: 'icon';
     /** 点颜色 */
     color?: string | number | Color;
     /** 图标URL */
@@ -79,11 +82,12 @@ export interface IconPointStyle extends BaseStyle {
 }
 
 /**
+ * Text paint configuration.
  * 标签样式配置
-  * @category Style
+ * @category Paint
  */
-export interface LabelStyle extends BaseStyle {
-    type: 'canvas-label' | 'canvas-label-fixed';
+export interface TextPaint extends BasePaint {
+    type: 'text' | 'text-fixed';
     /** 文本内容 */
     text: string;
     /** 字体大小像素Dpi，默认不传，内部会自动处理 */
@@ -151,11 +155,12 @@ export interface LabelStyle extends BaseStyle {
 }
 
 /**
+ * Symbol paint configuration.
  * 图标标签样式配置
-  * @category Style
+ * @category Paint
  */
-export interface IconLabelStyle extends BaseStyle {
-    type: 'icon-label-point';
+export interface SymbolPaint extends BasePaint {
+    type: 'symbol';
     /** 文本内容 */
     text: string;
 
@@ -209,11 +214,12 @@ export interface IconLabelStyle extends BaseStyle {
 }
 
 /**
+ * Fill paint configuration.
  * 基础多边形样式配置
-  * @category Style
+ * @category Paint
  */
-export interface BasePolygonStyle extends BaseStyle {
-    type: 'basic-polygon';
+export interface FillPaint extends BasePaint {
+    type: 'fill';
     /** 填充颜色 */
     color?: string | number | Color;
     /** 透明度 */
@@ -239,11 +245,12 @@ export interface BasePolygonStyle extends BaseStyle {
 }
 
 /**
+ * Extrusion paint configuration.
  * 拉伸多边形样式配置
-  * @category Style
+ * @category Paint
  */
-export interface ExtrudeStyle extends BaseStyle {
-    type: 'extrude-polygon';
+export interface ExtrusionPaint extends BasePaint {
+    type: 'extrusion';
     /** 填充颜色 */
     color?: number | string;
     /** 透明度 */
@@ -262,10 +269,11 @@ export interface ExtrudeStyle extends BaseStyle {
 }
 
 /**
+ * Water paint configuration.
  * 水面样式配置
-  * @category Style
+ * @category Paint
  */
-export interface LightWaterStyle extends BaseStyle {
+export interface WaterPaint extends BasePaint {
     type: 'water'
     /** 水面颜色 */
     color?: number | string;
@@ -286,11 +294,12 @@ export interface LightWaterStyle extends BaseStyle {
 }
 
 /**
+ * Simple water paint configuration.
  * 基础水面样式配置
-  * @category Style
+ * @category Paint
  */
-export interface BaseWaterStyle extends BaseStyle {
-    type: 'base-water'
+export interface SimpleWaterPaint extends BasePaint {
+    type: 'water-simple'
     /** 水面颜色 */
     color?: number | string;
     /** 透明度 */
@@ -310,20 +319,22 @@ export interface BaseWaterStyle extends BaseStyle {
 }
 
 /**
+ * Water paint union type.
  * 水面样式联合类型
-  * @category Style
+ * @category Paint
  */
-export type WaterStyle = BaseWaterStyle | LightWaterStyle;
+export type WaterPaintUnion = SimpleWaterPaint | WaterPaint;
 
 /**
+ * Model paint configuration.
  * 模型样式配置
-  * @category Style
+ * @category Paint
  */
-export interface ModelStyle extends BaseStyle {
-    /** 模型URL */
+export interface ModelPaint extends BasePaint {
+    /** Model URL 模型URL */
     url: string;
-    /** 模型类型 */
-    type: 'gltf' | 'fbx';
+    /** Model type 模型类型 */
+    type: 'model-gltf' | 'model-fbx';
     /** 位置 */
     position?: Vector3;
     /** 缩放 */
@@ -353,7 +364,7 @@ export interface ModelStyle extends BaseStyle {
 }
 
 
-export interface LightStyle extends BaseStyle {
+export interface LightPaint extends BasePaint {
     type: 'light';
     /** 点颜色 */
     color?: string | number | Color;
@@ -364,23 +375,26 @@ export interface LightStyle extends BaseStyle {
 }
 
 /**
+ * Point paint union type.
  * 点样式联合类型
-  * @category Style
+ * @category Paint
  */
-export type PointStyle = BasicPointStyle | IconPointStyle | IconLabelStyle | LightStyle | ModelStyle | LabelStyle;
+export type PointPaintUnion = CirclePaint | IconPaint | SymbolPaint | LightPaint | ModelPaint | TextPaint;
 
 /**
+ * Fill paint union type.
  * 面样式联合类型
-  * @category Style
+ * @category Paint
  */
-export type PolygonStyle = BasePolygonStyle | ExtrudeStyle | WaterStyle;
+export type FillPaintUnion = FillPaint | ExtrusionPaint | WaterPaintUnion;
 
 /**
+ * Tube paint configuration.
  * 管道线样式配置
-  * @category Style
+ * @category Paint
  */
-export interface PipelineStyle extends BaseStyle {
-    type: 'tube-line';
+export interface TubePaint extends BasePaint {
+    type: 'tube';
     /** 管道颜色 */
     color?: string | number | Color;
     /** 管道半径 */
@@ -396,11 +410,12 @@ export interface PipelineStyle extends BaseStyle {
 }
 
 /**
+ * Flow tube paint configuration.
  * 流动管线样式配置
-  * @category Style
+ * @category Paint
  */
-export interface FlowLineStyle extends BaseStyle {
-    type: 'flow-tube-line';
+export interface FlowTubePaint extends BasePaint {
+    type: 'flow-tube';
     /** 管道颜色 */
     color?: string | number | Color;
     /** 管道半径 */
@@ -423,11 +438,12 @@ export interface FlowLineStyle extends BaseStyle {
 }
 
 /**
+ * Arrow paint configuration.
  * 箭头流动线样式
-  * @category Style
+ * @category Paint
  */
-export interface ArrowLineStyle extends BaseStyle {
-    type: 'arrow-line';
+export interface ArrowPaint extends BasePaint {
+    type: 'arrow';
     /** 箭头颜色 */
     color?: string | number | Color;
     /** 线条宽度 */
@@ -444,11 +460,12 @@ export interface ArrowLineStyle extends BaseStyle {
 
 
 /**
+ * Flow texture paint configuration.
  * 纹理流动线样式配置（发光箭头线等）
-  * @category Style
+ * @category Paint
  */
-export interface FlowTextureLineStyle extends BaseStyle {
-    type: 'flow-texture-line';
+export interface FlowTexturePaint extends BasePaint {
+    type: 'flow-texture';
     /** 线颜色（与纹理颜色相乘，用于整体调色） */
     color?: string | number | Color;
     /** 线宽（世界坐标单位） */
@@ -464,11 +481,12 @@ export interface FlowTextureLineStyle extends BaseStyle {
 }
 
 /**
+ * Line paint configuration.
  * 基础线样式配置
-  * @category Style
+ * @category Paint
  */
-export interface BaseLineStyle extends BaseStyle {
-    type: 'basic-line';
+export interface LinePaint extends BasePaint {
+    type: 'line';
     /** 线颜色 */
     color?: string | number | Color;
     /** 线宽 */
@@ -485,7 +503,7 @@ export interface BaseLineStyle extends BaseStyle {
 
 /**
  * 云朵状态类型
-  * @category Style
+  * @category Paint
  */
 export type CloudState = {
     /** 引用组 */
@@ -528,7 +546,7 @@ export type CloudState = {
 
 /**
  * 云朵属性配置
-  * @category Style
+  * @category Paint
  */
 export type CloudProps = {
     /** 随机种子 */
@@ -564,65 +582,71 @@ export type CloudProps = {
 }
 
 /**
+ * Cloud paint configuration.
  * 云朵样式配置
-  * @category Style
+ * @category Paint
  */
-export type CloudStyle = BaseStyle & CloudProps & {
+export type CloudPaint = BasePaint & CloudProps & {
     type: 'cloud'
 }
 
 
 /**
+ * Line paint union type.
  * 线样式联合类型
-  * @category Style
+ * @category Paint
  */
-export type LineStyle = BaseLineStyle | PipelineStyle | FlowLineStyle | FlowTextureLineStyle | ArrowLineStyle;
+export type LinePaintUnion = LinePaint | TubePaint | FlowTubePaint | FlowTexturePaint | ArrowPaint;
 
 /**
+ * Custom paint configuration.
  * 自定义样式配置
-  * @category Style
+ * @category Paint
  */
-export interface CustomStyle extends BaseStyle {
+export interface CustomPaint extends BasePaint {
     type: 'custom';
-    /** 构建函数 */
+    /** Build function 构建函数 */
     build: () => Object3D | Promise<Object3D>;
 }
 
 /**
+ * Paint configuration union type.
  * 样式配置联合类型
-  * @category Style
+ * @category Paint
  */
-export type StyleConfig = PointStyle | BaseLineStyle | PipelineStyle | FlowLineStyle | ArrowLineStyle | FlowTextureLineStyle | ModelStyle | CustomStyle | BasePolygonStyle | ExtrudeStyle | WaterStyle | CloudStyle | BaseWaterStyle | LabelStyle | IconLabelStyle | IconPointStyle | BasicPointStyle;
+export type PaintConfig = PointPaintUnion | LinePaintUnion | FillPaintUnion | CloudPaint | CustomPaint;
 
 /**
+ * Paint input type.
  * 样式输入类型
-  * @category Style
+ * @category Paint
  */
-export type StyleInput = StyleConfig | Style;
+export type PaintInput = PaintConfig | Paint;
 
 /**
+ * Tile paint input type.
  * 矢量瓦片样式输入类型
  * @description 支持单个样式配置或数组
-  * @category Style
+ * @category Paint
  */
-export type TileStyleInput = StyleConfig | StyleConfig[];
+export type TilePaintInput = PaintConfig | PaintConfig[];
 
 /**
- * 样式主类
- * @description 负责管理和应用各种3D对象的样式
-  * @category Style
+ * Paint class.
+ * @description Manages and applies various 3D object paints/styles
+ * @category Paint
  */
-export class Style {
-    /** 纹理缓存 */
+export class Paint {
+    /** Texture cache */
     private static _textureCache = new Map<string, Texture>();
-    /** 纹理加载器 */
+    /** Texture loader */
     private static _textureLoader = new TextureLoader();
 
     /**
-     * 构造函数
-     * @param config 样式配置
+     * Constructor
+     * @param config Paint configuration
      */
-    constructor(public config: StyleConfig) { }
+    constructor(public config: PaintConfig) { }
 
     /**
      * 应用样式到3D对象
@@ -695,73 +719,73 @@ export class Style {
 
 
             switch (this.config.type) {
-                case 'basic-point':
-                case 'icon-point':
-                case 'icon-label-point':
-                    return this._applyPointStyle(object);
-                case 'basic-line':
-                    return this._applyLineStyle(object as Line2);
-                case 'flow-tube-line':
-                    return this._applyFlowLineStyle(object);
-                case 'arrow-line':
-                    return this._applyArrowLineStyle(object);
-                case 'flow-texture-line':
-                    return this._applyFlowTextureLineStyle(object);
-                case 'gltf':
-                case 'fbx':
-                    return this._applyModelStyle(object);
-                case 'basic-polygon':
-                    return this._applyPolygonStyle(object);
-                case 'extrude-polygon':
-                    return this._applyExtrudeStyle(object);
+                case 'circle':
+                case 'icon':
+                case 'symbol':
+                    return this._applyPointPaint(object);
+                case 'line':
+                    return this._applyLinePaint(object as Line2);
+                case 'flow-tube':
+                    return this._applyFlowTubePaint(object);
+                case 'arrow':
+                    return this._applyArrowPaint(object);
+                case 'flow-texture':
+                    return this._applyFlowTexturePaint(object);
+                case 'model-gltf':
+                case 'model-fbx':
+                    return this._applyModelPaint(object);
+                case 'fill':
+                    return this._applyFillPaint(object);
+                case 'extrusion':
+                    return this._applyExtrusionPaint(object);
                 case 'water':
-                case 'base-water':
-                    return this._applyWaterStyle(object);
+                case 'water-simple':
+                    return this._applyWaterPaint(object);
                 case 'cloud':
-                    return this._applyCloudStyle(object);
-                case 'canvas-label':
-                case 'canvas-label-fixed':
-                    return this._applyTextSpriteStyle(object);
+                    return this._applyCloudPaint(object);
+                case 'text':
+                case 'text-fixed':
+                    return this._applyTextPaint(object);
                 case 'light':
-                    return this._applyLightStyle(object);
+                    return this._applyLightPaint(object);
                 case 'custom':
-                    return this._applyCustomStyle(object);
+                    return this._applyCustomPaint(object);
                 default:
-                    throw new Error(`Unknown style type`);
+                    throw new Error(`Unknown paint type`);
             }
         } catch (error) {
-            console.error(`Style apply failed:`, error);
+            console.error(`Paint apply failed:`, error);
             object.visible = false;
             return false;
         }
     }
 
     /**
-     * 应用点样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply point paint
+     * @param object Target object
+     * @returns Success status
      */
-    private async _applyPointStyle(object: Object3D): Promise<boolean> {
-        const config = this.config as PointStyle;
+    private async _applyPointPaint(object: Object3D): Promise<boolean> {
+        const config = this.config as PointPaintUnion;
 
-        if (config.type === 'icon-point') {
-            await this._applyIconPoint(object, config);
-        } else if (config.type === 'basic-point') {
-            this._applyBasicPoint(object, config);
-        } else if (config.type === 'icon-label-point') {
-            this._applyIconLabelPoint(object, config);
+        if (config.type === 'icon') {
+            await this._applyIconPaint(object, config);
+        } else if (config.type === 'circle') {
+            this._applyCirclePaint(object, config);
+        } else if (config.type === 'symbol') {
+            this._applySymbolPaint(object, config);
         }
 
         return true;
     }
 
     /**
-     * 应用图标点样式
-     * @param object 目标对象
-     * @param config 样式配置
+     * Apply icon paint
+     * @param object Target object
+     * @param config Paint configuration
      */
     // @ts-ignore
-    private async _applyIconPoint(object: Object3D, config: IconPointStyle) {
+    private async _applyIconPaint(object: Object3D, config: IconPaint) {
         // @ts-ignore
         let sprite: Sprite;
 
@@ -808,11 +832,11 @@ export class Style {
     }
 
     /**
-     * 应用基础点样式
-     * @param object 目标对象
-     * @param config 样式配置
+     * Apply circle paint
+     * @param object Target object
+     * @param config Paint configuration
      */
-    private _applyBasicPoint(object: Object3D, config: BasicPointStyle) {
+    private _applyCirclePaint(object: Object3D, config: CirclePaint) {
         let points: Points;
         if (object instanceof Points) {
             points = object;
@@ -853,24 +877,24 @@ export class Style {
     }
 
     /**
-     * 应用图标标签点样式
-     * @param object 目标对象
-     * @param config 样式配置
+     * Apply symbol paint
+     * @param object Target object
+     * @param config Paint configuration
      */
     // @ts-ignore
-    private _applyIconLabelPoint(object: Object3D, config: IconLabelStyle) {
+    private _applySymbolPaint(object: Object3D, config: SymbolPaint) {
         return true
     }
 
     /**
-     * 应用线样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply line paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyLineStyle(object: Object3D) {
+    private _applyLinePaint(object: Object3D) {
         // @ts-ignore
-        const config = this.config as BaseLineStyle;
+        const config = this.config as LinePaint;
         // if (object.parent) {
         //     let parent = object.parent as Feature;
         //     parent._renderObject = _createBasicLine(config, parent._vertexPoints);
@@ -880,113 +904,113 @@ export class Style {
     }
 
     /**
-     * 应用流动管线样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply flow tube paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyFlowLineStyle(object: Object3D) {
+    private _applyFlowTubePaint(object: Object3D) {
         return true;
     }
 
     /**
-     * 应用箭头流动线样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply arrow paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyArrowLineStyle(object: Object3D) {
+    private _applyArrowPaint(object: Object3D) {
         return true;
     }
 
     /**
-     * 应用流动纹理管线样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply flow texture paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyFlowTextureLineStyle(object: Object3D) {
+    private _applyFlowTexturePaint(object: Object3D) {
         return true;
     }
 
     /**
-     * 应用多边形样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply fill paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyPolygonStyle(object: Object3D) {
+    private _applyFillPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用拉伸多边形样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply extrusion paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyExtrudeStyle(object: Object3D) {
+    private _applyExtrusionPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用水面样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply water paint
+     * @param object Target object
+     * @returns Success status
      */
 
     // @ts-ignore
-    private _applyWaterStyle(object: Object3D) {
+    private _applyWaterPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用云朵样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply cloud paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyCloudStyle(object: Object3D) {
+    private _applyCloudPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用文本精灵样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply text paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private _applyTextSpriteStyle(object: Object3D) {
+    private _applyTextPaint(object: Object3D) {
         return true
     }
 
     /**
-    * 应用灯光样式
-    * @param object 目标对象
-    * @returns 是否应用成功
+    * Apply light paint
+    * @param object Target object
+    * @returns Success status
     */
     // @ts-ignore
-    private _applyLightStyle(object: Object3D) {
+    private _applyLightPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用模型样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply model paint
+     * @param object Target object
+     * @returns Success status
      */
     // @ts-ignore
-    private async _applyModelStyle(object: Object3D) {
+    private async _applyModelPaint(object: Object3D) {
         return true
     }
 
     /**
-     * 应用自定义样式
-     * @param object 目标对象
-     * @returns 是否应用成功
+     * Apply custom paint
+     * @param object Target object
+     * @returns Success status
      */
-    private async _applyCustomStyle(object: Object3D): Promise<boolean> {
-        const config = this.config as CustomStyle;
+    private async _applyCustomPaint(object: Object3D): Promise<boolean> {
+        const config = this.config as CustomPaint;
         const customObj = await config.build();
 
         if (object instanceof Group) {
@@ -997,32 +1021,32 @@ export class Style {
     }
 
     /**
-     * 加载纹理
-     * @param url 纹理URL
-     * @returns 纹理对象
+     * Load texture
+     * @param url Texture URL
+     * @returns Texture object
      */
     static async _loadTexture(url: string): Promise<Texture> {
-        if (Style._textureCache.has(url)) {
-            return Style._textureCache.get(url)!;
+        if (Paint._textureCache.has(url)) {
+            return Paint._textureCache.get(url)!;
         }
 
         const texture = await new Promise<Texture>((resolve, reject) => {
-            Style._textureLoader.load(url, resolve, undefined, reject);
+            Paint._textureLoader.load(url, resolve, undefined, reject);
         });
         // texture.premultiplyAlpha = true;
         texture.needsUpdate = true;
         // texture.colorSpace = SRGBColorSpace;
         // texture.generateMipmaps = true;
-        Style._textureCache.set(url, texture);
+        Paint._textureCache.set(url, texture);
         return texture;
     }
 
     /**
-     * 创建样式实例
-     * @param input 样式输入
-     * @returns 样式实例
+     * Create paint instance
+     * @param input Paint input
+     * @returns Paint instance
      */
-    static create(input: StyleInput): Style {
-        return input instanceof Style ? input : new Style(input);
+    static create(input: PaintInput): Paint {
+        return input instanceof Paint ? input : new Paint(input);
     }
 }

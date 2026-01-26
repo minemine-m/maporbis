@@ -2,7 +2,7 @@ import { Vector2, Vector3 } from 'three';
 import { Feature, FeatureOptions } from './Feature';
 import { Polygon as GeoJSONPolygon, MultiPolygon as GeoJSONMultiPolygon } from 'geojson';
 import { Line2, LineMaterial, LineGeometry } from 'three-stdlib';
-import { Coordinate } from '../types';
+import { LngLatLike } from '../types';
 
 /**
  * Surface feature configuration options.
@@ -26,7 +26,7 @@ export type SurfaceOptions = FeatureOptions & {
  * @description
  * Represents a surface feature in the 3D scene, inheriting from the Feature class.
  * Provides basic functionality for polygon surface features, including:
- * - Coordinate transformation
+ * - LngLatLike transformation
  * - Geometry creation
  * - Style application
  * 
@@ -85,7 +85,7 @@ export abstract class Surface extends Feature {
     }
 
     /**
-     * Coordinate transformation method.
+     * LngLatLike transformation method.
      * 坐标转换方法
      * 
      * @returns Transformed coordinate information
@@ -93,11 +93,11 @@ export abstract class Surface extends Feature {
      * 
      * @description
      * Handles coordinate transformation for Polygon and MultiPolygon, returning:
-     * - _worldCoordinates: Array of transformed coordinates
+     * - _worldLngLatLikes: Array of transformed coordinates
      * - _vertexPoints: Array of flattened vertex coordinates
      * 
      * 处理多边形和多面体的坐标转换，返回：
-     * - _worldCoordinates: 转换后的坐标数组
+     * - _worldLngLatLikes: 转换后的坐标数组
      * - _vertexPoints: 展平的顶点坐标数组
      * 
      * @throws Throws error if geometry type is not supported
@@ -111,8 +111,8 @@ export abstract class Surface extends Feature {
 
         // Handle Polygon
         if (geometry.type === 'Polygon') {
-            const coordinates = geometry.coordinates as Coordinate[][];
-            let _worldCoordinates: Vector3[][] = [];
+            const coordinates = geometry.coordinates as LngLatLike[][];
+            let _worldLngLatLikes: Vector3[][] = [];
             let _vertexPoints: number[] = [];
 
             coordinates.forEach(ring => {
@@ -121,16 +121,16 @@ export abstract class Surface extends Feature {
                     const worldPos = map ? map.projectToWorld(vec) : vec;
                     return worldPos.sub(center);
                 });
-                _worldCoordinates.push(ringPositions);
+                _worldLngLatLikes.push(ringPositions);
                 _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));
             });
 
-            return { _worldCoordinates, _vertexPoints };
+            return { _worldLngLatLikes, _vertexPoints };
         }
         // Handle MultiPolygon
         else if (geometry.type === 'MultiPolygon') {
-            const coordinates = geometry.coordinates as Coordinate[][][];
-            let _worldCoordinates: Vector3[][][] = [];
+            const coordinates = geometry.coordinates as LngLatLike[][][];
+            let _worldLngLatLikes: Vector3[][][] = [];
             let _vertexPoints: number[] = [];
 
             coordinates.forEach(polygon => {
@@ -144,10 +144,10 @@ export abstract class Surface extends Feature {
                     polygonPositions.push(ringPositions);
                     _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));
                 });
-                _worldCoordinates.push(polygonPositions);
+                _worldLngLatLikes.push(polygonPositions);
             });
 
-            return { _worldCoordinates, _vertexPoints };
+            return { _worldLngLatLikes, _vertexPoints };
         } else {
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
         }
@@ -168,7 +168,7 @@ export abstract class Surface extends Feature {
      * - 'extrude-polygon': 挤出多边形
      * - 'water': 水面效果
      */
-    protected _refreshCoordinates(): void {
+    protected _refreshLngLatLikes(): void {
         const styletype = this._style?.config.type;
         this.clear();
 

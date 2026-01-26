@@ -1,5 +1,5 @@
 import { UIComponent, type UIComponentOptions } from "./UIComponent";
-import type { Coordinate } from "../types";
+import type { LngLatLike } from "../types";
 
 /**
  * ToolTip content type.
@@ -165,10 +165,10 @@ export class ToolTip extends UIComponent {
             this._timeoutId = undefined;
         }
 
-        const coordinate: Coordinate =
+        const coordinate: LngLatLike =
             e?.coordinate ??
-            (this._owner && typeof this._owner.getCoordinate === "function"
-                ? this._owner.getCoordinate()
+            (this._owner && typeof this._owner.getLngLatLike === "function"
+                ? this._owner.getLngLatLike()
                 : (map as any).getCenter?.());
 
         const delay = this.options.showTimeout ?? 400;

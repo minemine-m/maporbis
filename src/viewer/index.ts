@@ -1,5 +1,5 @@
 /**
- * @module Viewer
+ * @module SceneRenderer
  */
 import {
   AmbientLight,
@@ -46,25 +46,25 @@ import {
 import { Clouds } from "@pmndrs/vanilla";
 import { mapValue } from "../utils/validate";
 import type { Map } from "../map";
-import { Coordinate } from "../types";
+import { LngLatLike } from "../types";
 import { BaseMixin, EventMixin } from "../core/mixins";
 /**
- * Viewer event mapping interface
- * Viewer事件映射接口
+ * SceneRenderer event mapping interface
+ * SceneRenderer事件映射接口
  * @extends Object3DEventMap
- * @category Viewer
+ * @category SceneRenderer
  */
-export interface ViewerEventMap extends Object3DEventMap {
+export interface SceneRendererEventMap extends Object3DEventMap {
   /** Update event, including time delta 更新事件，包含时间增量 */
   update: BaseEvent & { delta: number };
 }
 
 /**
- * Viewer configuration options
- * Viewer配置选项
- * @category Viewer
+ * SceneRenderer configuration options
+ * SceneRenderer配置选项
+ * @category SceneRenderer
  */
-export type ViewerOptions = {
+export type SceneRendererOptions = {
   /** Whether to enable antialiasing, default is false 是否启用抗锯齿，默认为false */
   antialias?: boolean;
   /** Whether to use stencil buffer, default is true 是否使用模板缓冲区，默认为true */
@@ -98,36 +98,20 @@ export type ViewerOptions = {
   /** Map instance 地图实例 */
   map?: Map;
   /**
-   * Camera azimuth angle (in radians, optional)
-   * 相机方位角（弧度制，可选）
-   * 0 = looking North from South, Math.PI / 2 = looking East from West
-   * 0 = 从南看北，Math.PI / 2 = 从西看东
+   * Camera bearing angle (in degrees)
+   * 相机方位角（角度制）
+   * 0 = looking North, 90 = looking East, 180 = looking South, 270 = looking West
+   * 0 = 朝北，90 = 朝东，180 = 朝南，270 = 朝西
    */
-  azimuthAngle?: number;
+  bearing?: number;
 
   /**
-   * Camera polar angle (in radians, optional)
-   * 相机俯仰角（弧度制，可选）
-   * 0 = top-down view, Math.PI / 2 = horizontal
-   * 0 = 正上方俯视，Math.PI / 2 = 水平
+   * Camera pitch angle (in degrees)
+   * 相机俯仰角（角度制）
+   * 0 = top-down view, 90 = horizontal (no artificial limit)
+   * 0 = 正上方俯视，90 = 水平（无人为限制）
    */
-  polarAngle?: number;
-
-  /**
-   * Azimuth angle (in degrees, optional)
-   * 方位角（角度制，可选）
-   * 0 = looking North from South, 90 = looking East from West
-   * 0 = 从南看北，90 = 从西看东
-   */
-  azimuthDeg?: number;
-
-  /**
-   * Polar angle (in degrees, optional)
-   * 俯仰角（角度制，可选）
-   * 0 = top-down view, 90 = horizontal
-   * 0 = 正上方俯视，90 = 水平
-   */
-  polarDeg?: number;
+  pitch?: number;
 
   /** Bloom post-processing configuration (optional) Bloom 后处理配置（可选） */
   bloom?: {
@@ -150,13 +134,13 @@ export type ViewerOptions = {
 /**
  * flyTo method parameters interface
  * flyTo方法参数接口
- * @category Viewer
+ * @category SceneRenderer
  */
 export interface FlyToOptions {
   /** Longitude and latitude 经纬度 */
-  center: Coordinate;
+  center: LngLatLike;
   /** Camera coordinates 相机 */
-  cameraCoord: Coordinate;
+  cameraCoord: LngLatLike;
   duration?: number;
   delay?: number;
   complete?: () => void;
@@ -168,7 +152,7 @@ export interface FlyToOptions {
 // 相机飞向指定坐标点的配置选项接口
 export interface FlyToPointOptions {
   // Target coordinate point (required) 目标坐标点（必需参数）
-  center: Coordinate;
+  center: LngLatLike;
 
   // Flight animation duration, usually in milliseconds (optional) 飞行动画持续时间，单位通常为毫秒（可选）
   duration?: number;
@@ -191,21 +175,21 @@ export interface FlyToPointOptions {
    */
   altitude?: number;
 
-  // Camera polar angle (angle with horizontal plane), usually in radians (optional)
-  // 相机俯仰角（与水平面的夹角），单位通常为弧度（可选）
-  // Example: 0 means horizontal, Math.PI / 2 means vertical down
-  // 例如：0 表示水平，Math.PI / 2 表示垂直向下
-  polarAngle?: number;
+  /**
+   * Camera pitch angle (in degrees)
+   * 相机俯仰角（角度制）
+   * 0 = top-down view, 90 = horizontal (no artificial limit)
+   * 0 = 正上方俯视，90 = 水平（无人为限制）
+   */
+  pitch?: number;
 
-  // Camera azimuth angle (horizontal angle), in radians (optional)
-  // 相机方位角（水平方向的角度），单位为弧度（可选）
-  // Example: 0 means South to North, Math.PI / 2 means West to East
-  // 例如：0 表示从南向北，Math.PI / 2 表示从西向东
-  azimuthAngle?: number;
-
-  // In degrees 角度制
-  polarDeg?: number; // 0 = top-down view, 90 = horizontal 0 = 正上方俯视, 90 = 水平
-  azimuthDeg?: number; // 0 = South to North, 90 = West to East 0 = 从南看北, 90 = 从西看东
+  /**
+   * Camera bearing angle (in degrees)
+   * 相机方位角（角度制）
+   * 0 = looking North, 90 = looking East
+   * 0 = 朝北，90 = 朝东
+   */
+  bearing?: number;
 
   // Callback function when flight animation completes (optional) 飞行动画完成时的回调函数（可选）
   complete?: () => void;
@@ -217,15 +201,15 @@ export interface FlyToPointOptions {
 }
 
 // Create mixin base class, add generic parameter 创建混入基类，添加泛型参数
-const ViewerBase = EventMixin(BaseMixin(EventDispatcher<ViewerEventMap>));
+const SceneRendererBase = EventMixin(BaseMixin(EventDispatcher<SceneRendererEventMap>));
 
 /**
  * Three.js scene initialization class
  * Three.js场景初始化类
- * @extends EventDispatcher<ViewerEventMap>
- * @category Viewer
+ * @extends EventDispatcher<SceneRendererEventMap>
+ * @category SceneRenderer
  */
-export class Viewer extends ViewerBase {
+export class SceneRenderer extends SceneRendererBase {
   /** Scene object 场景对象 */
   public readonly scene: Scene;
   /** WebGL renderer WebGL渲染器 */
@@ -251,7 +235,7 @@ export class Viewer extends ViewerBase {
   private stats: Stats;
   /** 动画回调集合 */
   private _animationCallbacks: Set<
-    (delta: number, elapsedtime: number, context: Viewer) => void
+    (delta: number, elapsedtime: number, context: SceneRenderer) => void
   > = new Set();
   /** 雾效因子 */
   private _fogFactor = 1.0;
@@ -312,7 +296,7 @@ export class Viewer extends ViewerBase {
    * @param container 容器元素或选择器字符串
    * @param options 配置选项
    */
-  constructor(container?: HTMLElement | string, options: ViewerOptions = {}) {
+  constructor(container?: HTMLElement | string, options: SceneRendererOptions = {}) {
     super();
 
     // 手动设置 options
@@ -435,7 +419,7 @@ export class Viewer extends ViewerBase {
    * @param skyboxConfig Skybox configuration 天空盒配置
    * @returns Scene object 场景对象
    */
-  private _createScene(skyboxConfig?: ViewerOptions["skybox"]) {
+  private _createScene(skyboxConfig?: SceneRendererOptions["skybox"]) {
     const scene = new Scene();
     const backColor = skyboxConfig?.defaultColor || "rgb(21,48,94)";
     scene.background = new Color(backColor);
@@ -474,7 +458,7 @@ export class Viewer extends ViewerBase {
    */
   private async _loadHDRWithPMREM(
     scene: Scene,
-    skyboxConfig: ViewerOptions["skybox"],
+    skyboxConfig: SceneRendererOptions["skybox"],
   ) {
     try {
       if (skyboxConfig) {
@@ -657,7 +641,7 @@ export class Viewer extends ViewerBase {
       );
       // 此处绑定map的事件
       // console.log(this.map,'我的map ----------------- ')
-      this.map?.trigger("control-change", {
+      this.map?.fire("viewchange", {
         type: "control-change",
         control: controls,
         camera: this.camera,
@@ -668,7 +652,7 @@ export class Viewer extends ViewerBase {
     // 注册控制器开始事件
     controls.addEventListener("start", () => {
       this._isInteracting = true;
-      this.map?.trigger("control-start", {
+      this.map?.fire("movestart", {
         type: "control-start",
         control: controls,
         camera: this.camera,
@@ -679,7 +663,7 @@ export class Viewer extends ViewerBase {
     // 注册控制器开始事件
     controls.addEventListener("end", () => {
       this._isInteracting = false;
-      this.map?.trigger("control-end", {
+      this.map?.fire("moveend", {
         type: "control-end",
         control: controls,
         camera: this.camera,
@@ -860,7 +844,7 @@ export class Viewer extends ViewerBase {
    * @returns 移除回调的函数
    */
   public addAnimationCallback(
-    callback: (delta: number, elapsedtime: number, context: Viewer) => void,
+    callback: (delta: number, elapsedtime: number, context: SceneRenderer) => void,
   ): () => void {
     this._animationCallbacks.add(callback);
     return () => this._animationCallbacks.delete(callback);
@@ -889,7 +873,7 @@ export class Viewer extends ViewerBase {
       this.stats.update();
     }
 
-    this.trigger("update", { delta });
+    this.fire("update", { delta });
   }
 
   /**
@@ -1093,16 +1077,18 @@ export class Viewer extends ViewerBase {
   }
 
   /**
-   * Configuration update callback
+   * Options change callback.
    * 配置更新回调
-   * Triggered when viewer.config() is called to update configuration
-   * 当调用 viewer.config() 更新配置时，会触发此方法
+   * Triggered when viewer.configure() is called to update options.
+   * 当调用 viewer.configure() 更新配置时，会触发此方法
    */
-  onConfig(conf: ViewerOptions): void {
+  onOptionsChange(conf: SceneRendererOptions): void {
+    // Handle draggable option
     // 处理 draggable 配置
     if ("draggable" in conf) {
       const draggable = conf.draggable;
       if (this.controls) {
+        // Control whether controls are enabled
         // 控制 controls 是否启用
         this.controls.enabled = draggable !== false;
       }
@@ -1127,25 +1113,22 @@ export class Viewer extends ViewerBase {
           ? options.altitude
           : controls.getDistance();
 
-    // === 角度优先，弧度兜底 ===
+    // === Convert degrees to radians ===
     const toRad = (deg: number) => (deg * Math.PI) / 180;
 
-    // 避免极点奇异：当传入 polarDeg 且 <= 0 时，自动替换为小角度
-    let polarAngle: number;
-    if (typeof options.polarDeg === "number") {
-      const safePolarDeg = options.polarDeg <= 0 ? 0.1 : options.polarDeg;
-      polarAngle = toRad(safePolarDeg);
-    } else if (typeof options.polarAngle === "number") {
-      // 如果传的是弧度，也做极点保护
-      polarAngle = options.polarAngle <= 0 ? toRad(0.1) : options.polarAngle;
+    // Avoid polar singularity: when pitch <= 0, use a small angle
+    let pitchRad: number;
+    if (typeof options.pitch === "number") {
+      const safePitch = options.pitch <= 0 ? 0.1 : options.pitch;
+      pitchRad = toRad(safePitch);
     } else {
-      polarAngle = controls.getPolarAngle();
+      pitchRad = controls.getPolarAngle();
     }
 
-    const azimuthAngle =
-      typeof options.azimuthDeg === "number"
-        ? toRad(options.azimuthDeg)
-        : options.azimuthAngle || controls.getAzimuthalAngle();
+    const bearingRad =
+      typeof options.bearing === "number"
+        ? toRad(options.bearing)
+        : controls.getAzimuthalAngle();
 
     const complete = options.complete;
     const useCurvePath = !!options.curvePath;
@@ -1156,8 +1139,8 @@ export class Viewer extends ViewerBase {
     const newCameraPosition = this.calculateCameraPosition(
       targetWorld,
       distance,
-      polarAngle,
-      azimuthAngle,
+      pitchRad,
+      bearingRad,
     );
     // const minHeight = distance * 0.5;
     // if (newCameraPosition.y < minHeight) newCameraPosition.y = minHeight;
@@ -1174,30 +1157,31 @@ export class Viewer extends ViewerBase {
   }
 
   /**
+   * Calculate camera position in world coordinates.
    * 计算相机在世界坐标系中的位置
-   * @param target 目标点（世界坐标）
-   * @param distance 相机到目标的距离
-   * @param polarAngle 极角（与垂直方向的夹角，0=垂直向下，Math.PI/2=水平）
-   * @param azimuthAngle 方位角（0=从南向北，Math.PI/2=从西向东）
-   * @returns 相机位置（世界坐标）
+   * @param target Target point (world coordinates) 目标点（世界坐标）
+   * @param distance Distance from camera to target 相机到目标的距离
+   * @param pitchRad Pitch angle in radians (0=top-down, Math.PI/2=horizontal) 俯仰角（弧度）
+   * @param bearingRad Bearing angle in radians 方位角（弧度）
+   * @returns Camera position (world coordinates) 相机位置（世界坐标）
    */
   public calculateCameraPosition = (
     target: Vector3,
     distance: number,
-    polarAngle: number,
-    azimuthAngle: number,
+    pitchRad: number,
+    bearingRad: number,
   ): Vector3 => {
-    // 直接使用旋转矩阵
-    // 先计算相机在默认位置（目标的南边，+Z 方向）
+    // Use rotation matrix
+    // Calculate camera at default position (south of target, +Z direction)
     const defaultOffset = new Vector3(
-      0, // X分量
-      distance * Math.cos(polarAngle), // Y分量
-      distance * Math.sin(polarAngle), // Z分量  <-- 这里改成正号
+      0, // X component
+      distance * Math.cos(pitchRad), // Y component
+      distance * Math.sin(pitchRad), // Z component
     );
 
-    // 绕Y轴旋转方位角
-    // 注意：Three.js的applyAxisAngle是右手法则，逆时针为正
-    defaultOffset.applyAxisAngle(new Vector3(0, 1, 0), azimuthAngle);
+    // Rotate around Y axis by bearing angle
+    // Note: Three.js applyAxisAngle uses right-hand rule, counter-clockwise is positive
+    defaultOffset.applyAxisAngle(new Vector3(0, 1, 0), bearingRad);
 
     return new Vector3(
       target.x + defaultOffset.x,
@@ -1387,7 +1371,7 @@ export class Viewer extends ViewerBase {
    * 6. 移除DOM元素
    */
   public destroy(): void {
-    // console.log('🗑️ 开始销毁Viewer实例...');
+    // console.log('🗑️ 开始销毁SceneRenderer实例...');
 
     try {
       // 1. 停止动画循环
@@ -1464,9 +1448,9 @@ export class Viewer extends ViewerBase {
         // console.log('✅ Stats已移除');
       }
 
-      // console.log('✅ Viewer实例销毁完成');
+      // console.log('✅ SceneRenderer实例销毁完成');
     } catch (error) {
-      console.error("❌ 销毁Viewer时出错:", error);
+      console.error("❌ 销毁SceneRenderer时出错:", error);
     }
   }
 

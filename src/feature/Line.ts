@@ -2,7 +2,7 @@ import { Vector2, Vector3 } from 'three';
 import { Feature, FeatureOptions } from './Feature';
 import { LineString as GeoJSONLineString, MultiLineString as GeoJSONMultiLineString } from 'geojson';
 import { Line2, LineMaterial, LineGeometry } from 'three-stdlib';
-import { Coordinate } from '../types';
+import { LngLatLike } from '../types';
 
 /**
  * Line feature configuration options.
@@ -26,7 +26,7 @@ export type LineOptions = FeatureOptions & {
  * @description
  * Represents a line feature in the 3D scene, inheriting from the Feature class.
  * Provides basic functionality for line features, including:
- * - Coordinate transformation
+ * - LngLatLike transformation
  * - Line geometry creation
  * - Style application
  * 
@@ -76,7 +76,7 @@ export abstract class Line extends Feature {
     }
 
     /**
-     * Coordinate transformation method.
+     * LngLatLike transformation method.
      * 坐标转换方法
      * 
      * @returns Transformed coordinate information
@@ -93,16 +93,16 @@ export abstract class Line extends Feature {
         const center = map?.prjcenter as Vector3;
 
         if (this._geometry.type === 'LineString') {
-            const coordinates = geometry.coordinates as Coordinate[];
-            let _worldCoordinates = coordinates.map(coord => {
+            const coordinates = geometry.coordinates as LngLatLike[];
+            let _worldLngLatLikes = coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
                 const worldPos = map ? map.projectToWorld(vec) : vec;
                 return worldPos.sub(center);
             });
 
-            let _vertexPoints = (_worldCoordinates as Vector3[]).flatMap(v => [v.x, v.y, v.z]);
+            let _vertexPoints = (_worldLngLatLikes as Vector3[]).flatMap(v => [v.x, v.y, v.z]);
             return {
-                _worldCoordinates,
+                _worldLngLatLikes,
                 _vertexPoints
             }
         }

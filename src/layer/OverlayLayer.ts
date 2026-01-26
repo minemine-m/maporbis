@@ -2,7 +2,7 @@ import { Object3D } from 'three';
 import { LayerOptions, Layer } from './Layer';
 import { Feature } from '../feature/Feature';
 import { CollisionEngine } from '../core/collision/CollisionEngine';
-// import { Viewer } from '../viewer';
+// import { SceneRenderer } from '../viewer';
 // import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 // import { CollisionDetector } from '../core/collision';
 
@@ -315,7 +315,7 @@ export abstract class OverlayLayer<T extends Feature = Feature> extends Layer {
             console.error('Error disposing feature resources:', e);
         }
     }
-    // override animate(delta: number, elapsedtime: number, context: Viewer) {
+    // override animate(delta: number, elapsedtime: number, context: SceneRenderer) {
 
     //     if (this._collision) {
     //         // Update collision system 更新避让系统

@@ -3,7 +3,7 @@ import { Feature } from '../../feature/Feature';
 import { Map } from '../index';
 import { getLocalFromMouse } from '../../utils/tilemaputils';
 import { BaseEventMap } from '../../core/event';
-import { Coordinate } from '../../types';
+import { LngLatLike } from '../../types';
 
 
 // Feature events
@@ -12,7 +12,7 @@ import { Coordinate } from '../../types';
  * @category Map
  */
 export interface FeatureEventMap extends BaseEventMap<Feature> {
-    coordinate?: Coordinate;
+    coordinate?: LngLatLike;
 }
 
 const eventMaps = [
@@ -188,7 +188,7 @@ class MapFeatureEventsHandler extends Handler {
                     this._fireFeatureEvent(topFeature, eventType, domEvent);
                     const layer = topFeature.getLayer();
                     if (layer) {
-                        layer.trigger('feature' + eventType, {
+                        layer.fire('feature' + eventType, {
                             feature: topFeature,
                             domEvent,
                             type: 'feature' + eventType
@@ -218,7 +218,7 @@ class MapFeatureEventsHandler extends Handler {
         // 冒泡到图层
         const layer = feature.getLayer();
         if (layer) {
-            layer.trigger('featureclick', {
+            layer.fire('featureclick', {
                 feature,
                 domEvent,
                 type: 'featureclick'
@@ -244,7 +244,7 @@ class MapFeatureEventsHandler extends Handler {
         // 冒泡到图层
         const layer = feature.getLayer();
         if (layer) {
-            layer.trigger('feature' + domEvent.type, {
+            layer.fire('feature' + domEvent.type, {
                 feature,
                 domEvent,
                 type: 'feature' + domEvent.type
@@ -293,7 +293,7 @@ class MapFeatureEventsHandler extends Handler {
         const latlnt = getLocalFromMouse(baseEvent, map, map.viewer.camera);
         if (!latlnt) return;
 
-        const coordinate: Coordinate = [latlnt.x, latlnt.y, latlnt.z];
+        const coordinate: LngLatLike = [latlnt.x, latlnt.y, latlnt.z];
         const eventData: FeatureEventMap = {
             target: feature,
             originEvent: domEvent as any,
@@ -304,7 +304,7 @@ class MapFeatureEventsHandler extends Handler {
                 Y: screenY,
             }
         };
-        feature.trigger(eventType, eventData);
+        feature.fire(eventType, eventData);
     }
 
     // ============== Utility Methods 工具方法 ==============

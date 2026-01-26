@@ -1,7 +1,7 @@
-import type { Coordinate } from "../../types";
+import type { LngLatLike } from "../../types";
 import type { DomEventMap } from "../Map.DomEvent";
 import { MapTool, type MapToolOptions } from "./MapTool";
-import type { StyleInput } from "../../style";
+import type { PaintInput } from "../../style";
 import { OverlayLayer } from "../../layer/OverlayLayer";
 import { Feature } from "../../feature/Feature";
 
@@ -15,9 +15,9 @@ import { Feature } from "../../feature/Feature";
  */
 export type DrawModeDefinition = {
     actions: Array<"click" | "mousemove" | "dblclick">;
-    create: (start: Coordinate, evt: DomEventMap) => any;
-    update: (coords: Coordinate[], geometry: any, evt: DomEventMap) => void;
-    generate: (geometry: any, coords: Coordinate[]) => any;
+    create: (start: LngLatLike, evt: DomEventMap) => any;
+    update: (coords: LngLatLike[], geometry: any, evt: DomEventMap) => void;
+    generate: (geometry: any, coords: LngLatLike[]) => any;
     clickLimit?: number;
 };
 // 内部草图图层，实现 validateFeature 全通过
@@ -39,20 +39,20 @@ export type BaseDrawToolOptions = MapToolOptions & {
 };
 
 /**
- * 样式配置类型
+ * Paint configuration type
  */
-export type DrawToolStyleOptions = {
-    /** 主几何样式（点 / 线 / 面） */
-    geometryStyle?: StyleInput;
+export type DrawToolPaintOptions = {
+    /** Main geometry paint (point / line / fill) */
+    geometryPaint?: PaintInput;
     /**
-     * 顶点（锚点）样式
-     * - 传 null 表示不绘制锚点
-     * - 不传该字段则保持当前设置
+     * Vertex (anchor point) paint
+     * - Pass null to disable anchor point rendering
+     * - Omit this field to keep current setting
      */
-    vertexStyle?: StyleInput | null;
+    vertexPaint?: PaintInput | null;
 };
 
-export type DrawToolOptions = BaseDrawToolOptions & DrawToolStyleOptions;
+export type DrawToolOptions = BaseDrawToolOptions & DrawToolPaintOptions;
 /**
  * 全局模式注册表
  */
@@ -74,7 +74,7 @@ export class DrawTool extends MapTool {
     /** 当前模式定义 */
     private _modeDef?: DrawModeDefinition;
     /** 当前绘制中的顶点序列 */
-    private _clickCoords: Coordinate[] = [];
+    private _clickCoords: LngLatLike[] = [];
     /** 是否正在绘制中 */
     private _isDrawing = false;
     /** 当前绘制中的几何对象（由 mode.create/create 返回） */
@@ -122,17 +122,17 @@ export class DrawTool extends MapTool {
     }
 
     /**
-    * 设置绘制样式（仅影响后续新开始的绘制）
-    * - geometryStyle：主几何样式（点/线/面）
-    * - vertexStyle：顶点样式，传 null 可关闭锚点显示
+    * Set drawing paint (only affects new drawings started after this call)
+    * - geometryPaint: main geometry paint (point/line/fill)
+    * - vertexPaint: vertex paint, pass null to disable anchor point rendering
     */
-    setStyle(style: DrawToolStyleOptions): this {
-        if (style.geometryStyle !== undefined) {
-            this.options.geometryStyle = style.geometryStyle;
+    setPaint(paint: DrawToolPaintOptions): this {
+        if (paint.geometryPaint !== undefined) {
+            this.options.geometryPaint = paint.geometryPaint;
         }
-        if (Object.prototype.hasOwnProperty.call(style, "vertexStyle")) {
-            // 允许传入 null 关闭顶点样式
-            this.options.vertexStyle = style.vertexStyle ?? null;
+        if (Object.prototype.hasOwnProperty.call(paint, "vertexPaint")) {
+            // Allow passing null to disable vertex paint
+            this.options.vertexPaint = paint.vertexPaint ?? null;
         }
         return this;
     }
@@ -196,7 +196,7 @@ export class DrawTool extends MapTool {
             this._clickCoords = [coord];
             this._geometry = mode.create(coord, ctxEvt);
 
-            this.trigger("drawstart", {
+            this.fire("drawstart", {
                 coordinate: coord,
                 geometry: this._geometry,
                 coords: [...this._clickCoords],
@@ -207,7 +207,7 @@ export class DrawTool extends MapTool {
             this._clickCoords.push(coord);
             mode.update(this._clickCoords, this._geometry, ctxEvt);
 
-            this.trigger("drawvertex", {
+            this.fire("drawvertex", {
                 coordinate: coord,
                 geometry: this._geometry,
                 coords: [...this._clickCoords],
@@ -238,7 +238,7 @@ export class DrawTool extends MapTool {
 
         mode.update(tempCoords, this._geometry, ctxEvt);
 
-        this.trigger("drawing", {
+        this.fire("drawing", {
             coordinate: evt.coordinate,
             geometry: this._geometry,
             coords: tempCoords,
@@ -267,7 +267,7 @@ export class DrawTool extends MapTool {
         const mode = this._modeDef;
         const finalGeometry = mode.generate(this._geometry, [...this._clickCoords]);
 
-        this.trigger("drawend", {
+        this.fire("drawend", {
             geometry: finalGeometry,
             coords: [...this._clickCoords],
             originEvent: evt,

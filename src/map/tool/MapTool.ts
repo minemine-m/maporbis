@@ -56,7 +56,7 @@ export abstract class MapTool extends EventMixin(
         }
 
         this.enable();
-        this.trigger("add", { map });
+        this.fire("add", { map });
 
         return this;
     }
@@ -81,7 +81,7 @@ export abstract class MapTool extends EventMixin(
             this.onEnable();
         }
 
-        this.trigger("enable", { map: this._map });
+        this.fire("enable", { map: this._map });
         return this;
     }
 
@@ -98,7 +98,7 @@ export abstract class MapTool extends EventMixin(
             this.onDisable();
         }
 
-        this.trigger("disable", { map: this._map });
+        this.fire("disable", { map: this._map });
         return this;
     }
 
@@ -123,7 +123,7 @@ export abstract class MapTool extends EventMixin(
         }
 
         this._map = undefined;
-        this.trigger("remove");
+        this.fire("remove");
         return this;
     }
 

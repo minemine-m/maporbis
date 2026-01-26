@@ -1,5 +1,5 @@
 import { UIComponent, type UIComponentOptions } from "./UIComponent";
-import type { Coordinate } from "../types";
+import type { LngLatLike } from "../types";
 
 /** 
  * UIMarker content type
@@ -21,7 +21,7 @@ export type UIMarkerOptions = UIComponentOptions & {
      * Required: Geographic coordinate [lng, lat, alt?]
      * 必填：地理坐标 [lng, lat, alt?] 
      */
-    coordinate: Coordinate;
+    coordinate: LngLatLike;
     /** 
      * Content: can be HTML string / DOM / render function
      * 内容，可以是 HTML 字符串 / DOM / 渲染函数 
@@ -62,7 +62,7 @@ export class UIMarker extends UIComponent {
      * Current marker coordinate
      * 当前标记点坐标 
      */
-    private _markerCoord: Coordinate;
+    private _markerCoord: LngLatLike;
     /** 
      * Content cache
      * 内容缓存 
@@ -75,7 +75,7 @@ export class UIMarker extends UIComponent {
             ...options,
         });
 
-        this._markerCoord = [...options.coordinate] as Coordinate;
+        this._markerCoord = [...options.coordinate] as LngLatLike;
         this._content = options.content;
     }
 
@@ -117,9 +117,9 @@ export class UIMarker extends UIComponent {
             dom.innerHTML = content;
         }
 
-        // Here we can add some basic DOM events if needed -> this.trigger(...)
+        // Here we can add some basic DOM events if needed -> this.fire(...)
         // For simplicity, let the caller bind events on the dom directly
-        // 这里可以根据需要加一些基础的 DOM 事件 → this.trigger(...)
+        // 这里可以根据需要加一些基础的 DOM 事件 → this.fire(...)
         // 为了保持简单，先只交给调用方自己在 dom 上绑事件
 
         return dom;
@@ -149,9 +149,9 @@ export class UIMarker extends UIComponent {
      * Show: updates internal coordinate if a new one is provided
      * 显示：如果传了新坐标，就更新内部坐标
      */
-    override show(coordinate?: Coordinate): this {
+    override show(coordinate?: LngLatLike): this {
         if (coordinate) {
-            this._markerCoord = [...coordinate] as Coordinate;
+            this._markerCoord = [...coordinate] as LngLatLike;
         }
         // Pass to base class, let UIComponent handle unified projectToWorld + position update logic
         // 传给基类，让 UIComponent 走统一的 projectToWorld + 位置更新逻辑
@@ -161,8 +161,8 @@ export class UIMarker extends UIComponent {
     /**
      * 设置坐标（会触发重新定位）
      */
-    setCoordinates(coordinate: Coordinate): this {
-        this._markerCoord = [...coordinate] as Coordinate;
+    setLngLatLikes(coordinate: LngLatLike): this {
+        this._markerCoord = [...coordinate] as LngLatLike;
         if (this.isVisible()) {
             // 复用 show 的逻辑，让 UIComponent 更新 _coordinate 和位置
             super.show(this._markerCoord);
@@ -173,15 +173,15 @@ export class UIMarker extends UIComponent {
     /**
      * 获取当前坐标
      */
-    getCoordinates(): Coordinate {
-        return [...this._markerCoord] as Coordinate;
+    getLngLatLikes(): LngLatLike {
+        return [...this._markerCoord] as LngLatLike;
     }
 
     /**
      * 
      */
-    getCenter(): Coordinate {
-        return this.getCoordinates();
+    getCenter(): LngLatLike {
+        return this.getLngLatLikes();
     }
 
     /**
@@ -201,7 +201,7 @@ export class UIMarker extends UIComponent {
     setAltitude(alt: number): this {
         const coord = [...this._markerCoord] as any;
         coord[2] = alt;
-        this._markerCoord = coord as Coordinate;
+        this._markerCoord = coord as LngLatLike;
         if (this.isVisible()) {
             super.show(this._markerCoord);
         }

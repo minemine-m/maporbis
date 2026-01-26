@@ -1,7 +1,7 @@
 import { Vector3 } from "three";
 import { BaseMixin, EventMixin, type ClassOptions } from "../core/mixins";
 import type { Map as TerraMap } from "../index";
-import type { Coordinate } from "../types";
+import type { LngLatLike } from "../types";
 
 /**
  * UI Component options.
@@ -53,13 +53,13 @@ class EmptyBase {
  * - Attach to Map or Feature (addTo)
  * - Internally manage DOM lifecycle (buildOn / remove)
  * - Position DOM to screen coordinates based on world coordinates + camera
- * - Update position when listening to map view changes (control-change)
+ * - Update position when listening to map view changes (viewchange)
  * 
  * 抽象目标：
  * - 挂到 Map 或 Feature 上（addTo）
  * - 内部管理 DOM 生命周期（buildOn / remove）
  * - 根据世界坐标 + 相机，将 DOM 定位到屏幕坐标
- * - 监听地图视图变化（control-change）时更新位置
+ * - 监听地图视图变化（viewchange）时更新位置
   * @category UI
  */
 export abstract class UIComponent extends EventMixin(
@@ -93,7 +93,7 @@ export abstract class UIComponent extends EventMixin(
      * Recorded coordinate if passed via show(coordinate).
      * 如果通过 show(coordinate) 传入了坐标，这里记录下来 
      */
-    private _coordinate?: Coordinate;
+    private _coordinate?: LngLatLike;
     
     /** 
      * Corresponding DOM element.
@@ -114,8 +114,8 @@ export abstract class UIComponent extends EventMixin(
     private _boundMapHandlers = new Map<string, (...args: any[]) => void>();
 
     /** 
-     * Viewer update event handler.
-     * 绑定到 Viewer 的 update 事件处理函数 
+     * SceneRenderer update event handler.
+     * 绑定到 SceneRenderer 的 update 事件处理函数 
      */
     private _viewerUpdateHandler?: (evt: any) => void;
 
@@ -223,7 +223,7 @@ export abstract class UIComponent extends EventMixin(
             this.onAdd();
         }
 
-        this.trigger("add", { owner, map });
+        this.fire("add", { owner, map });
 
         return this;
     }
@@ -251,7 +251,7 @@ export abstract class UIComponent extends EventMixin(
             this.onRemove();
         }
 
-        this.trigger("remove", { owner: this._owner, map });
+        this.fire("remove", { owner: this._owner, map });
 
         this._owner = undefined;
         this._map = undefined;
@@ -267,7 +267,7 @@ export abstract class UIComponent extends EventMixin(
      * 显示 UIComponent
      * @param coordinate Geographic coordinate ([lng, lat, alt]), optional 地理坐标（[lng, lat, alt]），可选
      */
-    show(coordinate?: Coordinate): this {
+    show(coordinate?: LngLatLike): this {
         const map = this._map ?? (this._owner && typeof this._owner.getMap === "function"
             ? this._owner.getMap()
             : undefined);
@@ -306,7 +306,7 @@ export abstract class UIComponent extends EventMixin(
 
         // Record explicitly passed coordinate (if any)
         // 记录显式传入的坐标（如果有）
-        this._coordinate = coordinate ? [...coordinate] as Coordinate : undefined;
+        this._coordinate = coordinate ? [...coordinate] as LngLatLike : undefined;
 
         // Mark as visible, but hide first, wait for InfoWindow to decide when to show
         // 标记为可见，但先隐藏，等 InfoWindow 自己决定真正显示时机
@@ -319,7 +319,7 @@ export abstract class UIComponent extends EventMixin(
         // Do not call _updatePosition actively here, position update is left to external (e.g. InfoWindow.open)
         // 此处不主动调用 _updatePosition，位置更新交给外部（比如 InfoWindow.open）
 
-        this.trigger("show", { owner: this._owner, map });
+        this.fire("show", { owner: this._owner, map });
 
         return this;
     }
@@ -338,7 +338,7 @@ export abstract class UIComponent extends EventMixin(
         // Clear explicit coordinate when hidden
         // 隐藏时清掉显式坐标
         this._coordinate = undefined;
-        this.trigger("hide", { owner: this._owner, map: this._map });
+        this.fire("hide", { owner: this._owner, map: this._map });
         return this;
     }
     /**
@@ -403,8 +403,8 @@ export abstract class UIComponent extends EventMixin(
                     this._refreshDomPosition();
                 }
             };
-            mapAny[type]("control-change", handler);
-            ensureHandler("control-change", handler);
+            mapAny[type]("viewchange", handler);
+            ensureHandler("viewchange", handler);
 
             // In render loop: viewer triggers update every frame
             // 渲染循环中：viewer 每帧触发 update
@@ -497,8 +497,8 @@ export abstract class UIComponent extends EventMixin(
                 }
             }
 
-            if (owner._worldCoordinates instanceof Vector3) {
-                const pos = owner._worldCoordinates as Vector3;
+            if (owner._worldLngLatLikes instanceof Vector3) {
+                const pos = owner._worldLngLatLikes as Vector3;
                 if (!(pos.x === 0 && pos.y === 0 && pos.z === 0)) {
                     return pos.clone();
                 }

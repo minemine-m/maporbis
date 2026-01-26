@@ -1,5 +1,5 @@
 import { Feature } from "../Feature";
-import type { Coordinate } from "../../types";
+import type { LngLatLike } from "../../types";
 import { InfoWindow, type InfoWindowOptions } from "../../ui/InfoWindow";
 import type { Map } from "../../map";
 
@@ -44,7 +44,7 @@ declare module "../Feature" {
          * @returns Feature instance (supports chaining)
          *          当前要素实例
          */
-        openInfoWindow(coordinate?: Coordinate): this;
+        openInfoWindow(coordinate?: LngLatLike): this;
 
         /**
          * Close InfoWindow.
@@ -119,7 +119,7 @@ declare module "../Feature" {
      * @param coordinate Optional geographic coordinate
      *                   可选地理坐标
      */
-    openInfoWindow(this: Feature, coordinate?: Coordinate) {
+    openInfoWindow(this: Feature, coordinate?: LngLatLike) {
         const infoWindow = this._infoWindow;
         if (!infoWindow) {
             return this;

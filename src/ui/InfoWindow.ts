@@ -1,5 +1,5 @@
 import { UIComponent, type UIComponentOptions } from "./UIComponent";
-import type { Coordinate } from "../types";
+import type { LngLatLike } from "../types";
 import { Vector3, Sprite, SpriteMaterial } from "three";
 
 /**
@@ -386,7 +386,7 @@ export class InfoWindow extends UIComponent {
      * 打开 InfoWindow（语义上等价于 show）
      * @param coordinate Optional geographic coordinate, use owner center / map center if not provided 可选地理坐标，不传则使用 owner 的中心 / 地图中心
      */
-    open(coordinate?: Coordinate): this {
+    open(coordinate?: LngLatLike): this {
         // Call base class show, create DOM, record coordinate, but keep hidden
         // 调用基类 show，创建 DOM、记录 coordinate，但保持隐藏
         super.show(coordinate);

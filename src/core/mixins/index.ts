@@ -30,14 +30,14 @@ export function EventMixin<T extends { new(...args: any[]): {} }>(Base: T) {
             super(...args);
             this.eventClass = new EventClass();
         }
-        /** 事件类实例 */
+        /** Event class instance. 事件类实例 */
         eventClass = new EventClass();
 
-        /** 订阅事件 */
+        /** Subscribe to event. 订阅事件 */
         on = this.eventClass.on.bind(this.eventClass);
-        /** 触发事件 */
-        trigger = this.eventClass.trigger.bind(this.eventClass);
-        /** 取消订阅 */
+        /** Fire an event. 触发事件 */
+        fire = this.eventClass.fire.bind(this.eventClass);
+        /** Unsubscribe from event. 取消订阅 */
         off = this.eventClass.off.bind(this.eventClass);
     };
 }
@@ -79,16 +79,17 @@ export function BaseMixin<T extends new (...args: any[]) => any, _S = any>(
             super(...args);  // 允许参数向上传递
             // this.options = (args[0] || {}) as S;
 
+            // Merge prototype defaults and passed arguments
             // 合并原型默认值和传入参数
             const protoOptions = Object.getPrototypeOf(this).options || {};
             const _args = assign({}, protoOptions, args[0] || {});
             // this.options = assign({}, protoOptions, args[0] || {});
             this.setOptions(_args);
-            this.callInitHooks();
+            this._callInitHooks();
             this._isUpdatingOptions = false;
         }
 
-        proxyOptions() {
+        _proxyOptions() {
             if (!Browser.proxy) {
                 return this;
             }
@@ -104,14 +105,14 @@ export function BaseMixin<T extends new (...args: any[]) => any, _S = any>(
                     }
                     const opts = {};
                     (opts as ClassOptions)[key] = value;
-                    this.config(opts);
+                    this.configure(opts);
                     return true;
                 }
             });
             return this;
         }
 
-        callInitHooks() {
+        _callInitHooks() {
             const proto = Object.getPrototypeOf(this);
             this._visitInitHooks(proto);
             return this;
@@ -130,7 +131,7 @@ export function BaseMixin<T extends new (...args: any[]) => any, _S = any>(
             return this;
         }
 
-        config(conf?: string | ClassOptions, value?: any): ClassOptions | this {
+        configure(conf?: string | ClassOptions, value?: any): ClassOptions | this {
             this._isUpdatingOptions = true;
             if (!conf) {
                 const config = {} as ClassOptions;
@@ -158,13 +159,14 @@ export function BaseMixin<T extends new (...args: any[]) => any, _S = any>(
                         }
                     }
                 }
-                this.onConfig(conf);
+                this.onOptionsChange(conf);
                 this._isUpdatingOptions = false;
             }
             return this;
         }
 
-        onConfig(_conf: ClassOptions) {
+        onOptionsChange(_conf: ClassOptions) {
+            // Can be overridden by subclasses
             // 可以被子类覆盖
         }
 

@@ -1,5 +1,5 @@
 import { Feature } from "../Feature";
-import type { Coordinate } from "../../types";
+import type { LngLatLike } from "../../types";
 import { ToolTip, type ToolTipOptions } from "../../ui/ToolTip";
 import type { Map } from "../../map";
 
@@ -44,7 +44,7 @@ declare module "../Feature" {
          * @returns Feature instance (supports chaining)
          *          当前要素实例
          */
-        openToolTip(coordinate?: Coordinate): this;
+        openToolTip(coordinate?: LngLatLike): this;
 
         /**
          * Close ToolTip.
@@ -115,7 +115,7 @@ declare module "../Feature" {
      * @param coordinate Optional geographic coordinate
      *                   可选地理坐标
      */
-    openToolTip(this: Feature, coordinate?: Coordinate) {
+    openToolTip(this: Feature, coordinate?: LngLatLike) {
         const tip = this._toolTip;
         if (!tip) return this;
 

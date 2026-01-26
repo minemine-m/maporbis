@@ -1,6 +1,6 @@
 import { Vector3, Object3D } from 'three';
 import { PointOptions, Point } from './Point';
-import { Style } from '../style';
+import { Paint } from '../style';
 import { _createTextSprite, _createFixedSizeTextSprite } from '../utils/createobject';
 import { Map } from '../map';
 
@@ -131,7 +131,7 @@ export class Label extends Point {
      * - 'canvas-label-fixed': 固定大小标签
      * - 'canvas-label': 动态大小标签
      */
-    async _createObject(style: Style): Promise<Object3D> {
+    async _createObject(paint: Paint): Promise<Object3D> {
         switch (style.config.type) {
             case 'canvas-label-fixed':
                 return _createFixedSizeTextSprite(

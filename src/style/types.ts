@@ -1,133 +1,133 @@
 import type { Feature } from '../feature/Feature';
 
 /**
+ * Base paint interface
  * 基础样式接口
- * Base Style Interface
- * @description 定义所有样式类型共享的基础属性
- * Defines base properties shared by all style types.
- * @category Style
+ * @description Defines base properties shared by all paint types.
+ * 定义所有样式类型共享的基础属性
+ * @category Paint
  */
-export type BaseStyle = {
+export type BasePaintType = {
     /**
-     * 是否可见
      * Visibility
+     * 是否可见
      * @default true
      */
     visible?: boolean;
     
     /**
-     * 透明度 (0-1)
      * Opacity (0-1)
+     * 透明度 (0-1)
      * @default 1
      */
     opacity?: number;
     
     /**
-     * 渲染层级
      * Render Z-Index
-     * @description 数值越大渲染在越上层
-     * Higher value means rendered on top.
+     * 渲染层级
+     * @description Higher value means rendered on top.
+     * 数值越大渲染在越上层
      */
     zIndex?: number;
 };
 
 /**
+ * Point feature paint configuration
  * 点要素样式配置
- * Point Feature Style Configuration
- * @extends BaseStyle
-  * @category Style
+ * @extends BasePaintType
+ * @category Paint
  */
-export type PointStyle = BaseStyle & {
+export type PointPaintType = BasePaintType & {
     /**
+     * Paint type identifier
      * 样式类型标识
-     * Style Type Identifier
      */
     type: 'point';
     
     /**
+     * Point color
      * 点颜色
-     * Point Color
-     * @description 支持CSS颜色字符串或十六进制数值
-     * Supports CSS color strings or hex values.
-     * @example '#ff0000' 或 0xff0000
+     * @description Supports CSS color strings or hex values.
+     * 支持CSS颜色字符串或十六进制数值
+     * @example '#ff0000' or 0xff0000
      */
     color?: string | number;
     
     /**
+     * Point size
      * 点大小
-     * Point Size
-     * @description 单位：像素
-     * Unit: pixels
+     * @description Unit: pixels
+     * 单位：像素
      * @default 10
      */
     size?: number;
     
     /**
-     * 图标URL
      * Icon URL
-     * @description 当需要显示图标时指定
-     * Specified when an icon needs to be displayed.
+     * 图标URL
+     * @description Specified when an icon needs to be displayed.
+     * 当需要显示图标时指定
      */
     icon?: string;
     
-    // ...其他点样式属性
+    // ...other point paint properties
 };
 
 /**
+ * Line feature paint configuration
  * 线要素样式配置
- * Line Feature Style Configuration
- * @extends BaseStyle
-  * @category Style
+ * @extends BasePaintType
+ * @category Paint
  */
-export type LineStyle = BaseStyle & {
+export type LinePaintType = BasePaintType & {
     /**
+     * Paint type identifier
      * 样式类型标识
-     * Style Type Identifier
      */
     type: 'line';
     
     /**
+     * Line color
      * 线颜色
-     * Line Color
-     * @description 支持CSS颜色字符串或十六进制数值
-     * Supports CSS color strings or hex values.
-     * @example '#00ff00' 或 0x00ff00
+     * @description Supports CSS color strings or hex values.
+     * 支持CSS颜色字符串或十六进制数值
+     * @example '#00ff00' or 0x00ff00
      */
     color?: string | number;
     
     /**
+     * Line width
      * 线宽
-     * Line Width
-     * @description 单位：像素
-     * Unit: pixels
+     * @description Unit: pixels
+     * 单位：像素
      * @default 2
      */
     width?: number;
     
-    // ...其他线样式属性
+    // ...other line paint properties
 };
 
 /**
+ * Paint configuration union type
  * 样式配置联合类型
- * Style Configuration Union Type
- * @description 包含所有支持的样式类型
- * Contains all supported style types.
-  * @category Style
+ * @description Contains all supported paint types.
+ * 包含所有支持的样式类型
+ * @category Paint
  */
-export type StyleConfig = PointStyle | LineStyle;
+export type SimplePaintConfig = PointPaintType | LinePaintType;
 
 /**
+ * Paint function type
  * 样式函数类型
- * Style Function Type
- * @description 根据要素和缩放级别动态计算样式
- * Dynamically calculates style based on feature and zoom level.
- * @template T 样式配置类型 Style configuration type
- * @param feature 地图要素 Map feature
- * @param zoom 当前缩放级别（可选） Current zoom level (optional)
- * @returns 样式配置对象 Style configuration object
-  * @category Style
+ * @description Dynamically calculates paint based on feature and zoom level.
+ * 根据要素和缩放级别动态计算样式
+ * @template T Paint configuration type
+ * @param feature Map feature
+ * @param zoom Current zoom level (optional)
+ * @returns Paint configuration object
+ * @category Paint
  */
-export type StyleFunction<T extends StyleConfig> = (
+export type PaintFunction<T extends SimplePaintConfig> = (
     feature: Feature,
     zoom?: number
 ) => T;

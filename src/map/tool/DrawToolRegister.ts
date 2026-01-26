@@ -1,23 +1,23 @@
-import type { Coordinate } from "../../types";
+import type { LngLatLike } from "../../types";
 import { DrawTool, type DrawModeDefinition } from "./DrawTool";
 import { LineString, Marker, Polygon } from "../../feature";
-import type { StyleInput } from "../../style";
-import { Style } from "../../style";
+import type { PaintInput } from "../../style";
+import { Paint } from "../../style";
 
 /**
- * Point 模式：
- * - 单击一次就确定一个点
- * - _clickCoords 里只会存一个坐标
+ * Point mode:
+ * - Single click determines a point
+ * - _clickCoords will only store one coordinate
  */
 const pointMode: DrawModeDefinition = {
     actions: ["click", "mousemove"],
-    create(start: Coordinate, evt: any) {
+    create(start: LngLatLike, evt: any) {
         const tool = evt.drawTool as DrawTool;
         const draftLayer = tool._getOrCreateDraftLayer();
 
-        const pointStyle = toStyle(
-            tool.options.geometryStyle,
-            { type: "basic-point", size: 10, color: "#00ffff" } as any
+        const pointPaint = toPaint(
+            tool.options.geometryPaint,
+            { type: "circle", size: 10, color: "#00ffff" } as any
         );
 
         const geoJSON = {
@@ -27,7 +27,7 @@ const pointMode: DrawModeDefinition = {
 
         const draftMarker = new Marker({
             geometry: geoJSON as any,
-            style: pointStyle
+            paint: pointPaint
         });
 
         draftMarker.addTo(draftLayer as any);
@@ -39,7 +39,7 @@ const pointMode: DrawModeDefinition = {
             draftMarker
         };
     },
-    update(coords: Coordinate[], state: any, _evt: any) {
+    update(coords: LngLatLike[], state: any, _evt: any) {
         const draftMarker = state?.draftMarker as Marker;
         if (!draftMarker) return;
 
@@ -49,10 +49,10 @@ const pointMode: DrawModeDefinition = {
             coordinates: last
         } as any;
 
-        draftMarker._worldCoordinates = draftMarker._coordsTransform() as any;
+        draftMarker._worldLngLatLikes = draftMarker._coordsTransform() as any;
         draftMarker._buildRenderObject && draftMarker._buildRenderObject();
     },
-    generate(state: any, coords: Coordinate[]) {
+    generate(state: any, coords: LngLatLike[]) {
         const tool: DrawTool = state.tool;
         if (!coords.length) return null;
 
@@ -63,8 +63,8 @@ const pointMode: DrawModeDefinition = {
         }
 
         // 返回“干净”的最终点 Feature
-        const pointStyle = toStyle(
-            tool.options.geometryStyle,
+        const pointPaint = toPaint(
+            tool.options.geometryPaint,
             { type: "basic-point", size: 10, color: "#00ffff" } as any
         );
         const last = coords[coords.length - 1];
@@ -74,7 +74,7 @@ const pointMode: DrawModeDefinition = {
                 type: "Point",
                 coordinates: last
             } as any,
-            style: pointStyle
+            paint: pointPaint
         });
 
         return finalMarker;
@@ -91,20 +91,20 @@ const pointMode: DrawModeDefinition = {
  */
 const lineMode: DrawModeDefinition = {
     actions: ["click", "mousemove", "dblclick"],
-    create(start: Coordinate, evt: any) {
+    create(start: LngLatLike, evt: any) {
         const tool = evt.drawTool as DrawTool;
         const draftLayer = tool._getOrCreateDraftLayer();
 
-        const lineStyle = toStyle(
-            tool.options.geometryStyle,
+        const linePaint = toPaint(
+            tool.options.geometryPaint,
             { type: "basic-line", color: "#ff0000", width: 2 } as any
         );
-        // vertexStyle === null 表示“禁用锚点”；undefined 或 样式对象 则正常使用
-        const vertexStyle =
-            tool.options.vertexStyle === null
+        // vertexPaint === null 表示“禁用锚点”；undefined 或 样式对象 则正常使用
+        const vertexPaint =
+            tool.options.vertexPaint === null
                 ? undefined
-                : toStyle(
-                    tool.options.vertexStyle,
+                : toPaint(
+                    tool.options.vertexPaint,
                     { type: "basic-point", size: 8, color: "#00ffff" } as any
                 );
 
@@ -114,21 +114,21 @@ const lineMode: DrawModeDefinition = {
         };
         const draftLine = new LineString({
             geometry: lineGeoJSON as any,
-            style: lineStyle
+            paint: linePaint
         });
         draftLine.addTo(draftLayer as any);
 
         const draftAnchors: Marker[] = [];
 
-        // 只有在有 vertexStyle 时才画锚点
-        if (vertexStyle) {
+        // 只有在有 vertexPaint 时才画锚点
+        if (vertexPaint) {
             const markerGeoJSON = {
                 type: "Point",
                 coordinates: start
             };
             const firstAnchor = new Marker({
                 geometry: markerGeoJSON as any,
-                style: vertexStyle
+                paint: vertexPaint
             });
             firstAnchor.addTo(draftLayer as any);
             draftAnchors.push(firstAnchor);
@@ -139,11 +139,11 @@ const lineMode: DrawModeDefinition = {
             draftLayer,
             draftLine,
             draftAnchors,
-            lineStyle,
-            vertexStyle
+            linePaint,
+            vertexPaint
         };
     },
-    update(coords: Coordinate[], state: any, evt: any) {
+    update(coords: LngLatLike[], state: any, evt: any) {
         if (!state) return;
         const draftLayer = state.draftLayer;
 
@@ -162,13 +162,13 @@ const lineMode: DrawModeDefinition = {
         };
         const newDraftLine = new LineString({
             geometry: lineGeoJSON as any,
-            style: state.lineStyle
+            paint: state.linePaint
         });
         newDraftLine.addTo(draftLayer as any);
         state.draftLine = newDraftLine;
 
-        // 只有存在 vertexStyle 时才新增锚点
-        if (evt.eventName === "click" && state.vertexStyle) {
+        // 只有存在 vertexPaint 时才新增锚点
+        if (evt.eventName === "click" && state.vertexPaint) {
             const last = coords[coords.length - 1];
             const markerGeoJSON = {
                 type: "Point",
@@ -176,13 +176,13 @@ const lineMode: DrawModeDefinition = {
             };
             const anchor = new Marker({
                 geometry: markerGeoJSON as any,
-                style: state.vertexStyle
+                paint: state.vertexPaint
             });
             anchor.addTo(draftLayer as any);
             state.draftAnchors.push(anchor);
         }
     },
-    generate(state: any, coords: Coordinate[]) {
+    generate(state: any, coords: LngLatLike[]) {
         const tool: DrawTool = state.tool;
         if (!coords.length) return null;
 
@@ -199,8 +199,8 @@ const lineMode: DrawModeDefinition = {
             state.draftAnchors = [];
         }
 
-        const lineStyle = toStyle(
-            tool.options.geometryStyle,
+        const linePaint = toPaint(
+            tool.options.geometryPaint,
             { type: "basic-line", color: "#ff0000", width: 2 } as any
         );
 
@@ -209,7 +209,7 @@ const lineMode: DrawModeDefinition = {
                 type: "LineString",
                 coordinates: coords
             } as any,
-            style: lineStyle
+            paint: linePaint
         });
 
         return finalLine;
@@ -225,34 +225,34 @@ const lineMode: DrawModeDefinition = {
  */
 const polygonMode: DrawModeDefinition = {
     actions: ["click", "mousemove", "dblclick"],
-    create(start: Coordinate, evt: any) {
+    create(start: LngLatLike, evt: any) {
         const tool = evt.drawTool as DrawTool;
         const draftLayer = tool._getOrCreateDraftLayer();
 
-        const polygonStyle = toStyle(
-            tool.options.geometryStyle,
+        const polygonPaint = toPaint(
+            tool.options.geometryPaint,
             { type: "basic-polygon", color: "#00ff00", opacity: 0.5 } as any
         );
         // null 表示不画锚点
-        const vertexStyle =
-            tool.options.vertexStyle === null
+        const vertexPaint =
+            tool.options.vertexPaint === null
                 ? undefined
-                : toStyle(
-                    tool.options.vertexStyle,
+                : toPaint(
+                    tool.options.vertexPaint,
                     { type: "basic-point", size: 8, color: "#00ffff" } as any
                 );
 
         const draftAnchors: Marker[] = [];
 
-        // 有 vertexStyle 才画第一个锚点
-        if (vertexStyle) {
+        // 有 vertexPaint 才画第一个锚点
+        if (vertexPaint) {
             const markerGeoJSON = {
                 type: "Point",
                 coordinates: start
             };
             const firstAnchor = new Marker({
                 geometry: markerGeoJSON as any,
-                style: vertexStyle
+                paint: vertexPaint
             });
             firstAnchor.addTo(draftLayer as any);
             firstAnchor.initializeGeometry();
@@ -265,16 +265,16 @@ const polygonMode: DrawModeDefinition = {
             draftPolygon: null as Polygon | null,   // 草图面
             draftEdgeLine: null as LineString | null, // 点数<3时的草图边线
             draftAnchors,
-            polygonStyle,
-            vertexStyle
+            polygonPaint,
+            vertexPaint
         };
     },
-    update(coords: Coordinate[], state: any, evt: any) {
+    update(coords: LngLatLike[], state: any, evt: any) {
         if (!state) return;
         const draftLayer = state.draftLayer;
 
         // 点击时增加草图锚点（如果启用了锚点样式）
-        if (evt.eventName === "click" && state.vertexStyle) {
+        if (evt.eventName === "click" && state.vertexPaint) {
             const last = coords[coords.length - 1];
             const markerGeoJSON = {
                 type: "Point",
@@ -282,7 +282,7 @@ const polygonMode: DrawModeDefinition = {
             };
             const anchor = new Marker({
                 geometry: markerGeoJSON as any,
-                style: state.vertexStyle
+                paint: state.vertexPaint
             });
             anchor.addTo(draftLayer as any);
             anchor.initializeGeometry();
@@ -322,20 +322,20 @@ const polygonMode: DrawModeDefinition = {
             };
 
             // 注意：LineString 只能用 'basic-line' 样式
-            // 尝试从 polygonStyle 里取颜色，取不到就用默认绿色
+            // 尝试从 polygonPaint 里取颜色，取不到就用默认绿色
             const edgeColor =
-                (state.polygonStyle?.config && (state.polygonStyle as any).config.color) ||
+                (state.polygonPaint?.config && (state.polygonPaint as any).config.color) ||
                 "#00ff00";
 
-            const edgeLineStyle = new Style({
-                type: "basic-line",
+            const edgeLinePaint = new Paint({
+                type: "line",
                 color: edgeColor,
                 width: 2
             } as any);
 
             const edgeLine = new LineString({
                 geometry: lineGeoJSON as any,
-                style: edgeLineStyle
+                paint: edgeLinePaint
             });
             edgeLine.addTo(draftLayer as any);
             state.draftEdgeLine = edgeLine;
@@ -370,12 +370,12 @@ const polygonMode: DrawModeDefinition = {
         };
         const draftPolygon = new Polygon({
             geometry: polyGeoJSON as any,
-            style: state.polygonStyle
+            paint: state.polygonPaint
         });
         draftPolygon.addTo(draftLayer as any);
         state.draftPolygon = draftPolygon;
     },
-    generate(state: any, coords: Coordinate[]) {
+    generate(state: any, coords: LngLatLike[]) {
         const tool: DrawTool = state.tool;
         if (coords.length < 3) return null;
 
@@ -397,8 +397,8 @@ const polygonMode: DrawModeDefinition = {
             state.draftAnchors = [];
         }
 
-        const polygonStyle = toStyle(
-            tool.options.geometryStyle,
+        const polygonPaint = toPaint(
+            tool.options.geometryPaint,
             { type: "basic-polygon", color: "#00ff00", opacity: 0.5 } as any
         );
 
@@ -418,7 +418,7 @@ const polygonMode: DrawModeDefinition = {
                 type: "Polygon",
                 coordinates: [closed]
             } as any,
-            style: polygonStyle
+            paint: polygonPaint
         });
 
         return finalPolygon;
@@ -430,7 +430,7 @@ DrawTool.registerMode("point", pointMode);
 DrawTool.registerMode("line", lineMode);
 DrawTool.registerMode("polygon", polygonMode);
 
-/** 简单工具：StyleInput -> Style 实例 */
-function toStyle(input: StyleInput | undefined, fallback: StyleInput): Style {
-    return Style.create(input || fallback) as Style;
+/** Utility: PaintInput -> Paint instance */
+function toPaint(input: PaintInput | undefined, fallback: PaintInput): Paint {
+    return Paint.create(input || fallback) as Paint;
 }

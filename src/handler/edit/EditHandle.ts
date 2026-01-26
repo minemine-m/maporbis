@@ -285,14 +285,15 @@ export class EditHandle extends EventMixin(Object) {
         this._lastCoordinate = coordinate;
         
         // 禁止地图平移
-        this.map.viewer.config('draggable', false);
+        this.map.viewer.configure('draggable', false);
         
         // 监听地图的 mousemove 和 mouseup 事件
         this.map.on('mousemove', this._boundOnMouseMove!);
         this.map.on('mouseup', this._boundOnMouseUp!);
         
+        // Fire dragstart event
         // 触发 dragstart 事件
-        this.trigger('dragstart', {
+        this.fire('dragstart', {
             target: this,
             coordinate: coordinate,
             position: this.options.position.clone()
@@ -328,8 +329,9 @@ export class EditHandle extends EventMixin(Object) {
         this.updatePosition(worldPos as Vector3);
         this._lastCoordinate = currentCoord;
         
+        // Fire dragging event
         // 触发 dragging 事件
-        this.trigger('dragging', {
+        this.fire('dragging', {
             target: this,
             coordinate: currentCoord,
             position: this.options.position.clone(),
@@ -349,15 +351,18 @@ export class EditHandle extends EventMixin(Object) {
         
         this._isDragging = false;
         
+        // Restore map panning
         // 恢复地图平移
-        this.map.viewer.config('draggable', true);
+        this.map.viewer.configure('draggable', true);
         
+        // Remove event listeners
         // 移除事件监听
         this.map.off('mousemove', this._boundOnMouseMove!);
         this.map.off('mouseup', this._boundOnMouseUp!);
         
+        // Fire dragend event
         // 触发 dragend 事件
-        this.trigger('dragend', {
+        this.fire('dragend', {
             target: this,
             coordinate: e.coordinate,
             position: this.options.position.clone(),
@@ -395,7 +400,7 @@ export class EditHandle extends EventMixin(Object) {
         // 如果正在拖拽，先结束拖拽
         if (this._isDragging) {
             this._isDragging = false;
-            this.map.viewer.config('draggable', true);
+            this.map.viewer.configure('draggable', true);
             this.map.off('mousemove', this._boundOnMouseMove!);
             this.map.off('mouseup', this._boundOnMouseUp!);
         }

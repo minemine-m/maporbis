@@ -1,7 +1,7 @@
 import { Vector3, Object3D, Sprite, Camera, WebGLRenderer } from 'three';
 import { PointOptions, Point } from './Point';
 // import { Map } from '../map';
-import { Style } from '../style';
+import { Paint } from '../style';
 import { _createBasicPoint, _createIconPoint, _createIconLabelSprite } from '../utils/createobject';
 
 /**
@@ -128,7 +128,7 @@ export class Marker extends Point {
      * @returns 创建的标记点对象
      * @throws 如果样式类型不支持会抛出错误
      */
-    async _createObject(style: Style): Promise<Object3D> {
+    async _createObject(paint: Paint): Promise<Object3D> {
         switch (style.config.type) {
             case 'basic-point':
                 return _createBasicPoint(style.config, new Vector3(0, 0, 0));
@@ -273,7 +273,7 @@ export class Marker extends Point {
     _getFallbackBoundingBox(): { width: number; height: number; offsetX: number; offsetY: number } {
         // Return different default sizes based on style type
         // 根据样式类型返回不同的默认尺寸
-        const styleType = this.getStyle()?.config.type;
+        const paintType = this.getPaint()?.config.type;
 
         switch (styleType) {
             case 'icon-point':

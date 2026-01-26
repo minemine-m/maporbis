@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import { PointOptions, Point } from "./Point";
 import { _createClouds,createLight } from "../utils/createobject";
 import { Map } from '../map';
-import { Style } from "../style";
+import { Paint } from "../style";
 
 /**
  * TPoints feature configuration options.
@@ -134,7 +134,7 @@ export class TPoints extends Point {
      * 
      * @private
      */
-    async _createObject(style: Style): Promise<any> {
+    async _createObject(paint: Paint): Promise<any> {
         switch (style.config.type) {
             case "light":
                 return createLight(style.config, this._geometries, this.getMap() as Map);

@@ -1,5 +1,5 @@
 import { Map } from "./index";
-import { Coordinate } from '../types';
+import { LngLatLike } from '../types';
 import { getLocalFromMouse } from '../utils/tilemaputils';
 import { BaseEventMap } from '../core/event';
 
@@ -11,7 +11,7 @@ export interface DomEventMap extends BaseEventMap<Map> {
      * Geographic coordinate of the event (optional)
      * 事件的地理坐标（可选） 
      */
-    coordinate?: Coordinate;
+    coordinate?: LngLatLike;
 }
 
 /**
@@ -119,7 +119,7 @@ Map.prototype._registerDomEvents = function (this: Map) {
                     }
                 };
                 if (latlnt) {
-                    let coordinate: Coordinate = [latlnt.x, latlnt.y, latlnt.z];
+                    let coordinate: LngLatLike = [latlnt.x, latlnt.y, latlnt.z];
                     eventData = {
                         target: this,
                         originEvent: evt,
@@ -131,7 +131,7 @@ Map.prototype._registerDomEvents = function (this: Map) {
                         }
                     }
                 }
-                this.trigger(eventName, eventData);
+                this.fire(eventName, eventData);
             });
         })
     }

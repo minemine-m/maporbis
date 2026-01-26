@@ -8,6 +8,6 @@
  * 
  * @internal
  */
-export { FeatureStyleManager } from './FeatureStyleManager';
+export { FeaturePaintManager } from './FeatureStyleManager';
 export { FeatureCollisionHelper, type IFeatureCollisionConfig, type IBoundingBoxResult } from './FeatureCollisionHelper';
 export { FeatureBloomHelper, type IBloomConfig } from './FeatureBloomHelper';

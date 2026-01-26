@@ -1,7 +1,7 @@
 import { Group, Sprite } from "three";
 import { BaseMixin, EventMixin } from "../core/mixins";
 import type { Map } from '../map';
-import type { Viewer } from '../viewer';
+import type { SceneRenderer } from '../viewer';
 import { requireParam } from "../utils/validate";
 import Handlerable from '../handler/Handlerable';
 
@@ -399,13 +399,13 @@ export abstract class Layer extends Handlerable(EventMixin(
      *              帧间隔时间
      * @param elapsedtime Elapsed time
      *                    累计时间
-     * @param context Viewer context
-     *                Viewer 上下文
+     * @param context SceneRenderer context
+     *                SceneRenderer 上下文
      * 
      * @protected
      * @abstract
      */
-    protected animate?(delta: number, elapsedtime: number, context: Viewer): void;
+    protected animate?(delta: number, elapsedtime: number, context: SceneRenderer): void;
 
     /**
      * Register animation callback.
@@ -415,9 +415,9 @@ export abstract class Layer extends Handlerable(EventMixin(
      */
     private _registerAnimate() {
         const map = this.getMap();
-        if (!map?.viewer) return;
+        if (!map?.sceneRenderer) return;
 
-        const removeCallback = map.viewer.addAnimationCallback((delta: number, elapsedtime: number, context: Viewer) => {
+        const removeCallback = map.sceneRenderer.addAnimationCallback((delta: number, elapsedtime: number, context: SceneRenderer) => {
             this.animate?.(delta, elapsedtime, context);
         });
 
