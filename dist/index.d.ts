@@ -3964,6 +3964,22 @@ export declare class LoaderUtils {
          * 初始化地图
          */
         private initMap;
+        /* Excluded from this release type: _updateDefaultGroundVisibility */
+        /**
+         * Show or hide the default ground plane manually.
+         * 手动显示或隐藏默认地面
+         *
+         * @param visible - Whether to show the ground plane. 是否显示地面
+         * @returns Current map instance. 当前地图实例
+         */
+        setDefaultGroundVisible(visible: boolean): this;
+        /**
+         * Check if the default ground plane is visible.
+         * 检查默认地面是否可见
+         *
+         * @returns Whether the ground is visible. 地面是否可见
+         */
+        isDefaultGroundVisible(): boolean;
         /**
          * Update map and layers.
          * 更新地图和图层
@@ -7388,7 +7404,7 @@ export declare class LoaderUtils {
         private _fogFactor;
         private _sceneSize;
         /** 地面网格 */
-        private gorund;
+        private _defaultGround;
         /** 地图实例 */
         map: Map_2;
         centerWorldPos: Vector3;
@@ -7599,7 +7615,35 @@ export declare class LoaderUtils {
          * @returns {Array<number>} 包含宽度和高度的数组 [width, height]，单位是像素。
          */
         getWidthHeight(): number[];
-        _createGorund(): Mesh<PlaneGeometry, MeshStandardMaterial, Object3DEventMap>;
+        /* Excluded from this release type: _createDefaultGround */
+        /**
+         * Show the default ground plane.
+         * 显示默认地面平面
+         *
+         * @description
+         * Makes the default ground plane visible. This is typically called automatically
+         * when no tile layers are present in the map.
+         * 使默认地面平面可见。通常在地图中没有瓦片图层时自动调用。
+         */
+        showDefaultGround(): void;
+        /* Excluded from this release type: _updateDefaultGroundPosition */
+        /**
+         * Hide the default ground plane.
+         * 隐藏默认地面平面
+         *
+         * @description
+         * Hides the default ground plane. This is typically called automatically
+         * when tile layers are added to the map.
+         * 隐藏默认地面平面。通常在向地图添加瓦片图层时自动调用。
+         */
+        hideDefaultGround(): void;
+        /**
+         * Check if the default ground plane is visible.
+         * 检查默认地面平面是否可见
+         *
+         * @returns Whether the ground is visible. 地面是否可见
+         */
+        isDefaultGroundVisible(): boolean;
         /**
          * 销毁viewer实例，释放所有资源
          * @description

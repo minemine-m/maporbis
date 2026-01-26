@@ -257,7 +257,7 @@ export class Viewer extends ViewerBase {
   private _fogFactor = 1.0;
   private _sceneSize = 50000 * 2;
   /** 地面网格 */
-  private gorund: Mesh;
+  private _defaultGround: Mesh;
   /** 地图实例 */
   public map: Map;
   public centerWorldPos: Vector3;
@@ -360,8 +360,8 @@ export class Viewer extends ViewerBase {
     // this.scene.add(this.headlight);
     // this.scene.add(this.headlight.target);
 
-    this.gorund = this._createGorund();
-    this.scene.add(this.gorund);
+    this._defaultGround = this._createDefaultGround();
+    this.scene.add(this._defaultGround);
 
     // 初始化 bloom 管线：普通渲染 + UnrealBloomPass
     if (bloom && bloom.enabled) {
@@ -1269,8 +1269,20 @@ export class Viewer extends ViewerBase {
     return [width, height];
   }
 
-  _createGorund() {
-    // const view = this.map.view;
+  /**
+   * Create the default ground plane.
+   * 创建默认地面平面
+   * 
+   * @description
+   * Creates a large ground plane mesh that serves as a visual base when no tile layers are present.
+   * The ground is positioned at y=0 and centered at the map center.
+   * 创建一个大型地面网格，当没有瓦片图层时作为视觉基底。
+   * 地面位于 y=0 并以地图中心为中心。
+   * 
+   * @returns Ground mesh. 地面网格
+   * @internal
+   */
+  private _createDefaultGround(): Mesh {
     const centerWorldPos = this.centerWorldPos;
     const material = new MeshStandardMaterial({
       transparent: false,
@@ -1283,14 +1295,84 @@ export class Viewer extends ViewerBase {
       this._sceneSize * 2,
     );
     const mesh = new Mesh(geometry, material);
-    mesh.name = "地面";
+    mesh.name = "DefaultGround";
     mesh.castShadow = false;
-    mesh.receiveShadow = false;
+    mesh.receiveShadow = true;
     mesh.position.y = 0;
     mesh.position.add(centerWorldPos);
     mesh.rotateX(-Math.PI / 2);
     mesh.visible = false;
     return mesh;
+  }
+
+  /**
+   * Show the default ground plane.
+   * 显示默认地面平面
+   * 
+   * @description
+   * Makes the default ground plane visible. This is typically called automatically
+   * when no tile layers are present in the map.
+   * 使默认地面平面可见。通常在地图中没有瓦片图层时自动调用。
+   */
+  public showDefaultGround(): void {
+    if (this._defaultGround) {
+      this._defaultGround.visible = true;
+    }
+  }
+
+  /**
+   * Update the default ground plane position.
+   * 更新默认地面平面位置
+   * 
+   * @description
+   * Recalculates and updates the ground plane position based on current map center.
+   * This should be called after the map's root group transformation is finalized.
+   * 根据当前地图中心重新计算并更新地面位置。
+   * 应在地图根组变换完成后调用。
+   * 
+   * @internal
+   */
+  public _updateDefaultGroundPosition(): void {
+    if (!this._defaultGround || !this.map) {
+      return;
+    }
+    
+    // Recalculate centerWorldPos with the properly transformed rootGroup
+    // 使用正确变换后的 rootGroup 重新计算 centerWorldPos
+    const newCenterWorldPos = this.map.projectToWorld(
+      new Vector3(this.map.center[0], this.map.center[1], 0),
+    );
+    this.centerWorldPos = newCenterWorldPos;
+    
+    // Reset ground position
+    // 重置地面位置
+    this._defaultGround.position.set(0, 0, 0);
+    this._defaultGround.position.add(newCenterWorldPos);
+  }
+
+  /**
+   * Hide the default ground plane.
+   * 隐藏默认地面平面
+   * 
+   * @description
+   * Hides the default ground plane. This is typically called automatically
+   * when tile layers are added to the map.
+   * 隐藏默认地面平面。通常在向地图添加瓦片图层时自动调用。
+   */
+  public hideDefaultGround(): void {
+    if (this._defaultGround) {
+      this._defaultGround.visible = false;
+    }
+  }
+
+  /**
+   * Check if the default ground plane is visible.
+   * 检查默认地面平面是否可见
+   * 
+   * @returns Whether the ground is visible. 地面是否可见
+   */
+  public isDefaultGroundVisible(): boolean {
+    return this._defaultGround?.visible ?? false;
   }
 
   /**

@@ -423,6 +423,10 @@ export class Map extends Handlerable(
         this._rootGroup.up.set(0, 0, 1);
         this._rootGroup.rotation.x = -Math.PI / 2;
         this.viewer.scene.add(this._rootGroup);
+        
+        // Update default ground position now that rootGroup transform is finalized
+        // 更新默认地面位置，此时 rootGroup 变换已完成
+        this.viewer._updateDefaultGroundPosition();
         // Map center (Target point) world coordinates
         // 地图中心（目标点）世界坐标
         const centerWorldPos = this.projectToWorld(new Vector3(this.center[0], this.center[1], 0));
@@ -597,6 +601,11 @@ export class Map extends Handlerable(
         });
 
         this._callOnLoadHooks();
+        
+        // Update default ground visibility (now that viewer is initialized)
+        // 更新默认地面可见性（此时 viewer 已初始化）
+        this._updateDefaultGroundVisibility();
+        
         // Register DOM events
         // 注册 DOM 事件
         // this._registerDomEvents();
@@ -893,6 +902,10 @@ export class Map extends Handlerable(
                 layer.isBaseLayer = true;
                 this.addTileLayer(layer);
             }
+        } else {
+            // No base layers provided, show default ground plane
+            // 没有提供底图图层，显示默认地面
+            this._updateDefaultGroundVisibility();
         }
 
         setTimeout(() => {
@@ -905,6 +918,58 @@ export class Map extends Handlerable(
             };
             this.trigger("loaded", eventData);
         }, 0);
+    }
+
+    /**
+     * Update default ground plane visibility based on tile layers.
+     * 根据瓦片图层更新默认地面可见性
+     * 
+     * @description
+     * Shows the default ground plane when no tile layers are present,
+     * hides it when at least one tile layer exists.
+     * 当没有瓦片图层时显示默认地面，当存在至少一个瓦片图层时隐藏。
+     * 
+     * @internal
+     */
+    private _updateDefaultGroundVisibility(): void {
+        // Guard: viewer may not be initialized yet during constructor
+        // 守卫：在构造函数期间 viewer 可能尚未初始化
+        if (!this.viewer) {
+            return;
+        }
+        
+        const hasTileLayers = this._layers.size > 0;
+        if (hasTileLayers) {
+            this.viewer.hideDefaultGround();
+        } else {
+            this.viewer.showDefaultGround();
+        }
+    }
+
+    /**
+     * Show or hide the default ground plane manually.
+     * 手动显示或隐藏默认地面
+     * 
+     * @param visible - Whether to show the ground plane. 是否显示地面
+     * @returns Current map instance. 当前地图实例
+     */
+    public setDefaultGroundVisible(visible: boolean): this {
+        if (visible) {
+            this.viewer.showDefaultGround();
+        } else {
+            this.viewer.hideDefaultGround();
+        }
+        return this;
+    }
+
+    /**
+     * Check if the default ground plane is visible.
+     * 检查默认地面是否可见
+     * 
+     * @returns Whether the ground is visible. 地面是否可见
+     */
+    public isDefaultGroundVisible(): boolean {
+        return this.viewer.isDefaultGroundVisible();
     }
 
     /**
@@ -997,6 +1062,11 @@ export class Map extends Handlerable(
             // 从地图中移除瓦片图层
             this._layers.delete(id);
             this._rootGroup.remove(tileLayer);
+            
+            // Update ground visibility after tile layer removal
+            // 移除瓦片图层后更新地面可见性
+            this._updateDefaultGroundVisibility();
+            
             // console.log(`✅ Tile layer removed from manager 瓦片图层从管理器移除: ${id}`);
             return true;
         }
@@ -1059,6 +1129,10 @@ export class Map extends Handlerable(
         this._rootGroup.add(layer);
         layer._bindMap(this);
 
+        // Hide default ground when tile layer is added
+        // 添加瓦片图层时隐藏默认地面
+        this._updateDefaultGroundVisibility();
+
         // If vt layer, bind render layer
         // 如果是vt图层，绑定渲染图层
         if (layer instanceof VectorTileLayer) {
@@ -1095,6 +1169,11 @@ export class Map extends Handlerable(
              this._rootGroup.remove(layer);
         });
         this._layers.clear();
+        
+        // Show default ground after clearing all layers
+        // 清空所有图层后显示默认地面
+        this._updateDefaultGroundVisibility();
+        
         return this;
     }
 

@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -97,7 +97,10 @@
 
         <div class="orbis-panel-body">
           <div class="orbis-btn-group orbis-mb-3">
-            <button class="orbis-btn  orbis-btn-sm orbis-btn-primary" onclick="addMarker()">
+            <button
+              class="orbis-btn orbis-btn-sm orbis-btn-primary"
+              onclick="addMarker()"
+            >
               <i class="fas fa-plus"></i> 添加
             </button>
 
@@ -181,15 +184,15 @@
               minLevel: 2,
               maxLevel: 19,
               Baselayers: [
-                new maporbis.TileLayer("esri_imagery", {
-                  source: new maporbis.TileSource({
-                    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    projectionID: "3857",
-                  }),
-                  projection: maporbis.ProjectionFactory.create("3857"),
-                  opacity: 1.0,
-                  visible: true,
-                }),
+                // new maporbis.TileLayer("esri_imagery", {
+                //   source: new maporbis.TileSource({
+                //     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                //     projectionID: "3857",
+                //   }),
+                //   projection: maporbis.ProjectionFactory.create("3857"),
+                //   opacity: 1.0,
+                //   visible: true,
+                // }),
               ],
             },
             viewer: {
@@ -206,11 +209,11 @@
               maxDistance: 80000,
             },
           });
-
+          map.setDefaultGroundVisible(true);
           updateStatus();
-          map.on('loaded', () => {
-             loading.style.display = "none";
-              showNotification('地图加载完成，点击"添加"开始使用', "info");
+          map.on("loaded", () => {
+            loading.style.display = "none";
+            showNotification('地图加载完成，点击"添加"开始使用', "info");
           });
           // setTimeout(() => {
           //   showNotification('地图加载完成，点击"添加"开始使用', "info");
@@ -264,7 +267,9 @@
 
           const position = marker.getPosition();
           if (position) {
-            positionInfo.textContent = `${position.lng.toFixed(6)}, ${position.lat.toFixed(6)}`;
+            positionInfo.textContent = `${position.lng.toFixed(
+              6
+            )}, ${position.lat.toFixed(6)}`;
           } else {
             positionInfo.textContent = markerUpdated
               ? "116.391467, 39.927761"
@@ -289,7 +294,7 @@
       }
 
       // 添加标记
-       window.addMarker = function() {
+      window.addMarker = function () {
         if (!marker) {
           const markerContent = createMarkerContent("当前位置", false);
           marker = new maporbis.Marker({
@@ -320,7 +325,7 @@
         } else {
           showNotification("标记已存在", "info");
         }
-      }
+      };
 
       // 更新标记图标
       function updateIcon() {
@@ -354,7 +359,7 @@
       }
 
       // 清除标记
-      window.clearMarker = function() {
+      window.clearMarker = function () {
         if (marker) {
           layer.removeFeature(marker);
           marker = null;
@@ -366,7 +371,7 @@
         } else {
           showNotification("没有可删除的标记", "warning");
         }
-      }
+      };
 
       // 切换暗黑模式
       function toggleDarkMode() {
@@ -403,7 +408,7 @@
       // 显示通知
       function showNotification(message, type = "info") {
         const existingNotification = document.querySelector(
-          ".orbis-notification",
+          ".orbis-notification"
         );
         if (existingNotification) {
           existingNotification.remove();
@@ -459,14 +464,12 @@
             "fas fa-sun";
         }
 
-
         setTimeout(initMap, 100);
         setTimeout(initlayer, 200);
 
         document
           .getElementById("themeToggle")
           .addEventListener("click", toggleDarkMode);
-
       });
     </script>
   </body>

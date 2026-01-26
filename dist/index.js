@@ -6868,7 +6868,7 @@ class Zx extends Yx {
    * @param options 配置选项
    */
   constructor(e, t = {}) {
-    super(), ke(this, "scene"), ke(this, "renderer"), ke(this, "camera"), ke(this, "controls"), ke(this, "ambLight"), ke(this, "dirLight"), ke(this, "clouds", null), ke(this, "container"), ke(this, "_clock", new ra()), ke(this, "stats"), ke(this, "_animationCallbacks", /* @__PURE__ */ new Set()), ke(this, "_fogFactor", 1), ke(this, "_sceneSize", 5e4 * 2), ke(this, "gorund"), ke(this, "map"), ke(this, "centerWorldPos"), ke(this, "_isInteracting", !1), ke(this, "debug", !1), ke(this, "flyTween", null), ke(this, "composer"), ke(this, "renderPass"), ke(this, "bloomPass"), ke(this, "calculateCameraPosition", (g, y, x, T) => {
+    super(), ke(this, "scene"), ke(this, "renderer"), ke(this, "camera"), ke(this, "controls"), ke(this, "ambLight"), ke(this, "dirLight"), ke(this, "clouds", null), ke(this, "container"), ke(this, "_clock", new ra()), ke(this, "stats"), ke(this, "_animationCallbacks", /* @__PURE__ */ new Set()), ke(this, "_fogFactor", 1), ke(this, "_sceneSize", 5e4 * 2), ke(this, "_defaultGround"), ke(this, "map"), ke(this, "centerWorldPos"), ke(this, "_isInteracting", !1), ke(this, "debug", !1), ke(this, "flyTween", null), ke(this, "composer"), ke(this, "renderPass"), ke(this, "bloomPass"), ke(this, "calculateCameraPosition", (g, y, x, T) => {
       const b = new I(
         0,
         // X分量
@@ -6900,7 +6900,7 @@ class Zx extends Yx {
       r,
       i,
       o
-    ), this.scene = this._createScene(l), this.camera = this._createCamera(), e && this.addTo(e), this.controls = this._createControls(f, p), this.controls.enabled = d !== !1, this.ambLight = this._createAmbLight(), this.scene.add(this.ambLight), this.dirLight = this._createDirLight(), this.scene.add(this.dirLight), this.scene.add(this.dirLight.target), this.gorund = this._createGorund(), this.scene.add(this.gorund), u && u.enabled) {
+    ), this.scene = this._createScene(l), this.camera = this._createCamera(), e && this.addTo(e), this.controls = this._createControls(f, p), this.controls.enabled = d !== !1, this.ambLight = this._createAmbLight(), this.scene.add(this.ambLight), this.dirLight = this._createDirLight(), this.scene.add(this.dirLight), this.scene.add(this.dirLight.target), this._defaultGround = this._createDefaultGround(), this.scene.add(this._defaultGround), u && u.enabled) {
       const g = this.renderer.getPixelRatio(), y = this.container ? this.width : window.innerWidth, x = this.container ? this.height : window.innerHeight, T = y * g, b = x * g, E = new Ln(T, b, {
         format: od
       });
@@ -7381,7 +7381,20 @@ class Zx extends Yx {
     let e = window.innerWidth, t = window.innerHeight;
     return [e, t];
   }
-  _createGorund() {
+  /**
+   * Create the default ground plane.
+   * 创建默认地面平面
+   * 
+   * @description
+   * Creates a large ground plane mesh that serves as a visual base when no tile layers are present.
+   * The ground is positioned at y=0 and centered at the map center.
+   * 创建一个大型地面网格，当没有瓦片图层时作为视觉基底。
+   * 地面位于 y=0 并以地图中心为中心。
+   * 
+   * @returns Ground mesh. 地面网格
+   * @internal
+   */
+  _createDefaultGround() {
     const e = this.centerWorldPos, t = new Ds({
       transparent: !1,
       color: new oe("rgb(45,52,60)").multiplyScalar(0.7),
@@ -7391,7 +7404,60 @@ class Zx extends Yx {
       this._sceneSize * 2,
       this._sceneSize * 2
     ), i = new Be(r, t);
-    return i.name = "地面", i.castShadow = !1, i.receiveShadow = !1, i.position.y = 0, i.position.add(e), i.rotateX(-Math.PI / 2), i.visible = !1, i;
+    return i.name = "DefaultGround", i.castShadow = !1, i.receiveShadow = !0, i.position.y = 0, i.position.add(e), i.rotateX(-Math.PI / 2), i.visible = !1, i;
+  }
+  /**
+   * Show the default ground plane.
+   * 显示默认地面平面
+   * 
+   * @description
+   * Makes the default ground plane visible. This is typically called automatically
+   * when no tile layers are present in the map.
+   * 使默认地面平面可见。通常在地图中没有瓦片图层时自动调用。
+   */
+  showDefaultGround() {
+    this._defaultGround && (this._defaultGround.visible = !0);
+  }
+  /**
+   * Update the default ground plane position.
+   * 更新默认地面平面位置
+   * 
+   * @description
+   * Recalculates and updates the ground plane position based on current map center.
+   * This should be called after the map's root group transformation is finalized.
+   * 根据当前地图中心重新计算并更新地面位置。
+   * 应在地图根组变换完成后调用。
+   * 
+   * @internal
+   */
+  _updateDefaultGroundPosition() {
+    if (!this._defaultGround || !this.map)
+      return;
+    const e = this.map.projectToWorld(
+      new I(this.map.center[0], this.map.center[1], 0)
+    );
+    this.centerWorldPos = e, this._defaultGround.position.set(0, 0, 0), this._defaultGround.position.add(e);
+  }
+  /**
+   * Hide the default ground plane.
+   * 隐藏默认地面平面
+   * 
+   * @description
+   * Hides the default ground plane. This is typically called automatically
+   * when tile layers are added to the map.
+   * 隐藏默认地面平面。通常在向地图添加瓦片图层时自动调用。
+   */
+  hideDefaultGround() {
+    this._defaultGround && (this._defaultGround.visible = !1);
+  }
+  /**
+   * Check if the default ground plane is visible.
+   * 检查默认地面平面是否可见
+   * 
+   * @returns Whether the ground is visible. 地面是否可见
+   */
+  isDefaultGroundVisible() {
+    return this._defaultGround?.visible ?? !1;
   }
   /**
    * 销毁viewer实例，释放所有资源
@@ -20288,7 +20354,7 @@ let Nn = class _p extends bc(
     super(o), Pe(this, "viewer"), Pe(this, "_rootGroup", new qt()), Pe(this, "_layers", new globalThis.Map()), Pe(this, "_mapProjection", new mp(0)), Pe(this, "_animationClock", new ra()), Pe(this, "autoUpdate", !0), Pe(this, "updateInterval", 100), Pe(this, "minLevel", 2), Pe(this, "maxLevel", 19), Pe(this, "center"), Pe(this, "prjcenter"), Pe(this, "_layerContainer"), Pe(this, "_eventState", {
       loaded: { listened: !1 }
       // Load event parameters 加载事件参数
-    }), Pe(this, "_canvasMgr", new eS()), Pe(this, "_collisionEngine"), Pe(this, "_onLoadHooks"), Pe(this, "_minZoom", 0), Pe(this, "_maxZoom", 22), Pe(this, "_ZOOM_MIN_CONST", 0), Pe(this, "_ZOOM_MAX_CONST", 22), Pe(this, "_minZoomDistance", 500), Pe(this, "_maxZoomDistance", 8e4), Pe(this, "_isZooming", !1), Pe(this, "_zoomStartValue", 0), Pe(this, "_lastZoomForControls", 0), Pe(this, "_overZoom", 0), Pe(this, "_lastCameraDistance", 0), this.initMap(o.basemap), Q2(), this.center = this.options.center, this.viewer = new Zx(e, { ...o.viewer, map: this }), this._rootGroup.receiveShadow = !0, this._rootGroup.up.set(0, 0, 1), this._rootGroup.rotation.x = -Math.PI / 2, this.viewer.scene.add(this._rootGroup);
+    }), Pe(this, "_canvasMgr", new eS()), Pe(this, "_collisionEngine"), Pe(this, "_onLoadHooks"), Pe(this, "_minZoom", 0), Pe(this, "_maxZoom", 22), Pe(this, "_ZOOM_MIN_CONST", 0), Pe(this, "_ZOOM_MAX_CONST", 22), Pe(this, "_minZoomDistance", 500), Pe(this, "_maxZoomDistance", 8e4), Pe(this, "_isZooming", !1), Pe(this, "_zoomStartValue", 0), Pe(this, "_lastZoomForControls", 0), Pe(this, "_overZoom", 0), Pe(this, "_lastCameraDistance", 0), this.initMap(o.basemap), Q2(), this.center = this.options.center, this.viewer = new Zx(e, { ...o.viewer, map: this }), this._rootGroup.receiveShadow = !0, this._rootGroup.up.set(0, 0, 1), this._rootGroup.rotation.x = -Math.PI / 2, this.viewer.scene.add(this._rootGroup), this.viewer._updateDefaultGroundPosition();
     const l = this.projectToWorld(new I(this.center[0], this.center[1], 0));
     this.prjcenter = l, this.viewer.on("update", () => {
       this.update(this.viewer.camera);
@@ -20348,7 +20414,7 @@ let Nn = class _p extends bc(
         to: this.getZoom()
         // View zoom at end 结束时的视图 zoom
       }));
-    }), this._callOnLoadHooks();
+    }), this._callOnLoadHooks(), this._updateDefaultGroundVisibility();
   }
   get projection() {
     return this._mapProjection;
@@ -20590,6 +20656,8 @@ let Nn = class _p extends bc(
     if (this.minLevel = e.minLevel ?? 2, this.maxLevel = e.maxLevel ?? 19, e.Baselayers?.length)
       for (const t of e.Baselayers)
         t.isBaseLayer = !0, this.addTileLayer(t);
+    else
+      this._updateDefaultGroundVisibility();
     setTimeout(() => {
       const t = {
         timestamp: kx(),
@@ -20599,6 +20667,41 @@ let Nn = class _p extends bc(
         listened: !0
       }, this.trigger("loaded", t);
     }, 0);
+  }
+  /**
+   * Update default ground plane visibility based on tile layers.
+   * 根据瓦片图层更新默认地面可见性
+   * 
+   * @description
+   * Shows the default ground plane when no tile layers are present,
+   * hides it when at least one tile layer exists.
+   * 当没有瓦片图层时显示默认地面，当存在至少一个瓦片图层时隐藏。
+   * 
+   * @internal
+   */
+  _updateDefaultGroundVisibility() {
+    if (!this.viewer)
+      return;
+    this._layers.size > 0 ? this.viewer.hideDefaultGround() : this.viewer.showDefaultGround();
+  }
+  /**
+   * Show or hide the default ground plane manually.
+   * 手动显示或隐藏默认地面
+   * 
+   * @param visible - Whether to show the ground plane. 是否显示地面
+   * @returns Current map instance. 当前地图实例
+   */
+  setDefaultGroundVisible(e) {
+    return e ? this.viewer.showDefaultGround() : this.viewer.hideDefaultGround(), this;
+  }
+  /**
+   * Check if the default ground plane is visible.
+   * 检查默认地面是否可见
+   * 
+   * @returns Whether the ground is visible. 地面是否可见
+   */
+  isDefaultGroundVisible() {
+    return this.viewer.isDefaultGroundVisible();
   }
   /**
    * Update map and layers.
@@ -20644,7 +20747,7 @@ let Nn = class _p extends bc(
         const i = t._getRenderer();
         i && this._layerGroup.remove(i);
       }
-      return this._layers.delete(e), this._rootGroup.remove(t), !0;
+      return this._layers.delete(e), this._rootGroup.remove(t), this._updateDefaultGroundVisibility(), !0;
     }
     const r = this._layerGroup.getLayerById(e);
     return r ? (this._layerContainer.remove(r), r instanceof wi && r?._collision, !0) : (console.warn(`⚠️ Layer does not exist 图层不存在: ${e}`), !1);
@@ -20664,7 +20767,7 @@ let Nn = class _p extends bc(
   * 添加瓦片图层
   */
   addTileLayer(e) {
-    if (this._layers.set(e.getId(), e), this._rootGroup.add(e), e._bindMap(this), e instanceof Kf) {
+    if (this._layers.set(e.getId(), e), this._rootGroup.add(e), e._bindMap(this), this._updateDefaultGroundVisibility(), e instanceof Kf) {
       const t = e.options || {}, r = new $l(e.getId() + "-vtrender", {
         altitude: e.getAltitude(),
         style: e.getStyle(),
@@ -20688,7 +20791,7 @@ let Nn = class _p extends bc(
   clearLayers() {
     return this._layerGroup.clear(), this._layers.forEach((e) => {
       this._rootGroup.remove(e);
-    }), this._layers.clear(), this;
+    }), this._layers.clear(), this._updateDefaultGroundVisibility(), this;
   }
   /**
    * Get all layers.
