@@ -231,8 +231,8 @@
         }
       }
       function initlayer() {
-        // layer = new maporbis.PointLayer("markers", { altitude: 1 });
-        // map.addLayer(layer);
+        layer = new maporbis.PointLayer("markers", { altitude: 1 });
+        map.addLayer(layer);
       }
 
       // 创建地图标记内容
@@ -271,7 +271,7 @@
           statusIndicator.className = "orbis-indicator orbis-indicator-active";
           statusText.textContent = "标记已添加";
 
-          const position = marker.getLngLatLikes();
+          const position = marker.getCenter();
           if (position) {
             positionInfo.textContent = `${position[0].toFixed(
               6
@@ -302,13 +302,20 @@
       // 添加标记
       window.addMarker = function () {
         if (!marker) {
-          const markerContent = createMarkerContent("当前位置", false);
-          marker = new maporbis.UIMarker({
-            coordinate: [116.4, 39.9],
-            content: markerContent,
+          marker = new maporbis.Marker({
+            geometry: {
+              type: "Point",
+              coordinates: [116.4, 39.9]
+            },
+            paint: {
+              type: "icon",
+              url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+              size: 32,
+              sizeAttenuation: false
+            }
           });
 
-          marker.addTo(map);
+          marker.addTo(layer);
           markerAdded = true;
 
           // map.setCenter([116.406315, 39.908775]);
@@ -323,8 +330,13 @@
       // 更新标记图标
       window.updateIcon = function () {
         if (marker) {
-          const newContent = createMarkerContent("当前位置", true);
-          marker.setContent(newContent);
+          marker.setPaint({
+            type: "icon",
+            url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+            size: 48,
+            sizeAttenuation: false,
+            color: "#00ff00"
+          });
 
           showNotification("标记样式已更新", "success");
           updateStatus();
@@ -336,15 +348,13 @@
       // 更新标记内容
       window.updateContent = function () {
         if (marker) {
-          const newContent = createMarkerContent("已更新位置", true);
-          marker.setContent(newContent);
-          marker.setLngLatLikes([116.391467, 39.927761]);
+          marker.setCoordinates([116.391467, 39.927761]);
 
           map.easeTo({ center: [116.391467, 39.927761], duration: 500 });
 
           markerUpdated = true;
 
-          showNotification("标记内容和位置已更新", "success");
+          showNotification("标记位置已更新", "success");
           updateStatus();
         } else {
           showNotification("请先添加标记", "warning");
@@ -354,7 +364,7 @@
       // 清除标记
       window.clearMarker = function () {
         if (marker) {
-          marker.remove();
+          marker._remove();
           marker = null;
           markerAdded = false;
           markerUpdated = false;

@@ -92,12 +92,12 @@ export class MultiLineString extends Line {
         this.clearLines();
         this._disposeGeometry();
 
-        if (this._style) {
+        if (this._paint) {
             // Create separate geometry for each line
             // 为每条线创建单独的几何体
             for (const linePositions of _worldCoordinates as Vector3[][]) {
                 const vertexPoints = linePositions.flatMap(v => [v.x, v.y, v.z]);
-                const lineObject = await this._createLineObject(this._style, vertexPoints);
+                const lineObject = await this._createLineObject(this._paint, vertexPoints);
                 lineObject.position.add(map?.prjcenter as Vector3);
                 lineObject.updateMatrixWorld(true);
                 

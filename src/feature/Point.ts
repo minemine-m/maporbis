@@ -59,8 +59,8 @@ export abstract class Point extends Feature {
     constructor(options: PointOptions) {
         super(options);
         this._renderObject = this._createRenderObject();
-        if (this._style) {
-            this._style.applyTo(this._renderObject);
+        if (this._paint) {
+            this._paint.applyTo(this._renderObject);
         }
     }
 

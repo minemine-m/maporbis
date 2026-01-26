@@ -233,12 +233,12 @@ export class Model extends Point {
      */
     async _buildRenderObject(): Promise<void> {
         this._worldCoordinates = this._coordsTransform() as Vector3;
-        if (this._style) {
+        if (this._paint) {
             if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this.modelunino = await this._createObject(this._style);
+            this.modelunino = await this._createObject(this._paint);
             this._renderObject = this.modelunino.model;
             // Safety check: if model is undefined, return directly
             // 安全检查：如果model不存在，直接返回

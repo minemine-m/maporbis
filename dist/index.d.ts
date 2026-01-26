@@ -1806,7 +1806,7 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      * Calculate bounding box for collision detection
      * 计算碰撞检测用的包围盒
      *
-     * Project world space bounding box to screen space to calculate pixel-level bounding box
+     * pointToLngLat world space bounding box to screen space to calculate pixel-level bounding box
      * 将世界空间包围盒投影到屏幕空间，计算像素级别的包围盒
      *
      * @param camera - Current camera 当前相机
@@ -4049,14 +4049,14 @@ export declare class LoaderUtils {
          * 1. Remove all event listeners
          * 2. Clear all layers
          * 3. Destroy collision engine
-         * 4. Destroy viewer (including renderer, scene, controls, etc.)
+         * 4. Destroy sceneRenderer (including renderer, scene, controls, etc.)
          * 5. Clean up DOM container
          *
          * 该方法会清理以下资源：
          * 1. 移除所有事件监听器
          * 2. 清空所有图层
          * 3. 销毁碰撞引擎
-         * 4. 销毁viewer（包括renderer、scene、controls等）
+         * 4. 销毁sceneRenderer（包括renderer、scene、controls等）
          * 5. 清理DOM容器
          */
         dispose(): void;
@@ -4863,11 +4863,11 @@ export declare class LoaderUtils {
         /**
          * Compute polygon vertices in world coordinates (XZ plane) from region overlay configuration.
          * Prioritize using world coordinates (_vertexPoints) from Terra face feature.
-         * Fallback to GeoJSON + projectToWorld only if no feature is provided.
+         * Fallback to GeoJSON + lngLatToWorld only if no feature is provided.
          *
          * 从区域蒙版配置计算世界坐标系下的多边形顶点（XZ 平面）
          * 优先使用 Terra 面 feature 中已有的世界坐标（_vertexPoints），
-         * 如果没有传 feature，才回退到 GeoJSON + projectToWorld。
+         * 如果没有传 feature，才回退到 GeoJSON + lngLatToWorld。
          */
         private _computeOverlayVertices;
         /**
@@ -5746,7 +5746,7 @@ export declare class LoaderUtils {
         static create(type?: ProjectionType_2, centralMeridian?: number): MapProjection;
     }
 
-    /** Project ID */
+    /** pointToLngLat ID */
     export declare type ProjectionType = "3857" | "4326";
 
     /**
@@ -6056,8 +6056,8 @@ export declare class LoaderUtils {
         /**
          * Options change callback.
          * 配置更新回调
-         * Triggered when viewer.configure() is called to update options.
-         * 当调用 viewer.configure() 更新配置时，会触发此方法
+         * Triggered when sceneRenderer.configure() is called to update options.
+         * 当调用 sceneRenderer.configure() 更新配置时，会触发此方法
          */
         onOptionsChange(conf: SceneRendererOptions): void;
         /**
@@ -6140,7 +6140,7 @@ export declare class LoaderUtils {
          */
         isDefaultGroundVisible(): boolean;
         /**
-         * 销毁viewer实例，释放所有资源
+         * 销毁sceneRenderer实例，释放所有资源
          * @description
          * 该方法会清理以下资源：
          * 1. 停止动画循环
@@ -6176,7 +6176,7 @@ export declare class LoaderUtils {
             _proxyOptions(): /*elided*/ any;
             _callInitHooks(): /*elided*/ any;
             setOptions(options: ClassOptions): /*elided*/ any;
-            configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+            configure(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
             onOptionsChange(_conf: ClassOptions): void;
             _visitInitHooks(proto: {
                 _initHooks: any;
@@ -7347,7 +7347,7 @@ export declare class LoaderUtils {
          * SceneRenderer update event handler.
          * 绑定到 SceneRenderer 的 update 事件处理函数
          */
-        private _viewerUpdateHandler?;
+        private _sceneRendererUpdateHandler?;
         /**
          * Whether position calculation has been done once (to avoid initial wrong position flicker).
          * 是否已经完成过一次位置计算（用于避免第一次错误位置闪一下）
@@ -7442,10 +7442,10 @@ export declare class LoaderUtils {
         private _bindMapEvents;
         /**
          * Internal: Derive world position from geographic coordinate / owner.
-         * Ensures unified use of map.projectToWorld to keep altitude / center units consistent.
+         * Ensures unified use of map.lngLatToWorld to keep altitude / center units consistent.
          *
          * 内部：根据地理坐标 / owner 推导世界坐标
-         * 保证统一走 map.projectToWorld，从而保持 altitude / center 单位统一
+         * 保证统一走 map.lngLatToWorld，从而保持 altitude / center 单位统一
          */
         private _resolveWorldPosition;
         /**

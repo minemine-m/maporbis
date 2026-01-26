@@ -69,12 +69,12 @@ export class Marker extends Point {
      */
     async _buildRenderObject(): Promise<void> {
         this._worldCoordinates = this._coordsTransform() as Vector3;
-        if (this._style) {
+        if (this._paint) {
             if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._renderObject = await this._createObject(this._style);
+            this._renderObject = await this._createObject(this._paint);
             this._refreshCoordinates();
         }
     }
@@ -168,7 +168,7 @@ export class Marker extends Point {
         try {
             // Select calculation strategy based on geometry type
             // 根据几何体类型选择不同的计算策略
-            switch (this._style?.config.type) {
+            switch (this._paint?.config.type) {
                 case 'icon':
                     return this._calculateSpriteBoundingBox(
                         this._renderObject as Sprite

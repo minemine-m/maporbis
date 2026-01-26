@@ -69,12 +69,12 @@ export class LineString extends Line {
         let { _vertexPoints } = this._coordsTransform(); // Perform coordinate transformation
         this._vertexPoints = _vertexPoints;
 
-        if (this._style) {
+        if (this._paint) {
             if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._renderObject = await this._createObject(this._style);
+            this._renderObject = await this._createObject(this._paint);
             this._refreshCoordinates();
         }
     }

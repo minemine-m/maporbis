@@ -588,7 +588,7 @@ export abstract class Feature extends Handlerable(
             // 计算世界坐标和屏幕投影
             const worldPos = new Vector3();
             this._renderObject.getWorldPosition(worldPos);
-            const screenPos = worldPos.clone().pointToLngLat(camera);
+            const screenPos = worldPos.clone().project(camera);
 
             // 检查是否在屏幕内
             const inFrustum = (
@@ -827,7 +827,7 @@ export abstract class Feature extends Handlerable(
             corners.forEach(corner => {
                 // World coordinates -> Normalized Device Coordinates (NDC)
                 // 世界坐标 -> 标准化设备坐标 (NDC)
-                const ndc = corner.clone().pointToLngLat(camera);
+                const ndc = corner.clone().project(camera);
 
                 // NDC -> Screen pixel coordinates
                 // NDC -> 屏幕像素坐标
@@ -862,7 +862,7 @@ export abstract class Feature extends Handlerable(
             // 计算相对于要素中心点的偏移
             const worldCenter = new Vector3();
             bbox.getCenter(worldCenter);
-            const ndcCenter = worldCenter.clone().pointToLngLat(camera);
+            const ndcCenter = worldCenter.clone().project(camera);
             const screenCenterX = (ndcCenter.x * 0.5 + 0.5) * screenWidth;
             const screenCenterY = (-ndcCenter.y * 0.5 + 0.5) * screenHeight;
 

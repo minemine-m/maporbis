@@ -69,12 +69,12 @@ export class Label extends Point {
      */
     async _buildRenderObject(): Promise<void> {
         this._worldCoordinates = this._coordsTransform() as Vector3;
-        if (this._style) {
+        if (this._paint) {
             if (this._renderObject) {
                 this._disposeGeometry();
             }
 
-            this._renderObject = await this._createObject(this._style);
+            this._renderObject = await this._createObject(this._paint);
             this._refreshCoordinates();
         }
     }

@@ -80,15 +80,15 @@ export class Polygon extends Surface {
         let { _vertexPoints } = this._coordsTransform();
         this._vertexPoints = _vertexPoints;
 
-        if (this._style) {
+        if (this._paint) {
             if (this._renderObject) {
                 this.remove(this._renderObject);
             }
 
-            this._renderObject = await this._createObject(this._style);
+            this._renderObject = await this._createObject(this._paint);
 
             this._refreshCoordinates();
-            await this._style.applyTo(this._renderObject);
+            await this._paint.applyTo(this._renderObject);
         }
     }
 
@@ -106,7 +106,7 @@ export class Polygon extends Surface {
      * 对于复杂类型（extrude/water），仍然调用完整重建。
      */
     protected _refreshCoordinates(): void {
-        const styletype = this._style?.config.type;
+        const styletype = this._paint?.config.type;
         
         // Temporarily disable quick update because:
         // 1. _createBasePolygon rotates and translates the mesh, direct vertex update causes coordinate disorder (vertical surface appears)

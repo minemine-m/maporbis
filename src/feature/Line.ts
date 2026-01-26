@@ -70,8 +70,8 @@ export abstract class Line extends Feature {
         super(options);
         this._renderObject = this._createRenderObject();
         this._vertexPoints = [0, 0, 0];
-        if (this._style) {
-            this._style.applyTo(this._renderObject);
+        if (this._paint) {
+            this._paint.applyTo(this._renderObject);
         }
     }
 

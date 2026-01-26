@@ -345,7 +345,7 @@ export class SceneRenderer extends SceneRendererBase {
     // this.scene.add(this.headlight.target);
 
     this._defaultGround = this._createDefaultGround();
-    this.scene.add(this._defaultGround);
+    // this.scene.add(this._defaultGround);
 
     // 初始化 bloom 管线：普通渲染 + UnrealBloomPass
     if (bloom && bloom.enabled) {

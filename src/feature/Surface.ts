@@ -70,8 +70,8 @@ export abstract class Surface extends Feature {
         super(options);
         this._buildRenderObject();
         this._vertexPoints = [0, 0, 0];
-        if (this._style && this._renderObject) {
-            this._style.applyTo(this._renderObject);
+        if (this._paint && this._renderObject) {
+            this._paint.applyTo(this._renderObject);
         }
     }
 
@@ -169,7 +169,7 @@ export abstract class Surface extends Feature {
      * - 'water': 水面效果
      */
     protected _refreshLngLatLikes(): void {
-        const styletype = this._style?.config.type;
+        const styletype = this._paint?.config.type as string | undefined;
         this.clear();
 
         if (!this._renderObject || !this._vertexPoints?.length) {
