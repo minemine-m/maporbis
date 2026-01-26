@@ -314,7 +314,7 @@ export class SceneRenderer extends SceneRendererBase {
       draggable = true,
     } = options;
     this.map = map as Map;
-    this.centerWorldPos = this.map.projectToWorld(
+    this.centerWorldPos = this.map.lngLatToWorld(
       new Vector3(this.map.center[0], this.map.center[1], 0),
     );
     this.renderer = this._createRenderer(
@@ -580,8 +580,8 @@ export class SceneRenderer extends SceneRendererBase {
     // return orthoCamera;
 
     // 保持原有相机位置
-    // orthoCamera.position.copy(this.viewer.camera.position);
-    // orthoCamera.lookAt(this.viewer.controls.target);
+    // orthoCamera.position.copy(this.sceneRenderer.camera.position);
+    // orthoCamera.lookAt(this.sceneRenderer.controls.target);
   }
 
   /**
@@ -948,10 +948,10 @@ export class SceneRenderer extends SceneRendererBase {
 
     if (!centerGeo || !cameraGeo) return;
 
-    const centerWorldPos = this.map.projectToWorld(
+    const centerWorldPos = this.map.lngLatToWorld(
       new Vector3(centerGeo[0], centerGeo[1], 0),
     );
-    const cameraWorldPos = this.map.projectToWorld(
+    const cameraWorldPos = this.map.lngLatToWorld(
       new Vector3(cameraGeo[0], cameraGeo[1], cameraGeo[2]),
     );
 
@@ -1079,8 +1079,8 @@ export class SceneRenderer extends SceneRendererBase {
   /**
    * Options change callback.
    * 配置更新回调
-   * Triggered when viewer.configure() is called to update options.
-   * 当调用 viewer.configure() 更新配置时，会触发此方法
+   * Triggered when sceneRenderer.configure() is called to update options.
+   * 当调用 sceneRenderer.configure() 更新配置时，会触发此方法
    */
   onOptionsChange(conf: SceneRendererOptions): void {
     // Handle draggable option
@@ -1133,7 +1133,7 @@ export class SceneRenderer extends SceneRendererBase {
     const complete = options.complete;
     const useCurvePath = !!options.curvePath;
 
-    const targetWorld = this.map.projectToWorld(
+    const targetWorld = this.map.lngLatToWorld(
       new Vector3(center[0], center[1], 0),
     );
     const newCameraPosition = this.calculateCameraPosition(
@@ -1145,7 +1145,7 @@ export class SceneRenderer extends SceneRendererBase {
     // const minHeight = distance * 0.5;
     // if (newCameraPosition.y < minHeight) newCameraPosition.y = minHeight;
 
-    const newCameraGeo = this.map.unprojectFromWorld(newCameraPosition);
+    const newCameraGeo = this.map.worldToLngLat(newCameraPosition);
 
     this.flyToAdvanced({
       center: [center[0], center[1], 0],
@@ -1323,7 +1323,7 @@ export class SceneRenderer extends SceneRendererBase {
     
     // Recalculate centerWorldPos with the properly transformed rootGroup
     // 使用正确变换后的 rootGroup 重新计算 centerWorldPos
-    const newCenterWorldPos = this.map.projectToWorld(
+    const newCenterWorldPos = this.map.lngLatToWorld(
       new Vector3(this.map.center[0], this.map.center[1], 0),
     );
     this.centerWorldPos = newCenterWorldPos;
@@ -1360,7 +1360,7 @@ export class SceneRenderer extends SceneRendererBase {
   }
 
   /**
-   * 销毁viewer实例，释放所有资源
+   * 销毁sceneRenderer实例，释放所有资源
    * @description
    * 该方法会清理以下资源：
    * 1. 停止动画循环

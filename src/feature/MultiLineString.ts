@@ -170,7 +170,7 @@ export class MultiLineString extends Line {
             const _worldCoordinates = geometry.coordinates.map(line => {
                 return line.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    const worldPos = map ? map.projectToWorld(vec) : vec;
+                    const worldPos = map ? map.lngLatToWorld(vec) : vec;
                     return worldPos.sub(center);
                 });
             });

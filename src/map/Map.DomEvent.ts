@@ -71,7 +71,7 @@ Map.prototype._removeDomEvents = function (this: Map) {
  * 并将事件转换为地图坐标后触发对应事件
  */
 Map.prototype._registerDomEvents = function (this: Map) {
-    const domElement = this.viewer.container;
+    const domElement = this.sceneRenderer.container;
     if (domElement) {
         // Simple "drag vs click" judgment: down position + displacement threshold
         // 简单的“拖拽 vs 点击”判定：按下位置 + 位移阈值
@@ -80,9 +80,9 @@ Map.prototype._registerDomEvents = function (this: Map) {
 
         eventMaps.forEach(eventName => {
             domElement.addEventListener(eventName as any, (evt: any) => {
-                // Safety check: if viewer is destroyed, return directly
-                // 安全检查：如果viewer已销毁，直接返回
-                if (!this.viewer) {
+                // Safety check: if sceneRenderer is destroyed, return directly
+                // 安全检查：如果sceneRenderer已销毁，直接返回
+                if (!this.sceneRenderer) {
                     return;
                 }
 
@@ -108,7 +108,7 @@ Map.prototype._registerDomEvents = function (this: Map) {
                     }
                 }
 
-                let latlnt = getLocalFromMouse(evt, this, this.viewer.camera);
+                let latlnt = getLocalFromMouse(evt, this, this.sceneRenderer.camera);
                 let eventData: DomEventMap = {
                     target: this,
                     originEvent: evt,

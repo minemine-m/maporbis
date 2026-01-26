@@ -118,7 +118,7 @@ export abstract class Surface extends Feature {
             coordinates.forEach(ring => {
                 const ringPositions = ring.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    const worldPos = map ? map.projectToWorld(vec) : vec;
+                    const worldPos = map ? map.lngLatToWorld(vec) : vec;
                     return worldPos.sub(center);
                 });
                 _worldLngLatLikes.push(ringPositions);
@@ -138,7 +138,7 @@ export abstract class Surface extends Feature {
                 polygon.forEach(ring => {
                     const ringPositions = ring.map(coord => {
                         const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                        const worldPos = map ? map.projectToWorld(vec) : vec;
+                        const worldPos = map ? map.lngLatToWorld(vec) : vec;
                         return worldPos.sub(center);
                     });
                     polygonPositions.push(ringPositions);

@@ -96,7 +96,7 @@ export abstract class Line extends Feature {
             const coordinates = geometry.coordinates as LngLatLike[];
             let _worldLngLatLikes = coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                const worldPos = map ? map.projectToWorld(vec) : vec;
+                const worldPos = map ? map.lngLatToWorld(vec) : vec;
                 return worldPos.sub(center);
             });
 

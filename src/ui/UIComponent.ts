@@ -117,7 +117,7 @@ export abstract class UIComponent extends EventMixin(
      * SceneRenderer update event handler.
      * 绑定到 SceneRenderer 的 update 事件处理函数 
      */
-    private _viewerUpdateHandler?: (evt: any) => void;
+    private _sceneRendererUpdateHandler?: (evt: any) => void;
 
     /** 
      * Whether position calculation has been done once (to avoid initial wrong position flicker).
@@ -406,17 +406,17 @@ export abstract class UIComponent extends EventMixin(
             mapAny[type]("viewchange", handler);
             ensureHandler("viewchange", handler);
 
-            // In render loop: viewer triggers update every frame
-            // 渲染循环中：viewer 每帧触发 update
-            const viewer: any = (map as any).viewer;
-            if (viewer && !this._viewerUpdateHandler) {
+            // In render loop: sceneRenderer triggers update every frame
+            // 渲染循环中：sceneRenderer 每帧触发 update
+            const sceneRenderer: any = (map as any).sceneRenderer;
+            if (sceneRenderer && !this._sceneRendererUpdateHandler) {
                 const vHandler = () => {
                     if (this._visible) {
                         this._refreshDomPosition();
                     }
                 };
-                this._viewerUpdateHandler = vHandler;
-                viewer.addEventListener("update", vHandler);
+                this._sceneRendererUpdateHandler = vHandler;
+                sceneRenderer.addEventListener("update", vHandler);
             }
         } else {
             // Unbind map events
@@ -426,12 +426,12 @@ export abstract class UIComponent extends EventMixin(
             });
             this._boundMapHandlers.clear();
 
-            // Unbind viewer.update
-            // 解绑 viewer.update
-            const viewer: any = (map as any).viewer;
-            if (viewer && this._viewerUpdateHandler) {
-                viewer.removeEventListener("update", this._viewerUpdateHandler);
-                this._viewerUpdateHandler = undefined;
+            // Unbind sceneRenderer.update
+            // 解绑 sceneRenderer.update
+            const sceneRenderer: any = (map as any).sceneRenderer;
+            if (sceneRenderer && this._sceneRendererUpdateHandler) {
+                sceneRenderer.removeEventListener("update", this._sceneRendererUpdateHandler);
+                this._sceneRendererUpdateHandler = undefined;
             }
         }
     }
@@ -439,10 +439,10 @@ export abstract class UIComponent extends EventMixin(
 
     /**
      * Internal: Derive world position from geographic coordinate / owner.
-     * Ensures unified use of map.projectToWorld to keep altitude / center units consistent.
+     * Ensures unified use of map.lngLatToWorld to keep altitude / center units consistent.
      * 
      * 内部：根据地理坐标 / owner 推导世界坐标
-     * 保证统一走 map.projectToWorld，从而保持 altitude / center 单位统一
+     * 保证统一走 map.lngLatToWorld，从而保持 altitude / center 单位统一
      */
     private _resolveWorldPosition(): Vector3 | undefined {
         const map = this._map;
@@ -453,7 +453,7 @@ export abstract class UIComponent extends EventMixin(
         if (this._coordinate) {
             const [lng, lat, alt = 0] = this._coordinate as any;
             const v = new Vector3(lng, lat, alt);
-            return map.projectToWorld(v);
+            return map.lngLatToWorld(v);
         }
 
         const owner: any = this._owner;
@@ -483,7 +483,7 @@ export abstract class UIComponent extends EventMixin(
                         coordArr[1],
                         (coordArr[2] ?? 0) as number
                     );
-                    return map.projectToWorld(v);
+                    return map.lngLatToWorld(v);
                 }
             }
 
@@ -540,9 +540,9 @@ export abstract class UIComponent extends EventMixin(
 
         if (!this._worldPosition) return;
 
-        const viewer = this._map.viewer;
-        const camera = viewer.camera;
-        // const renderer = viewer.renderer;
+        const sceneRenderer = this._map.sceneRenderer;
+        const camera = sceneRenderer.camera;
+        // const renderer = sceneRenderer.renderer;
 
         // Handle initial display or content update size measurement (solve offsetWidth/Height being 0 problem)
         // 处理初次显示或内容更新时的尺寸测量（解决 offsetWidth/Height 为 0 的问题）
@@ -574,8 +574,8 @@ export abstract class UIComponent extends EventMixin(
             return;
         }
 
-        const x = (ndc.x * 0.5 + 0.5) * viewer.width;
-        const y = (-ndc.y * 0.5 + 0.5) * viewer.height;
+        const x = (ndc.x * 0.5 + 0.5) * sceneRenderer.width;
+        const y = (-ndc.y * 0.5 + 0.5) * sceneRenderer.height;
 
         const offset = this.getOffset();
 

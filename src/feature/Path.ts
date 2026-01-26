@@ -82,7 +82,7 @@ export abstract class Path extends Feature {
             const coordinates = geometry.coordinates as LngLatLike[];
             return coordinates.map(coord => {
                 const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                return map ? map.projectToWorld(vec) : vec;
+                return map ? map.lngLatToWorld(vec) : vec;
             });
         }
 
@@ -93,7 +93,7 @@ export abstract class Path extends Feature {
             return coordinates.map(line =>
                 line.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                    return map ? map.projectToWorld(vec) : vec;
+                    return map ? map.lngLatToWorld(vec) : vec;
                 })
             );
         }
@@ -106,7 +106,7 @@ export abstract class Path extends Feature {
                 polygon.map(ring =>
                     ring.map(coord => {
                         const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
-                        return map ? map.projectToWorld(vec) : vec;
+                        return map ? map.lngLatToWorld(vec) : vec;
                     })
                 )
             );

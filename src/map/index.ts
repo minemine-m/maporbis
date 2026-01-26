@@ -631,8 +631,8 @@ export class Map extends Handlerable(
 
         this._callOnLoadHooks();
         
-        // Update default ground visibility (now that viewer is initialized)
-        // 更新默认地面可见性（此时 viewer 已初始化）
+        // Update default ground visibility (now that sceneRenderer is initialized)
+        // 更新默认地面可见性（此时 sceneRenderer 已初始化）
         this._updateDefaultGroundVisibility();
         
         // Register DOM events
@@ -961,8 +961,8 @@ export class Map extends Handlerable(
      * @internal
      */
     private _updateDefaultGroundVisibility(): void {
-        // Guard: viewer may not be initialized yet during constructor
-        // 守卫：在构造函数期间 viewer 可能尚未初始化
+        // Guard: sceneRenderer may not be initialized yet during constructor
+        // 守卫：在构造函数期间 sceneRenderer 可能尚未初始化
         if (!this.sceneRenderer) {
             return;
         }
@@ -1385,7 +1385,7 @@ export class Map extends Handlerable(
         // controls.target always points to world coordinates of current view center
         // controls.target 始终指向当前视图中心的世界坐标
         const worldCenter = this.sceneRenderer.controls.target.clone();
-        const geo = this.unprojectFromWorld(worldCenter); // Vector3(lng, lat, z)
+        const geo = this.worldToLngLat(worldCenter); // Vector3(lng, lat, z)
         return [geo.x, geo.y, geo.z];
     }
     /**
@@ -1413,8 +1413,8 @@ export class Map extends Handlerable(
         };
     }
     get isInteracting() {
-        // Safety check: return false if viewer destroyed
-        // 安全检查：如果viewer已销毁，返回false
+        // Safety check: return false if sceneRenderer destroyed
+        // 安全检查：如果sceneRenderer已销毁，返回false
         if (!this.sceneRenderer) return false;
         return this.sceneRenderer.isInteracting;
     }
@@ -1508,14 +1508,14 @@ export class Map extends Handlerable(
      * 1. Remove all event listeners
      * 2. Clear all layers
      * 3. Destroy collision engine
-     * 4. Destroy viewer (including renderer, scene, controls, etc.)
+     * 4. Destroy sceneRenderer (including renderer, scene, controls, etc.)
      * 5. Clean up DOM container
      * 
      * 该方法会清理以下资源：
      * 1. 移除所有事件监听器
      * 2. 清空所有图层
      * 3. 销毁碰撞引擎
-     * 4. 销毁viewer（包括renderer、scene、controls等）
+     * 4. 销毁sceneRenderer（包括renderer、scene、controls等）
      * 5. 清理DOM容器
      */
     public dispose(): void {
@@ -1577,13 +1577,13 @@ export class Map extends Handlerable(
                 // console.log('✅ Canvas manager destroyed 画布管理器已销毁');
             }
 
-            // 8. Destroy viewer (Most important step)
-            // 8. 销毁viewer（最重要的一步）
+            // 8. Destroy sceneRenderer (Most important step)
+            // 8. 销毁sceneRenderer（最重要的一步）
             if (this.sceneRenderer) {
                 this.sceneRenderer.destroy();
                 // @ts-ignore
                 this.sceneRenderer = null;
-                // console.log('✅ Viewer destroyed Viewer已销毁');
+                // console.log('✅ sceneRenderer destroyed sceneRenderer已销毁');
             }
 
             // 9. Clear event map

@@ -2,7 +2,7 @@ import { Object3D } from 'three';
 import { LayerOptions, Layer } from './Layer';
 import { Feature } from '../feature/Feature';
 import { CollisionEngine } from '../core/collision/CollisionEngine';
-// import { SceneRenderer } from '../viewer';
+// import { SceneRenderer } from '../sceneRenderer';
 // import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 // import { CollisionDetector } from '../core/collision';
 
@@ -102,8 +102,8 @@ export abstract class OverlayLayer<T extends Feature = Feature> extends Layer {
             }
             // debugger
             if ((this as any)._clouds) {
-                this.map.viewer.scene.add((this as any)._clouds);
-                console.log('我是云朵被添加cloud', this.map.viewer.scene)
+                this.map.sceneRenderer.scene.add((this as any)._clouds);
+                console.log('我是云朵被添加cloud', this.map.sceneRenderer.scene)
                 // this._clouds.add(feature._renderObject);
                 // console.log( this._clouds,'我是云朵被添加')
             }

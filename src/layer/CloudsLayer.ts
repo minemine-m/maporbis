@@ -133,7 +133,7 @@ export class CloudsLayer extends OverlayLayer<ICloud> {
     override animate(delta: number, elapsedtime: number) {
         if (this._clouds) {
             // 更新云层特效状态
-            this._clouds.update(this.map.viewer.camera, elapsedtime, delta);
+            this._clouds.update(this.map.sceneRenderer.camera, elapsedtime, delta);
         }
     }
 }

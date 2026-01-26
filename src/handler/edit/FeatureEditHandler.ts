@@ -224,8 +224,8 @@ export class FeatureEditHandler extends Handler {
             map.on('mousemove', this._boundOnMapMouseMove!);
             map.on('click', this._boundOnMapClick!);
             // 使用捕获阶段监听 mousedown，以优先处理手柄点击，防止事件传递给要素
-            if (map.viewer.container) {
-                map.viewer.container.addEventListener('mousedown', this._boundOnMapMouseDown as EventListener, true);
+            if (map.sceneRenderer.container) {
+                map.sceneRenderer.container.addEventListener('mousedown', this._boundOnMapMouseDown as EventListener, true);
             }
             
             //监听右键事件用于删除顶点
@@ -249,8 +249,8 @@ export class FeatureEditHandler extends Handler {
         if (map) {
             map.off('mousemove', this._boundOnMapMouseMove!);
             map.off('click', this._boundOnMapClick!);
-            if (map.viewer.container) {
-                map.viewer.container.removeEventListener('mousedown', this._boundOnMapMouseDown as EventListener, true);
+            if (map.sceneRenderer.container) {
+                map.sceneRenderer.container.removeEventListener('mousedown', this._boundOnMapMouseDown as EventListener, true);
             }
             
             if (this.options.removeVertexOn === 'contextmenu') {
@@ -442,7 +442,7 @@ export class FeatureEditHandler extends Handler {
      */
     private _createPointHandles(geo: any, map: Map): void {
         const coord = geo.coordinates;
-        const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+        const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
         
         const handle = new EditHandle({
             position: worldPos as Vector3,
@@ -478,7 +478,7 @@ export class FeatureEditHandler extends Handler {
         
         // 为每个顶点创建手柄
         coords.forEach((coord: number[], index: number) => {
-            const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+            const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -637,7 +637,7 @@ export class FeatureEditHandler extends Handler {
             // 为每个顶点创建手柄
             for (let i = 0; i < vertexCount; i++) {
                 const coord = ring[i];
-                const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+                const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                 
                 const handle = new EditHandle({
                     position: worldPos as Vector3,
@@ -778,14 +778,14 @@ export class FeatureEditHandler extends Handler {
         
         if (this.target instanceof Point) {
             const coord = geo.coordinates as number[];
-            const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+            const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
             if (this._handles[0]) {
                 this._handles[0].updatePosition(worldPos as Vector3);
             }
         } else if (this.target instanceof LineString) {
             const coords = geo.coordinates as number[][];
             coords.forEach((coord: number[], index: number) => {
-                const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+                const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                 if (this._handles[index]) {
                     this._handles[index].updatePosition(worldPos as Vector3);
                 }
@@ -803,7 +803,7 @@ export class FeatureEditHandler extends Handler {
                 
                 for (let i = 0; i < vertexCount; i++) {
                     const coord = ring[i];
-                    const worldPos = map.projectToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
+                    const worldPos = map.lngLatToWorld(new Vector3(coord[0], coord[1], coord[2] || 0));
                     if (this._handles[handleIndex]) {
                         this._handles[handleIndex].updatePosition(worldPos as Vector3);
                     }
@@ -885,7 +885,7 @@ export class FeatureEditHandler extends Handler {
                     (coord1[1] + coord2[1]) / 2,
                     ((coord1[2] || 0) + (coord2[2] || 0)) / 2
                 ];
-                const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+                const worldPos = map.lngLatToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
                 this._middleHandles[handleIndex].updatePosition(worldPos as Vector3);
                 handleIndex++;
              }
@@ -908,7 +908,7 @@ export class FeatureEditHandler extends Handler {
                         (coord1[1] + coord2[1]) / 2,
                         ((coord1[2] || 0) + (coord2[2] || 0)) / 2
                     ];
-                    const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+                    const worldPos = map.lngLatToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
                     this._middleHandles[handleIndex].updatePosition(worldPos as Vector3);
                     handleIndex++;
                 }
@@ -937,14 +937,14 @@ export class FeatureEditHandler extends Handler {
         const domEvent = e as MouseEvent;
         
         // 获取 canvas 元素和边界
-        const canvas = map.viewer.renderer.domElement;
+        const canvas = map.sceneRenderer.renderer.domElement;
         const rect = canvas.getBoundingClientRect();
         
         const mouse = new Vector2(
             ((domEvent.clientX - rect.left) / rect.width) * 2 - 1,
             -((domEvent.clientY - rect.top) / rect.height) * 2 + 1
         );
-        raycaster.setFromCamera(mouse, map.viewer.camera);
+        raycaster.setFromCamera(mouse, map.sceneRenderer.camera);
         
         // 检测所有手柄碰撞（包括顶点手柄和中点手柄）
         const allHandles = [...this._handles, ...this._middleHandles];
@@ -956,7 +956,7 @@ export class FeatureEditHandler extends Handler {
                     currentTarget: canvas,
                     clientX: domEvent.clientX,
                     clientY: domEvent.clientY
-                } as any, map, map.viewer.camera);
+                } as any, map, map.sceneRenderer.camera);
                 
                 if (latlnt) {
                     // 开始拖拽手柄
@@ -1018,10 +1018,10 @@ export class FeatureEditHandler extends Handler {
         }
         
         const mouse = new Vector2(
-            (domEvent.offsetX / map.viewer.renderer.domElement.clientWidth) * 2 - 1,
-            -(domEvent.offsetY / map.viewer.renderer.domElement.clientHeight) * 2 + 1
+            (domEvent.offsetX / map.sceneRenderer.renderer.domElement.clientWidth) * 2 - 1,
+            -(domEvent.offsetY / map.sceneRenderer.renderer.domElement.clientHeight) * 2 + 1
         );
-        raycaster.setFromCamera(mouse, map.viewer.camera);
+        raycaster.setFromCamera(mouse, map.sceneRenderer.camera);
         
         // 检测是否点击了手柄
         for (let i = 0; i < this._handles.length; i++) {
@@ -1198,7 +1198,7 @@ export class FeatureEditHandler extends Handler {
                 ((coord1[2] || 0) + (coord2[2] || 0)) / 2
             ];
             
-            const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+            const worldPos = map.lngLatToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -1242,7 +1242,7 @@ export class FeatureEditHandler extends Handler {
                 ((coord1[2] || 0) + (coord2[2] || 0)) / 2
             ];
             
-            const worldPos = map.projectToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
+            const worldPos = map.lngLatToWorld(new Vector3(midCoord[0], midCoord[1], midCoord[2]));
             
             const handle = new EditHandle({
                 position: worldPos as Vector3,
@@ -1413,12 +1413,12 @@ export class FeatureEditHandler extends Handler {
         
         // 如果没有海拔或海拔为0，直接转换
         if (!vertex || !vertex[2] || vertex[2] === 0) {
-            return map.unprojectFromWorld(worldPos);
+            return map.worldToLngLat(worldPos);
         }
         
         // TODO: 实现完整的海拔补偿逻辑
 
-        const geoPos = map.unprojectFromWorld(worldPos);
+        const geoPos = map.worldToLngLat(worldPos);
         geoPos.z = vertex[2]; // 保持原始海拔
         
         return geoPos;

@@ -197,7 +197,7 @@ export class EditHandle extends EventMixin(Object) {
         (this._sprite as any)._editHandle = this;
             
         // 添加到地图场景
-        this.map.viewer.scene.add(this._sprite);
+        this.map.sceneRenderer.scene.add(this._sprite);
     }
 
     /**
@@ -285,7 +285,7 @@ export class EditHandle extends EventMixin(Object) {
         this._lastCoordinate = coordinate;
         
         // 禁止地图平移
-        this.map.viewer.configure('draggable', false);
+        this.map.sceneRenderer.configure('draggable', false);
         
         // 监听地图的 mousemove 和 mouseup 事件
         this.map.on('mousemove', this._boundOnMouseMove!);
@@ -317,10 +317,10 @@ export class EditHandle extends EventMixin(Object) {
         const dy = currentCoord[1] - this._lastCoordinate[1];
         
         // 获取当前高度（海拔）
-        const currentGeo = this.map.unprojectFromWorld(this.options.position);
+        const currentGeo = this.map.worldToLngLat(this.options.position);
 
         // 更新位置（地理坐标转世界坐标）
-        const worldPos = this.map.projectToWorld(new Vector3(
+        const worldPos = this.map.lngLatToWorld(new Vector3(
             currentCoord[0],
             currentCoord[1],
             currentGeo.z
@@ -353,7 +353,7 @@ export class EditHandle extends EventMixin(Object) {
         
         // Restore map panning
         // 恢复地图平移
-        this.map.viewer.configure('draggable', true);
+        this.map.sceneRenderer.configure('draggable', true);
         
         // Remove event listeners
         // 移除事件监听
@@ -400,14 +400,14 @@ export class EditHandle extends EventMixin(Object) {
         // 如果正在拖拽，先结束拖拽
         if (this._isDragging) {
             this._isDragging = false;
-            this.map.viewer.configure('draggable', true);
+            this.map.sceneRenderer.configure('draggable', true);
             this.map.off('mousemove', this._boundOnMouseMove!);
             this.map.off('mouseup', this._boundOnMouseUp!);
         }
         
         // 移除 Sprite
         if (this._sprite) {
-            this.map.viewer.scene.remove(this._sprite);
+            this.map.sceneRenderer.scene.remove(this._sprite);
             
             // 清理材质和纹理
             const material = this._sprite.material as SpriteMaterial;

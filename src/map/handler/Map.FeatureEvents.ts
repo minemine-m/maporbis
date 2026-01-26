@@ -123,9 +123,9 @@ class MapFeatureEventsHandler extends Handler {
         // if (eventType !== 'mousedown') return
         //   debugger
         // console.log('FeatureEvents _handleEvent', eventType);
-        // Safety check: if map or viewer is destroyed, return directly
-        // 安全检查：如果map或viewer已销毁，直接返回
-        if (!map || !map.viewer) return;
+        // Safety check: if map or sceneRenderer is destroyed, return directly
+        // 安全检查：如果map或sceneRenderer已销毁，直接返回
+        if (!map || !map.sceneRenderer) return;
 
         // Check if event should be ignored
         // 检查是否应该忽略该事件
@@ -263,9 +263,9 @@ class MapFeatureEventsHandler extends Handler {
     private _fireFeatureEvent(feature: Feature, eventType: string, domEvent: MouseEvent | TouchEvent) {
         const map = this.target as Map;
 
-        // Safety check: if map, tilemap or viewer is destroyed, return directly
-        // 安全检查：如果map、tilemap或viewer已销毁，直接返回
-        if (!map || !map.viewer) return;
+        // Safety check: if map, tilemap or sceneRenderer is destroyed, return directly
+        // 安全检查：如果map、tilemap或sceneRenderer已销毁，直接返回
+        if (!map || !map.sceneRenderer) return;
 
         // Compatible with touch events, construct required parameters for getLocalFromMouse
         // 兼容触摸事件，构造 getLocalFromMouse 所需参数
@@ -290,7 +290,7 @@ class MapFeatureEventsHandler extends Handler {
             screenY = mouseEvt.screenY;
         }
 
-        const latlnt = getLocalFromMouse(baseEvent, map, map.viewer.camera);
+        const latlnt = getLocalFromMouse(baseEvent, map, map.sceneRenderer.camera);
         if (!latlnt) return;
 
         const coordinate: LngLatLike = [latlnt.x, latlnt.y, latlnt.z];
@@ -316,9 +316,9 @@ class MapFeatureEventsHandler extends Handler {
      */
     private _shouldIgnoreEvent(eventType?: string): boolean {
         const map = this.target as Map;
-        // Safety check: if viewer is destroyed, ignore event
-        // 安全检查：如果viewer已销毁，忽略事件
-        if (!map.viewer) return true;
+        // Safety check: if sceneRenderer is destroyed, ignore event
+        // 安全检查：如果sceneRenderer已销毁，忽略事件
+        if (!map.sceneRenderer) return true;
         
         // mousedown/touchstart events are not affected by isInteracting, allow feature interaction priority
         // because isInteracting might just be set to true by camera controller

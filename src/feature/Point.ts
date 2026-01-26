@@ -84,7 +84,7 @@ export abstract class Point extends Feature {
             this._geometry.coordinates[2] as number || 0 // Default height 500
         );
 
-        return map ? map.projectToWorld(coordinates) : coordinates;
+        return map ? map.lngLatToWorld(coordinates) : coordinates;
     }
 
     /**

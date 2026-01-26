@@ -28,7 +28,7 @@ import "./feature/ext/Feature.InfoWindow";
 // import "./feature/ext/Feature.Edit";
 
 /**
- * 导出Viewer模块
+ * 导出sceneRenderer模块
  * @description 包含地图查看器相关功能
  */
 export * from "./renderer";

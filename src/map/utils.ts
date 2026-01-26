@@ -83,7 +83,7 @@ export function getLocalInfoFromScreen(camera: Camera, map: Map, pointer: Vector
 }
 
 export function getLocalInfoFromGeo(map: Map, geo: Vector3) {
-    const pointer = map.projectToWorld(geo);
+    const pointer = map.lngLatToWorld(geo);
     return getLocalInfoFromWorld(map, pointer);
 }
 

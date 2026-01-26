@@ -153,8 +153,8 @@ export class UIMarker extends UIComponent {
         if (coordinate) {
             this._markerCoord = [...coordinate] as LngLatLike;
         }
-        // Pass to base class, let UIComponent handle unified projectToWorld + position update logic
-        // 传给基类，让 UIComponent 走统一的 projectToWorld + 位置更新逻辑
+        // Pass to base class, let UIComponent handle unified lngLatToWorld + position update logic
+        // 传给基类，让 UIComponent 走统一的 lngLatToWorld + 位置更新逻辑
         return super.show(this._markerCoord);
     }
 

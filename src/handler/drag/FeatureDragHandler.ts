@@ -51,7 +51,7 @@ export class FeatureDragHandler extends Handler {
 
         // Disable map panning to prevent interference
         // 禁止地图平移，防止干扰
-        map.viewer.configure('draggable', false);
+        map.sceneRenderer.configure('draggable', false);
 
         map.on('mousemove', this._boundOnMouseMove);
         map.on('mouseup', this._boundOnMouseUp);
@@ -88,7 +88,7 @@ export class FeatureDragHandler extends Handler {
         this._isDragging = false;
         const map = this.target.getMap();
         if (map) {
-            map.viewer.configure('draggable', true); // Restore map panning 恢复地图平移
+            map.sceneRenderer.configure('draggable', true); // Restore map panning 恢复地图平移
             map.off('mousemove', this._boundOnMouseMove);
             map.off('mouseup', this._boundOnMouseUp);
         }

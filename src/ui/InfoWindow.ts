@@ -206,7 +206,7 @@ export class InfoWindow extends UIComponent {
         const owner: any = (this as any)._owner;
         const map: any = this.getMap();
         
-        if (owner && typeof owner.getStyle === "function" && map?.viewer) {
+        if (owner && typeof owner.getStyle === "function" && map?.sceneRenderer) {
             const style = owner.getStyle?.();
             const cfg = style?.config as any;
             const type = cfg?.type;
@@ -225,7 +225,7 @@ export class InfoWindow extends UIComponent {
                 if (sprite && sprite instanceof Sprite) {
                     // Calculate actual screen height by calculating screen position difference between top and bottom of sprite
                     // 通过计算 sprite 顶部和底部的屏幕位置差来获取实际屏幕高度
-                    iconScreenHeight = this._getSpriteScreenHeight(sprite, map.viewer);
+                    iconScreenHeight = this._getSpriteScreenHeight(sprite, map.sceneRenderer);
                 }
 
                 // If unable to get sprite height, fallback to config value (compatible with old logic)
@@ -274,13 +274,13 @@ export class InfoWindow extends UIComponent {
      * Handles both sizeAttenuation=false (fixed screen size) and sizeAttenuation=true (perspective projection) cases.
      * 处理 sizeAttenuation=false（固定屏幕大小）和 sizeAttenuation=true（透视投影）两种情况。
      */
-    private _getSpriteScreenHeight(sprite: Sprite, viewer: any): number {
+    private _getSpriteScreenHeight(sprite: Sprite, sceneRenderer: any): number {
         try {
-            const camera = viewer.camera;
-            const renderer = viewer.renderer;
+            const camera = sceneRenderer.camera;
+            const renderer = sceneRenderer.renderer;
             if (!camera || !renderer) return 0;
 
-            const canvasHeight = viewer.height || renderer.domElement.clientHeight;
+            const canvasHeight = sceneRenderer.height || renderer.domElement.clientHeight;
 
             // Check material sizeAttenuation setting
             // 检查材质的 sizeAttenuation 设置
@@ -405,16 +405,16 @@ export class InfoWindow extends UIComponent {
             anyThis._refreshDomPosition();
         };
 
-        // Prefer waiting for viewer's first frame update, then show (camera and render size are stable at this time)
-        // 优先等 viewer 的第一帧 update，再显示（此时相机和渲染尺寸都稳定）
+        // Prefer waiting for sceneRenderer's first frame update, then show (camera and render size are stable at this time)
+        // 优先等 sceneRenderer 的第一帧 update，再显示（此时相机和渲染尺寸都稳定）
         const map: any = this.getMap();
-        const viewer: any = map?.viewer;
-        if (viewer && typeof viewer.addEventListener === "function") {
+        const sceneRenderer: any = map?.sceneRenderer;
+        if (sceneRenderer && typeof sceneRenderer.addEventListener === "function") {
             const handler = () => {
-                viewer.removeEventListener("update", handler);
+                sceneRenderer.removeEventListener("update", handler);
                 tryShow();
             };
-            viewer.addEventListener("update", handler);
+            sceneRenderer.addEventListener("update", handler);
         } else {
             // Fallback: wait for next frame at least, avoid racing with current frame initialization state
             // 兜底：至少等到下一帧再显示，避免和当前帧的初始化状态抢时间

@@ -664,11 +664,11 @@ export class Model extends Point {
     /**
      * Compute polygon vertices in world coordinates (XZ plane) from region overlay configuration.
      * Prioritize using world coordinates (_vertexPoints) from Terra face feature.
-     * Fallback to GeoJSON + projectToWorld only if no feature is provided.
+     * Fallback to GeoJSON + lngLatToWorld only if no feature is provided.
      * 
      * 从区域蒙版配置计算世界坐标系下的多边形顶点（XZ 平面）
      * 优先使用 Terra 面 feature 中已有的世界坐标（_vertexPoints），
-     * 如果没有传 feature，才回退到 GeoJSON + projectToWorld。
+     * 如果没有传 feature，才回退到 GeoJSON + lngLatToWorld。
      */
     private _computeOverlayVertices(overlay: RegionOverlayConfig): Vector2[] | null {
         // 1. Prioritize using _vertexPoints from Terra face feature
@@ -699,8 +699,8 @@ export class Model extends Point {
             }
         }
 
-        // 2. Fallback to GeoJSON + projectToWorld if no feature or recovery from feature failed
-        // 2. 没有 feature 或从 feature 中无法恢复，则回退到 GeoJSON + projectToWorld
+        // 2. Fallback to GeoJSON + lngLatToWorld if no feature or recovery from feature failed
+        // 2. 没有 feature 或从 feature 中无法恢复，则回退到 GeoJSON + lngLatToWorld
         const map = this.getMap();
         if (!map || !overlay.geometry) return null;
 
@@ -725,7 +725,7 @@ export class Model extends Point {
         for (const coord of outerRing) {
             const lng = coord[0];
             const lat = coord[1];
-            const world = map.projectToWorld(new Vector3(lng, lat, 0));
+            const world = map.lngLatToWorld(new Vector3(lng, lat, 0));
             vertices.push(new Vector2(world.x, world.z));
         }
 

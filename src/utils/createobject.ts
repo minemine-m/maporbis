@@ -1086,7 +1086,7 @@ export function _createWaterSurface(
     water.position.set(center.x, avgY, center.z);
 
     // 添加动画更新
-    map.viewer.addEventListener("update", () => {
+    map.sceneRenderer.addEventListener("update", () => {
         water.material.uniforms["time"].value += 1.0 / 60.0;
     });
 
@@ -1170,7 +1170,7 @@ export async function _createBaseWaterSurface(
         fog: false,
         normalMap: normalMap1,
         normalScale: new Vector2(1.5, 1.5),
-        // environmentMap: viewer.scene.environment, 
+        // environmentMap: sceneRenderer.scene.environment, 
         envMapIntensity: 2.0, // 提高环境贴图的强度，让反射更亮
         // clearcoat: 1.0,        // 启用 Clearcoat，强度 1.0
         // clearcoatRoughness: 0.0, // Clearcoat 粗糙度 0.0，实现锋利高光
@@ -1596,7 +1596,7 @@ export async function _createFixedSizeTextSprite(
         if (!sprite.visible) return;
 
         // 计算相机距离
-        const distance = map.viewer.camera.position.distanceTo(sprite.position);
+        const distance = map.sceneRenderer.camera.position.distanceTo(sprite.position);
 
         // 距离裁剪
         if (distance > finalConfig.maxVisibleDistance) {
@@ -1607,10 +1607,10 @@ export async function _createFixedSizeTextSprite(
 
         // 获取渲染器尺寸（设备像素）
         const size = new Vector2();
-        map.viewer.renderer.getSize(size);
+        map.sceneRenderer.renderer.getSize(size);
 
         const viewportHeight = size.height;
-        const fovRad = MathUtils.degToRad(map.viewer.camera.fov);
+        const fovRad = MathUtils.degToRad(map.sceneRenderer.camera.fov);
 
         const dprLocal = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
         const targetDevicePixels = finalConfig.screenSpaceSize * dprLocal;
@@ -1622,7 +1622,7 @@ export async function _createFixedSizeTextSprite(
         sprite.scale.set(scale * canvas.width, scale * canvas.height, 1);
 
         // 使文字始终面向相机
-        sprite.lookAt(map.viewer.camera.position);
+        sprite.lookAt(map.sceneRenderer.camera.position);
     };
 
     // 初始化和绑定事件
@@ -1630,12 +1630,12 @@ export async function _createFixedSizeTextSprite(
     const onBeforeRender = () => updateSize();
     // @ts-ignore
     sprite.addEventListener('dispose', () => {
-        map.viewer.renderer.domElement.removeEventListener('resize', updateSize);
+        map.sceneRenderer.renderer.domElement.removeEventListener('resize', updateSize);
     });
 
-    map.viewer.renderer.domElement.addEventListener('resize', updateSize);
+    map.sceneRenderer.renderer.domElement.addEventListener('resize', updateSize);
     // @ts-ignore
-    map.viewer.camera.addEventListener('change', updateSize);
+    map.sceneRenderer.camera.addEventListener('change', updateSize);
     sprite.onBeforeRender = onBeforeRender;
 
     return sprite;
@@ -2109,7 +2109,7 @@ export async function createLight(config: LightPaint, geometries: any, map: Map)
     const colGeometry = new CylinderGeometry(0.2, 0.2, h * 16, 12);
     const colMaterial = new MeshBasicMaterial({ color: config.color });
     const texture = await Paint._loadTexture(config.icon as string);
-    // const texture = await map.viewer.dataLoader.loadTexture("/threescene/resources/img/texture/effects/proceduralcity/lensflare2_alpha.png");
+    // const texture = await map.sceneRenderer.dataLoader.loadTexture("/threescene/resources/img/texture/effects/proceduralcity/lensflare2_alpha.png");
     const material = new PointsMaterial({
         // color: new THREE.Color(color).multiplyScalar(0.5),
         size: (80 * window.innerHeight / window.innerHeight),
@@ -2143,7 +2143,7 @@ export async function createLight(config: LightPaint, geometries: any, map: Map)
             geometry.coordinates[2] as number || 0 // 默认高度0
         );
         // if (xy4326.x > 10000) xy4326 = epsg3857To4326(...coordinates);
-        const xy1 = map.projectToWorld(coordinates);
+        const xy1 = map.lngLatToWorld(coordinates);
         const xy2 = xy1.sub(map.prjcenter);
         transform.position.copy(xy2);
         transform.updateMatrix();
@@ -2160,8 +2160,8 @@ export async function createLight(config: LightPaint, geometries: any, map: Map)
     points.visible = true;
 
     // console.log(map, 'map');
-    // map.viewer.scene.add(points);
-    // map.viewer.scene.add(InstancedCol);
+    // map.sceneRenderer.scene.add(points);
+    // map.sceneRenderer.scene.add(InstancedCol);
     // this.map._viewchangeFuns.push((dis) => {
     //     points.visible = !!(this.map.camera.position.y < 400);
     //     InstancedCol.visible = !!(this.map.camera.position.y < 400);
