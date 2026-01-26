@@ -129,6 +129,17 @@ export type SceneRendererOptions = {
 
   /** Maximum controller zoom distance (how far the camera can move), default is 60000 控制器最大缩放距离（相机能拉多远），默认为 60000 */
   maxDistance?: number;
+  /** Default ground configuration 默认地面配置 */
+  defaultGround?: {
+    /** Whether to enable default ground, default is false 是否启用默认地面，默认为 false */
+    enabled?: boolean;
+    /** Whether default ground is visible, default is false 默认地面是否可见，默认为 false */
+    visible?: boolean;
+    /** Ground color, default is "rgb(45,52,60)" 地面颜色，默认为 "rgb(45,52,60)" */
+    color?: string | number;
+    /** Ground opacity, default is 1 地面透明度，默认为 1 */
+    opacity?: number;
+  };
 };
 
 /**
@@ -312,6 +323,7 @@ export class SceneRenderer extends SceneRendererBase {
       minDistance,
       maxDistance,
       draggable = true,
+      defaultGround,
     } = options;
     this.map = map as Map;
     this.centerWorldPos = this.map.lngLatToWorld(
@@ -344,8 +356,10 @@ export class SceneRenderer extends SceneRendererBase {
     // this.scene.add(this.headlight);
     // this.scene.add(this.headlight.target);
 
-    this._defaultGround = this._createDefaultGround();
-    this.scene.add(this._defaultGround);
+    this._defaultGround = this._createDefaultGround(defaultGround);
+    if (defaultGround?.enabled) {
+      this.scene.add(this._defaultGround);
+    }
 
     // 初始化 bloom 管线：普通渲染 + UnrealBloomPass
     if (bloom && bloom.enabled) {
@@ -1256,21 +1270,29 @@ export class SceneRenderer extends SceneRendererBase {
   /**
    * Create the default ground plane.
    * 创建默认地面平面
-   * 
+   *
    * @description
    * Creates a large ground plane mesh that serves as a visual base when no tile layers are present.
    * The ground is positioned at y=0 and centered at the map center.
    * 创建一个大型地面网格，当没有瓦片图层时作为视觉基底。
    * 地面位于 y=0 并以地图中心为中心。
-   * 
+   *
+   * @param config Ground configuration 地面配置
    * @returns Ground mesh. 地面网格
    * @internal
    */
-  private _createDefaultGround(): Mesh {
+  private _createDefaultGround(
+    config?: SceneRendererOptions["defaultGround"],
+  ): Mesh {
     const centerWorldPos = this.centerWorldPos;
+    const color = config?.color ?? "rgb(45,52,60)";
+    const opacity = config?.opacity ?? 1;
+    const visible = config?.visible ?? false;
+
     const material = new MeshStandardMaterial({
-      transparent: false,
-      color: new Color("rgb(45,52,60)").multiplyScalar(0.7),
+      transparent: opacity < 1,
+      opacity: opacity,
+      color: new Color(color),
       metalness: 0.2,
       roughness: 1.0,
       polygonOffset: true,
@@ -1288,7 +1310,7 @@ export class SceneRenderer extends SceneRendererBase {
     mesh.position.y = -0.1;
     mesh.position.add(centerWorldPos);
     mesh.rotateX(-Math.PI / 2);
-    mesh.visible = false;
+    mesh.visible = visible;
     return mesh;
   }
 
@@ -1360,6 +1382,40 @@ export class SceneRenderer extends SceneRendererBase {
    */
   public isDefaultGroundVisible(): boolean {
     return this._defaultGround?.visible ?? false;
+  }
+
+  /**
+   * Set the default ground plane visibility.
+   * 设置默认地面平面可见性
+   *
+   * @param visible Whether the ground is visible. 地面是否可见
+   */
+  public setDefaultGroundVisible(visible: boolean): void {
+    if (this._defaultGround) {
+      this._defaultGround.visible = visible;
+    }
+  }
+
+  /**
+   * Set the default ground plane style.
+   * 设置默认地面平面样式
+   *
+   * @param style Style properties. 样式属性
+   */
+  public setDefaultGroundStyle(style: {
+    color?: string | number;
+    opacity?: number;
+  }): void {
+    if (!this._defaultGround) return;
+
+    const material = this._defaultGround.material as MeshStandardMaterial;
+    if (style.color !== undefined) {
+      material.color.set(style.color);
+    }
+    if (style.opacity !== undefined) {
+      material.opacity = style.opacity;
+      material.transparent = style.opacity < 1;
+    }
   }
 
   /**
