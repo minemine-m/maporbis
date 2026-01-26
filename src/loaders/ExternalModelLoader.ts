@@ -59,7 +59,7 @@ export class ExternalModelLoader {
         }
 
         // 2. 初始化 Draco 解码器 (如果需要)
-        if (options.type === 'gltf' && options.dracoOptions?.enable) {
+        if (options.type === 'model-gltf' && options.dracoOptions?.enable) {
             this.ensureDracoLoader(options.dracoOptions.decoderPath);
         }
 
@@ -68,7 +68,7 @@ export class ExternalModelLoader {
         let animations: any[] | undefined;
 
         try {
-            if (options.type === 'gltf') {
+            if (options.type === 'model-gltf') {
                 const gltf = await this.gltfLoader.loadAsync(options.url);
                 model = gltf.scene;
                 animations = gltf.animations;

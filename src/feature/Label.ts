@@ -132,20 +132,20 @@ export class Label extends Point {
      * - 'canvas-label': 动态大小标签
      */
     async _createObject(paint: Paint): Promise<Object3D> {
-        switch (style.config.type) {
-            case 'canvas-label-fixed':
+        switch (paint.config.type) {
+            case 'text-fixed':
                 return _createFixedSizeTextSprite(
-                    style.config, 
+                    paint.config, 
                     new Vector3(0, 0, 0), 
                     this.getMap() as Map
                 );
-            case 'canvas-label':
+            case 'text':
                 return _createTextSprite(
-                    style.config, 
+                    paint.config, 
                     new Vector3(0, 0, 0)
                 );
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 }

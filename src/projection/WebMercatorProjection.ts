@@ -21,7 +21,7 @@ export class WebMercatorProjection extends AbstractProjection {
         super(centralMeridian);
     }
 
-    public project(longitude: number, latitude: number): { x: number; y: number } {
+    public forward(longitude: number, latitude: number): { x: number; y: number } {
         const d2r = Math.PI / 180;
         const r = WebMercatorProjection.LEGACY_EARTH_RADIUS;
         
@@ -34,7 +34,7 @@ export class WebMercatorProjection extends AbstractProjection {
         return { x, y };
     }
 
-    public unProject(x: number, y: number): { lon: number; lat: number } {
+    public inverse(x: number, y: number): { lon: number; lat: number } {
         const r2d = 180 / Math.PI;
         const r = WebMercatorProjection.LEGACY_EARTH_RADIUS;
 

@@ -129,15 +129,15 @@ export class Marker extends Point {
      * @throws 如果样式类型不支持会抛出错误
      */
     async _createObject(paint: Paint): Promise<Object3D> {
-        switch (style.config.type) {
-            case 'basic-point':
-                return _createBasicPoint(style.config, new Vector3(0, 0, 0));
-            case 'icon-point':
-                return _createIconPoint(style.config, this._worldCoordinates as Vector3);
-            case 'icon-label-point':
-                return _createIconLabelSprite(style.config, this._worldCoordinates as Vector3);
+        switch (paint.config.type) {
+            case 'circle':
+                return _createBasicPoint(paint.config, new Vector3(0, 0, 0));
+            case 'icon':
+                return _createIconPoint(paint.config, this._worldCoordinates as Vector3);
+            case 'symbol':
+                return _createIconLabelSprite(paint.config, this._worldCoordinates as Vector3);
             default:
-                throw new Error(`不支持的样式类型: ${style.config.type}`);
+                throw new Error(`不支持的样式类型: ${paint.config.type}`);
         }
     }
 
@@ -169,7 +169,7 @@ export class Marker extends Point {
             // Select calculation strategy based on geometry type
             // 根据几何体类型选择不同的计算策略
             switch (this._style?.config.type) {
-                case 'icon-point':
+                case 'icon':
                     return this._calculateSpriteBoundingBox(
                         this._renderObject as Sprite
                     );
@@ -275,11 +275,11 @@ export class Marker extends Point {
         // 根据样式类型返回不同的默认尺寸
         const paintType = this.getPaint()?.config.type;
 
-        switch (styleType) {
-            case 'icon-point':
-            case 'icon-label-point':
+        switch (paintType) {
+            case 'icon':
+            case 'symbol':
                 return { width: 20, height: 20, offsetX: -10, offsetY: -10 };
-            case 'basic-point':
+            case 'circle':
                 return { width: 10, height: 10, offsetX: -5, offsetY: -5 };
             default:
                 return { width: 15, height: 15, offsetX: -7.5, offsetY: -7.5 };

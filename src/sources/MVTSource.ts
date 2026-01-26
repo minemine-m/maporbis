@@ -1,18 +1,18 @@
 
 import {
-	VectorStyles
+	VectorPaints
 } from "../materials/vectorTileRenderer/IVectorTileRender";
 import { SourceOptions, TileSource } from "./TileSource";
 
 /**
  */
-export type MVTSourceOptions = SourceOptions & { style?: VectorStyles };
+export type MVTSourceOptions = SourceOptions & { paint?: VectorPaints };
 
 /**
  */
 export class MVTSource extends TileSource {
 	public dataType = "mvt";
-	public style: VectorStyles = { layer: {} };
+	public paint: VectorPaints = { layer: {} };
 	//  "https://demotiles.maplibre.org/style.json";
 
 	public constructor(options: MVTSourceOptions) {

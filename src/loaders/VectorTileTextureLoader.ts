@@ -6,12 +6,12 @@ import { TileLoaderFactory } from "./TileLoaderFactory";
 import { LoaderMetadata, SourceLoadContext } from "./LoaderInterfaces";
 import { VectorTileRender } from "../materials/vectorTileRenderer/VectorTileRender";
 import { 
-    VectorStyle, 
+    VectorPaint, 
     VectorFeature,
     VectorFeatureTypes
 } from "../materials/vectorTileRenderer/IVectorTileRender";
 
-export type StyleType = { layer: VectorStyle[] };
+export type PaintType = { layer: VectorPaint[] };
 
 /**
  * Vector Tile Texture Loader
@@ -52,8 +52,8 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
         const vectorTile = new VectorTile(new Pbf(data));
 
         // Render to canvas
-        const style = (context.source as any).style;
-        const img = this.drawTile(vectorTile, style, context.z);
+        const paint = (context.source as any).paint;
+        const img = this.drawTile(vectorTile, paint, context.z);
 
         // Create texture
         return new CanvasTexture(img);
@@ -63,7 +63,7 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
      * Draw tile to OffscreenCanvas
      * 在离屏画布上绘制瓦片
      */
-    private drawTile(vectorTile: VectorTile, style: StyleType, z: number): OffscreenCanvas {
+    private drawTile(vectorTile: VectorTile, paint: PaintType, z: number): OffscreenCanvas {
         const width = 256;
         const height = 256;
         const canvas = new OffscreenCanvas(width, height);
@@ -73,17 +73,17 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
             throw new Error("Canvas context is not available");
         }
 
-        if (style) {
-            // Render with style
-            for (const layerName in style.layer) {
-                const layerStyle = style.layer[layerName];
-                if (z < (layerStyle.minLevel ?? 1) || z > (layerStyle.maxLevel ?? 20)) {
+        if (paint) {
+            // Render with paint
+            for (const layerName in paint.layer) {
+                const layerPaint = paint.layer[layerName];
+                if (z < (layerPaint.minLevel ?? 1) || z > (layerPaint.maxLevel ?? 20)) {
                     continue;
                 }
                 const layer = vectorTile.layers[layerName];
                 if (layer) {
                     const scale = width / layer.extent;
-                    this._renderLayer(ctx, layer, layerStyle, scale);
+                    this._renderLayer(ctx, layer, layerPaint, scale);
                 }
             }
         } else {
@@ -101,13 +101,13 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
     private _renderLayer(
         ctx: OffscreenCanvasRenderingContext2D,
         layer: VectorTileLayer,
-        style?: VectorStyle,
+        paint?: VectorPaint,
         scale: number = 1
     ) {
         ctx.save();
         for (let i = 0; i < layer.length; i++) {
             const feature = layer.feature(i);
-            this._renderFeature(ctx, feature, style, scale);
+            this._renderFeature(ctx, feature, paint, scale);
         }
         ctx.restore();
     }
@@ -115,7 +115,7 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
     private _renderFeature(
         ctx: OffscreenCanvasRenderingContext2D,
         feature: VectorTileFeature,
-        style: VectorStyle = {},
+        paint: VectorPaint = {},
         scale: number = 1
     ) {
         const type = [
@@ -130,7 +130,7 @@ export class VectorTileTextureLoader extends AbstractMaterialLoader {
             properties: feature.properties,
         };
 
-        this._render.render(ctx, type, renderFeature, style, scale);
+        this._render.render(ctx, type, renderFeature, paint, scale);
     }
 
     // #region GeoJSON Conversion Utilities (Preserved functionality)

@@ -302,11 +302,12 @@ export declare type ArcGisSourceOptions = SourceOptions & {
 };
 
 /**
+ * Arrow paint configuration.
  * 箭头流动线样式
- * @category Style
+ * @category Paint
  */
-export declare interface ArrowLineStyle extends BaseStyle {
-    type: 'arrow-line';
+export declare interface ArrowPaint extends BasePaint {
+    type: 'arrow';
     /** 箭头颜色 */
     color?: string | number | Color;
     /** 线条宽度 */
@@ -349,60 +350,11 @@ export declare interface BaseEventMap<Target = any> {
 }
 
 /**
- * 基础线样式配置
- * @category Style
- */
-export declare interface BaseLineStyle extends BaseStyle {
-    type: 'basic-line';
-    /** 线颜色 */
-    color?: string | number | Color;
-    /** 线宽 */
-    width?: number;
-    /** 虚线模式 */
-    dashArray?: [number, number];
-    /** 透明度 */
-    opacity?: number;
-    /** 渲染层级 */
-    zIndex?: number;
-    /** 渲染器分辨率 */
-    resolution?: Vector2;
-}
-
-/**
- * 基础多边形样式配置
- * @category Style
- */
-export declare interface BasePolygonStyle extends BaseStyle {
-    type: 'basic-polygon';
-    /** 填充颜色 */
-    color?: string | number | Color;
-    /** 透明度 */
-    opacity?: number;
-    /** 是否显示线框 */
-    wireframe?: boolean;
-    /** 线框颜色 */
-    wireframeColor?: string | number | Color;
-    /** 线框宽度 */
-    wireframeWidth?: number;
-    /** 边框颜色 */
-    borderColor?: string | number | Color;
-    /** 边框宽度 */
-    borderWidth?: number;
-    /** 边框虚线数组 */
-    borderdashArray?: number[];
-    /** 渲染面 */
-    side?: 'front' | 'back' | 'double';
-    /** 是否使用顶点颜色 */
-    vertexColors?: boolean;
-    /** 是否使用平面着色 */
-    flatShading?: boolean;
-}
-
-/**
+ * Base paint interface.
  * 基础样式接口
- * @category Style
+ * @category Paint
  */
-export declare interface BaseStyle {
+export declare interface BasePaint {
     /** 是否可见 */
     visible?: boolean;
     /** 透明度 (0-1) */
@@ -683,35 +635,28 @@ declare interface BaseTileLayerOptions extends LayerOptions {
 }
 
 /**
- * 基础水面样式配置
- * @category Style
+ * Camera configuration options.
+ * 相机配置选项
+ * @category Map
  */
-export declare interface BaseWaterStyle extends BaseStyle {
-    type: 'base-water';
-    /** 水面颜色 */
-    color?: number | string;
-    /** 透明度 */
-    opacity?: number;
-    /** 阳光方向 */
-    sunDirection?: Vector3;
-    /** 阳光颜色 */
-    sunColor?: number | string;
-    /** 波纹强度 */
-    distortionScale?: number;
-    /** 波纹大小 */
-    size?: number;
-    /** 法线贴图URL */
-    normalMap: string;
-    /** 是否受雾影响 */
-    fog?: boolean;
-}
+export declare type CameraOptions = {
+    /** Camera pitch angle in degrees (0 = looking straight down) 俯仰角（度，0为垂直向下看） */
+    pitch?: number;
+    /** Camera bearing angle in degrees (0 = north) 方位角（度，0为正北） */
+    bearing?: number;
+    /** Minimum camera distance 最小相机距离 */
+    minDistance?: number;
+    /** Maximum camera distance 最大相机距离 */
+    maxDistance?: number;
+};
 
 /**
+ * Circle paint configuration.
  * 基础点样式配置
- * @category Style
+ * @category Paint
  */
-export declare interface BasicPointStyle extends BaseStyle {
-    type: 'basic-point';
+export declare interface CirclePaint extends BasePaint {
+    type: 'circle';
     /** 点颜色 */
     color?: string | number | Color;
     /** 点大小 */
@@ -736,8 +681,17 @@ declare type ClassOptions = Record<string, any>;
 export declare type CloudOptions = PointOptions & {};
 
 /**
+ * Cloud paint configuration.
+ * 云朵样式配置
+ * @category Paint
+ */
+export declare type CloudPaint = BasePaint & CloudProps & {
+    type: 'cloud';
+};
+
+/**
  * 云朵属性配置
- * @category Style
+ * @category Paint
  */
 export declare type CloudProps = {
     /** 随机种子 */
@@ -853,7 +807,7 @@ export declare class CloudsLayer extends OverlayLayer<ICloud> {
 
 /**
  * 云朵状态类型
- * @category Style
+ * @category Paint
  */
 export declare type CloudState = {
     /** 引用组 */
@@ -892,14 +846,6 @@ export declare type CloudState = {
     rotationFactor: number;
     /** 颜色 */
     color: Color;
-};
-
-/**
- * 云朵样式配置
- * @category Style
- */
-export declare type CloudStyle = BaseStyle & CloudProps & {
-    type: 'cloud';
 };
 
 /**
@@ -1168,32 +1114,13 @@ export declare class CompositeTileLoader implements ICompositeLoader {
 }
 
 /**
- * 基础坐标类型
- * @description 表示二维或三维空间中的坐标点
- *
- * @typedef {Array} Coordinate
- * @property {number} 0 - X坐标（经度或水平位置）
- * @property {number} 1 - Y坐标（纬度或垂直位置）
- * @property {number} [2] - 可选Z坐标（高度或深度）
- *
- * @example
- * // 二维坐标
- * const coord2D: Coordinate = [116.404, 39.915];
- *
- * @example
- * // 三维坐标
- * const coord3D: Coordinate = [116.404, 39.915, 500];
- * @category Types
- */
-declare type Coordinate = [number, number] | [number, number, number];
-
-/**
+ * Custom paint configuration.
  * 自定义样式配置
- * @category Style
+ * @category Paint
  */
-export declare interface CustomStyle extends BaseStyle {
+export declare interface CustomPaint extends BasePaint {
     type: 'custom';
-    /** 构建函数 */
+    /** Build function 构建函数 */
     build: () => Object3D | Promise<Object3D>;
 }
 
@@ -1205,7 +1132,7 @@ declare interface DomEventMap extends BaseEventMap<Map_2> {
      * Geographic coordinate of the event (optional)
      * 事件的地理坐标（可选）
      */
-    coordinate?: Coordinate;
+    coordinate?: LngLatLike;
 }
 
 /**
@@ -1218,9 +1145,9 @@ declare interface DomEventMap extends BaseEventMap<Map_2> {
  */
 declare type DrawModeDefinition = {
     actions: Array<"click" | "mousemove" | "dblclick">;
-    create: (start: Coordinate, evt: DomEventMap) => any;
-    update: (coords: Coordinate[], geometry: any, evt: DomEventMap) => void;
-    generate: (geometry: any, coords: Coordinate[]) => any;
+    create: (start: LngLatLike, evt: DomEventMap) => any;
+    update: (coords: LngLatLike[], geometry: any, evt: DomEventMap) => void;
+    generate: (geometry: any, coords: LngLatLike[]) => any;
     clickLimit?: number;
 };
 
@@ -1264,11 +1191,11 @@ export declare class DrawTool extends MapTool {
      */
     setMode(mode: string): this;
     /**
-     * 设置绘制样式（仅影响后续新开始的绘制）
-     * - geometryStyle：主几何样式（点/线/面）
-     * - vertexStyle：顶点样式，传 null 可关闭锚点显示
+     * Set drawing paint (only affects new drawings started after this call)
+     * - geometryPaint: main geometry paint (point/line/fill)
+     * - vertexPaint: vertex paint, pass null to disable anchor point rendering
      */
-    setStyle(style: DrawToolStyleOptions): this;
+    setPaint(paint: DrawToolPaintOptions): this;
     /**
      * 子类实现：返回需要绑定到 Map 的事件映射
      */
@@ -1325,21 +1252,58 @@ export declare class DrawTool extends MapTool {
     private _destroyDraftLayer;
 }
 
-export declare type DrawToolOptions = BaseDrawToolOptions & DrawToolStyleOptions;
+export declare type DrawToolOptions = BaseDrawToolOptions & DrawToolPaintOptions;
 
 /**
- * 样式配置类型
+ * Paint configuration type
  */
-export declare type DrawToolStyleOptions = {
-    /** 主几何样式（点 / 线 / 面） */
-    geometryStyle?: StyleInput;
+export declare type DrawToolPaintOptions = {
+    /** Main geometry paint (point / line / fill) */
+    geometryPaint?: PaintInput;
     /**
-     * 顶点（锚点）样式
-     * - 传 null 表示不绘制锚点
-     * - 不传该字段则保持当前设置
+     * Vertex (anchor point) paint
+     * - Pass null to disable anchor point rendering
+     * - Omit this field to keep current setting
      */
-    vertexStyle?: StyleInput | null;
+    vertexPaint?: PaintInput | null;
 };
+
+export declare interface EaseToOptions {
+    center: LngLatLike;
+    duration?: number;
+    /**
+     * Distance from camera to target point (consistent with OrbitControls.getDistance)
+     * 相机到目标点的距离（与 OrbitControls.getDistance 一致）
+     * Unit consistent with world coordinates. Recommended to use this field.
+     * 单位与世界坐标一致。建议优先使用该字段。
+     */
+    distance?: number;
+    /**
+     * @deprecated Recommended to use distance.
+     * @deprecated 建议使用 distance。
+     * Same semantics as distance: distance from camera to target point.
+     * 语义与 distance 相同：相机到目标点的距离。
+     * Kept for backward compatibility.
+     * 保留只是为了向后兼容旧代码。
+     */
+    altitude?: number;
+    /**
+     * Camera pitch angle (in degrees)
+     * 相机俯仰角（角度制）
+     * 0 = top-down view, 90 = horizontal (no artificial limit)
+     * 0 = 正上方俯视，90 = 水平（无人为限制）
+     */
+    pitch?: number;
+    /**
+     * Camera bearing angle (in degrees)
+     * 相机方位角（角度制）
+     * 0 = looking North, 90 = looking East
+     * 0 = 朝北，90 = 朝东
+     */
+    bearing?: number;
+    complete?: () => void;
+    curvePath?: boolean;
+}
 
 declare class EmptyBase {
     constructor(..._args: any[]);
@@ -1409,15 +1373,16 @@ export declare class EventClass {
      */
     off(type: string, listener: (...args: any[]) => void): this;
     /**
+     * Fire an event.
      * 触发事件
-     * @param type 事件类型
-     * @param data 要传递的事件数据（可选）
-     * @returns 当前实例（支持链式调用）
+     * @param type Event type. 事件类型
+     * @param data Event data to pass (optional). 要传递的事件数据（可选）
+     * @returns Current instance (supports chaining). 当前实例（支持链式调用）
      *
      * @example
-     * event.trigger('update', { time: Date.now() });
+     * event.fire('update', { time: Date.now() });
      */
-    trigger(type: string, data?: any): this;
+    fire(type: string, data?: any): this;
     /**
      * 获取原生Three.js事件分发器
      * @returns Three.js的EventDispatcher实例
@@ -1453,7 +1418,7 @@ export declare class ExternalModelLoader {
      * 加载模型
      * @param options 模型样式配置
      */
-    load(options: ModelStyle): Promise<{
+    load(options: ModelPaint): Promise<{
         model: Group;
         animations: any[];
     }>;
@@ -1482,11 +1447,12 @@ export declare class ExternalModelLoader {
 }
 
 /**
+ * Extrusion paint configuration.
  * 拉伸多边形样式配置
- * @category Style
+ * @category Paint
  */
-export declare interface ExtrudeStyle extends BaseStyle {
-    type: 'extrude-polygon';
+export declare interface ExtrusionPaint extends BasePaint {
+    type: 'extrusion';
     /** 填充颜色 */
     color?: number | string;
     /** 透明度 */
@@ -1550,20 +1516,20 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      */
     _layer?: Layer;
     /**
-     * Current style.
+     * Current paint.
      * 当前样式
      */
-    _style?: Style;
+    _paint?: Paint;
     /**
      * Feature ID.
      * 要素ID
      */
     _id: string;
     /**
-     * Internal style manager.
+     * Internal paint manager.
      * 内部样式管理器
      */
-    private _styleManager;
+    private _paintManager;
     /**
      * Internal bloom helper.
      * 内部发光效果辅助器
@@ -1589,16 +1555,16 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
     private _ensureRenderObjectInScene;
     /* Excluded from this release type: _applyAlphaToObject */
     /**
-     * Called when style is successfully applied.
+     * Called when paint is successfully applied.
      * 样式成功应用后调用
      */
-    private _onStyleApplied;
+    private _onPaintApplied;
     /**
      * Initialize geometry (template method).
      * 初始化几何体（模板方法）
      *
      * @description
-     * Calls _buildRenderObject implemented by subclasses and processes pending style changes.
+     * Calls _buildRenderObject implemented by subclasses and processes pending paint changes.
      * 该方法会调用子类实现的_buildRenderObject方法，并处理积压的样式变更
      *
      * @returns Promise<void>
@@ -1615,20 +1581,25 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      */
     protected _refreshCoordinates(): void;
     /**
-     * Set style.
+     * Set paint.
      * 设置样式
      *
-     * @param input - Style configuration or style instance. 样式配置或样式实例
+     * @param input - Paint configuration or paint instance. 样式配置或样式实例
      * @returns Current feature instance (supports method chaining). 当前要素实例（支持链式调用）
      */
-    setStyle(input: StyleInput): this;
+    setPaint(input: PaintInput): this;
     /**
-     * Get current style.
+     * Get current paint.
      * 获取当前样式
      *
-     * @returns Current style or undefined. 当前样式或undefined
+     * @returns Current paint or undefined. 当前样式或undefined
      */
-    getStyle(): Style | undefined;
+    getPaint(): Paint | undefined;
+    /**
+     * Paint property getter/setter for convenience.
+     */
+    get paint(): Paint | undefined;
+    set paint(value: PaintInput | undefined);
     /**
      * Set bloom status for the current feature.
      * 设置当前要素的发光状态
@@ -1888,7 +1859,7 @@ declare const Feature_base: {
     new (...args: any[]): {
         eventClass: EventClass;
         on: (type: string, listener: (data?: any) => void) => EventClass;
-        trigger: (type: string, data?: any) => EventClass;
+        fire: (type: string, data?: any) => EventClass;
         off: (type: string, listener: (...args: any[]) => void) => EventClass;
     };
 } & {
@@ -1898,11 +1869,11 @@ declare const Feature_base: {
         _isUpdatingOptions?: boolean;
         _initHooksCalled?: boolean;
         _initHooks?: Function[];
-        proxyOptions(): /*elided*/ any;
-        callInitHooks(): /*elided*/ any;
+        _proxyOptions(): /*elided*/ any;
+        _callInitHooks(): /*elided*/ any;
         setOptions(options: ClassOptions): /*elided*/ any;
-        config(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
-        onConfig(_conf: ClassOptions): void;
+        configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+        onOptionsChange(_conf: ClassOptions): void;
         _visitInitHooks(proto: {
             _initHooks: any;
         }): void;
@@ -1942,7 +1913,7 @@ export declare type FeatureOptions = {
      * Style configuration.
      * 样式配置
      */
-    style?: StyleInput;
+    paint?: PaintInput;
     /**
      * Custom user data.
      * 自定义数据
@@ -1968,11 +1939,71 @@ export declare type FeatureOptions = {
 };
 
 /**
- * 流动管线样式配置
- * @category Style
+ * Fill paint configuration.
+ * 基础多边形样式配置
+ * @category Paint
  */
-export declare interface FlowLineStyle extends BaseStyle {
-    type: 'flow-tube-line';
+export declare interface FillPaint extends BasePaint {
+    type: 'fill';
+    /** 填充颜色 */
+    color?: string | number | Color;
+    /** 透明度 */
+    opacity?: number;
+    /** 是否显示线框 */
+    wireframe?: boolean;
+    /** 线框颜色 */
+    wireframeColor?: string | number | Color;
+    /** 线框宽度 */
+    wireframeWidth?: number;
+    /** 边框颜色 */
+    borderColor?: string | number | Color;
+    /** 边框宽度 */
+    borderWidth?: number;
+    /** 边框虚线数组 */
+    borderdashArray?: number[];
+    /** 渲染面 */
+    side?: 'front' | 'back' | 'double';
+    /** 是否使用顶点颜色 */
+    vertexColors?: boolean;
+    /** 是否使用平面着色 */
+    flatShading?: boolean;
+}
+
+/**
+ * Fill paint union type.
+ * 面样式联合类型
+ * @category Paint
+ */
+export declare type FillPaintUnion = FillPaint | ExtrusionPaint | WaterPaintUnion;
+
+/**
+ * Flow texture paint configuration.
+ * 纹理流动线样式配置（发光箭头线等）
+ * @category Paint
+ */
+export declare interface FlowTexturePaint extends BasePaint {
+    type: 'flow-texture';
+    /** 线颜色（与纹理颜色相乘，用于整体调色） */
+    color?: string | number | Color;
+    /** 线宽（世界坐标单位） */
+    width?: number;
+    /** 流动纹理 URL，例如箭头贴图 */
+    flowTexture: string;
+    /** 流动速度，越大流动越快 */
+    speed?: number;
+    /** 纹理沿线方向重复次数（控制箭头密度） */
+    repeat?: number;
+    /** 拐角半径（预留，与 FlowLineStyle 含义一致） */
+    cornerRadius?: number;
+}
+
+/**
+ * Flow tube paint configuration.
+ * 流动管线样式配置
+ * @category Paint
+ */
+export declare interface FlowTubePaint extends BasePaint {
+    type: 'flow-tube';
     /** 管道颜色 */
     color?: string | number | Color;
     /** 管道半径 */
@@ -1994,66 +2025,19 @@ export declare interface FlowLineStyle extends BaseStyle {
 }
 
 /**
- * 纹理流动线样式配置（发光箭头线等）
- * @category Style
- */
-export declare interface FlowTextureLineStyle extends BaseStyle {
-    type: 'flow-texture-line';
-    /** 线颜色（与纹理颜色相乘，用于整体调色） */
-    color?: string | number | Color;
-    /** 线宽（世界坐标单位） */
-    width?: number;
-    /** 流动纹理 URL，例如箭头贴图 */
-    flowTexture: string;
-    /** 流动速度，越大流动越快 */
-    speed?: number;
-    /** 纹理沿线方向重复次数（控制箭头密度） */
-    repeat?: number;
-    /** 拐角半径（预留，与 FlowLineStyle 含义一致） */
-    cornerRadius?: number;
-}
-
-/**
  * flyTo method parameters interface
  * flyTo方法参数接口
- * @category Viewer
+ * @category SceneRenderer
  */
 export declare interface FlyToOptions {
     /** Longitude and latitude 经纬度 */
-    center: Coordinate;
+    center: LngLatLike;
     /** Camera coordinates 相机 */
-    cameraCoord: Coordinate;
+    cameraCoord: LngLatLike;
     duration?: number;
     delay?: number;
     complete?: () => void;
     /** Whether to use curved path (default is straight line) 是否使用曲线路径飞行（默认直线） */
-    curvePath?: boolean;
-}
-
-export declare interface FlyToPointOptions {
-    center: Coordinate;
-    duration?: number;
-    /**
-     * Distance from camera to target point (consistent with OrbitControls.getDistance)
-     * 相机到目标点的距离（与 OrbitControls.getDistance 一致）
-     * Unit consistent with world coordinates. Recommended to use this field.
-     * 单位与世界坐标一致。建议优先使用该字段。
-     */
-    distance?: number;
-    /**
-     * @deprecated Recommended to use distance.
-     * @deprecated 建议使用 distance。
-     * Same semantics as distance: distance from camera to target point.
-     * 语义与 distance 相同：相机到目标点的距离。
-     * Kept for backward compatibility.
-     * 保留只是为了向后兼容旧代码。
-     */
-    altitude?: number;
-    polarAngle?: number;
-    azimuthAngle?: number;
-    polarDeg?: number;
-    azimuthDeg?: number;
-    complete?: () => void;
     curvePath?: boolean;
 }
 
@@ -2221,7 +2205,7 @@ declare const Handler_base: {
     new (...args: any[]): {
         eventClass: EventClass;
         on: (type: string, listener: (data?: any) => void) => EventClass;
-        trigger: (type: string, data?: any) => EventClass;
+        fire: (type: string, data?: any) => EventClass;
         off: (type: string, listener: (...args: any[]) => void) => EventClass;
     };
 } & {
@@ -2231,11 +2215,11 @@ declare const Handler_base: {
         _isUpdatingOptions?: boolean;
         _initHooksCalled?: boolean;
         _initHooks?: Function[];
-        proxyOptions(): /*elided*/ any;
-        callInitHooks(): /*elided*/ any;
+        _proxyOptions(): /*elided*/ any;
+        _callInitHooks(): /*elided*/ any;
         setOptions(options: ClassOptions): /*elided*/ any;
-        config(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
-        onConfig(_conf: ClassOptions): void;
+        configure(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
+        onOptionsChange(_conf: ClassOptions): void;
         _visitInitHooks(proto: {
             _initHooks: any;
         }): void;
@@ -2336,7 +2320,7 @@ export declare class ICloud extends Point_3 {
      *
      * @private
      */
-    _createObject(style: Style): Promise<any>;
+    _createObject(paint: Paint): Promise<any>;
 }
 
 /**
@@ -2486,61 +2470,12 @@ export declare interface ICompositeLoader<TMeshData extends TileMeshData = TileM
 }
 
 /**
- * 图标标签样式配置
- * @category Style
- */
-export declare interface IconLabelStyle extends BaseStyle {
-    type: 'icon-label-point';
-    /** 文本内容 */
-    text: string;
-    /** 图标URL */
-    url?: string;
-    /** 图标大小 */
-    iconSize?: number | [number, number];
-    size?: number | [number, number];
-    /** 图标缩放 */
-    iconScale?: number;
-    /** 字体大小 */
-    fontSize?: number;
-    /** 字体家族 */
-    fontFamily?: string;
-    fontWeight?: number;
-    /** 文字颜色 */
-    textColor?: string;
-    /** 描边颜色 */
-    strokeColor?: string;
-    /** 描边宽度 */
-    strokeWidth?: number;
-    /** 是否渲染背景 */
-    renderbg?: boolean;
-    /** 背景颜色 */
-    bgColor?: string;
-    /** 背景透明度 */
-    bgOpacity?: number;
-    /** 内边距 */
-    padding?: {
-        top?: number;
-        right?: number;
-        bottom?: number;
-        left?: number;
-    };
-    /** 画布缩放 */
-    canvasScale?: number;
-    /** 文本偏移 */
-    textOffset?: {
-        x: number;
-        y: number;
-    };
-    /** 整体锚点，等同于 Sprite.center / IconPointStyle.anchor */
-    anchor?: [number, number];
-}
-
-/**
+ * Icon paint configuration.
  * 图标点样式配置
- * @category Style
+ * @category Paint
  */
-export declare interface IconPointStyle extends BaseStyle {
-    type: 'icon-point';
+export declare interface IconPaint extends BasePaint {
+    type: 'icon';
     /** 点颜色 */
     color?: string | number | Color;
     /** 图标URL */
@@ -2668,7 +2603,7 @@ export declare class InfoWindow extends UIComponent {
      * 打开 InfoWindow（语义上等价于 show）
      * @param coordinate Optional geographic coordinate, use owner center / map center if not provided 可选地理坐标，不传则使用 owner 的中心 / 地图中心
      */
-    open(coordinate?: Coordinate): this;
+    open(coordinate?: LngLatLike): this;
     /**
      * Close InfoWindow (semantically equivalent to hide).
      * 关闭 InfoWindow（语义上等价于 hide）
@@ -2707,6 +2642,22 @@ declare type InfoWindowOptions = UIComponentOptions & {
      * 自定义模式：true 时不渲染默认标题栏/内容框，直接使用用户提供的 DOM/HTML
      */
     custom?: boolean;
+};
+
+/**
+ * Interaction configuration options.
+ * 交互配置选项
+ * @category Map
+ */
+export declare type InteractionOptions = {
+    /** Enable feature event handling 启用要素事件处理 */
+    featureEvents?: boolean;
+    /** Enable collision detection 启用碰撞检测 */
+    collision?: boolean;
+    /** Enable map dragging 启用地图拖拽 */
+    draggable?: boolean;
+    /** Enable scroll zoom 启用滚轮缩放 */
+    scrollZoom?: boolean;
 };
 
 /**
@@ -2952,68 +2903,7 @@ export declare class Label extends Point_3 {
      * - 'canvas-label-fixed': 固定大小标签
      * - 'canvas-label': 动态大小标签
      */
-    _createObject(style: Style): Promise<Object3D>;
-}
-
-/**
- * 标签样式配置
- * @category Style
- */
-export declare interface LabelStyle extends BaseStyle {
-    type: 'canvas-label' | 'canvas-label-fixed';
-    /** 文本内容 */
-    text: string;
-    /** 字体大小像素Dpi，默认不传，内部会自动处理 */
-    fontSizeDpi?: number;
-    /** 字体家族 */
-    fontFamily?: string;
-    /** 字体粗细 */
-    fontWeight?: 'normal' | 'bold' | 'bolder' | 'lighter' | number;
-    /** 字体样式 */
-    fontStyle?: 'normal' | 'italic' | 'oblique';
-    /** 文字颜色 */
-    textColor?: string;
-    /** 描边颜色 */
-    strokeColor?: string;
-    /** 描边宽度 */
-    strokeWidth?: number;
-    /** 是否显示背景 */
-    showBackground?: boolean;
-    /** 背景样式 */
-    bgStyle?: 1 | 2;
-    /** 背景颜色 */
-    bgColor?: string;
-    /** 背景透明度 */
-    bgOpacity?: number;
-    /** 阴影颜色 */
-    shadowColor?: string;
-    /** 阴影模糊度 */
-    shadowBlur?: number;
-    /** 阴影X偏移 */
-    shadowOffsetX?: number;
-    /** 阴影Y偏移 */
-    shadowOffsetY?: number;
-    /** 圆角半径 */
-    roundRectRadius?: number;
-    /** 气泡指针高度 */
-    bubblePointerHeight?: number;
-    /** 气泡指针宽度 */
-    bubblePointerWidth?: number;
-    /** 气泡边框颜色 */
-    bubbleBorderColor?: string;
-    /** 气泡边框宽度 */
-    bubbleBorderWidth?: number;
-    /** 固定显示大小（与 screenSpaceSize 含义一致，推荐使用 screenSpaceSize） */
-    fixedSize?: number;
-    /** 屏幕空间大小，语义为在屏幕上的目标高度（CSS 像素） */
-    screenSpaceSize?: number;
-    /** 文本偏移 */
-    textOffset?: {
-        x: number;
-        y: number;
-    };
-    /** 整体锚点 */
-    anchor?: [number, number];
+    _createObject(paint: Paint): Promise<Object3D>;
 }
 
 /**
@@ -3185,13 +3075,13 @@ declare abstract class Layer extends Layer_base {
      *              帧间隔时间
      * @param elapsedtime Elapsed time
      *                    累计时间
-     * @param context Viewer context
-     *                Viewer 上下文
+     * @param context SceneRenderer context
+     *                SceneRenderer 上下文
      *
      * @protected
      * @abstract
      */
-    protected animate?(delta: number, elapsedtime: number, context: Viewer): void;
+    protected animate?(delta: number, elapsedtime: number, context: SceneRenderer): void;
     /**
      * Register animation callback.
      * 注册动画回调
@@ -3265,7 +3155,7 @@ declare const Layer_base: {
     new (...args: any[]): {
         eventClass: EventClass;
         on: (type: string, listener: (data?: any) => void) => EventClass;
-        trigger: (type: string, data?: any) => EventClass;
+        fire: (type: string, data?: any) => EventClass;
         off: (type: string, listener: (...args: any[]) => void) => EventClass;
     };
 } & {
@@ -3275,11 +3165,11 @@ declare const Layer_base: {
         _isUpdatingOptions?: boolean;
         _initHooksCalled?: boolean;
         _initHooks?: Function[];
-        proxyOptions(): /*elided*/ any;
-        callInitHooks(): /*elided*/ any;
+        _proxyOptions(): /*elided*/ any;
+        _callInitHooks(): /*elided*/ any;
         setOptions(options: ClassOptions): /*elided*/ any;
-        config(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
-        onConfig(_conf: ClassOptions): void;
+        configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+        onOptionsChange(_conf: ClassOptions): void;
         _visitInitHooks(proto: {
             _initHooks: any;
         }): void;
@@ -3332,7 +3222,7 @@ declare type LayerOptions = {
     depthOffset?: number;
 };
 
-export declare interface LightStyle extends BaseStyle {
+export declare interface LightPaint extends BasePaint {
     type: 'light';
     /** 点颜色 */
     color?: string | number | Color;
@@ -3343,37 +3233,13 @@ export declare interface LightStyle extends BaseStyle {
 }
 
 /**
- * 水面样式配置
- * @category Style
- */
-export declare interface LightWaterStyle extends BaseStyle {
-    type: 'water';
-    /** 水面颜色 */
-    color?: number | string;
-    /** 透明度 */
-    opacity?: number;
-    /** 阳光方向 */
-    sunDirection?: Vector3;
-    /** 阳光颜色 */
-    sunColor?: number | string;
-    /** 波纹强度 */
-    distortionScale?: number;
-    /** 波纹大小 */
-    size?: number;
-    /** 法线贴图URL */
-    normalMap: string;
-    /** 是否受雾影响 */
-    fog?: boolean;
-}
-
-/**
  * Line feature abstract base class.
  * 线要素抽象基类
  *
  * @description
  * Represents a line feature in the 3D scene, inheriting from the Feature class.
  * Provides basic functionality for line features, including:
- * - Coordinate transformation
+ * - LngLatLike transformation
  * - Line geometry creation
  * - Style application
  *
@@ -3412,7 +3278,7 @@ declare abstract class Line extends Feature {
      */
     constructor(options: LineOptions);
     /**
-     * Coordinate transformation method.
+     * LngLatLike transformation method.
      * 坐标转换方法
      *
      * @returns Transformed coordinate information
@@ -3516,6 +3382,34 @@ declare type LineOptions = FeatureOptions & {
 };
 
 /**
+ * Line paint configuration.
+ * 基础线样式配置
+ * @category Paint
+ */
+export declare interface LinePaint extends BasePaint {
+    type: 'line';
+    /** 线颜色 */
+    color?: string | number | Color;
+    /** 线宽 */
+    width?: number;
+    /** 虚线模式 */
+    dashArray?: [number, number];
+    /** 透明度 */
+    opacity?: number;
+    /** 渲染层级 */
+    zIndex?: number;
+    /** 渲染器分辨率 */
+    resolution?: Vector2;
+}
+
+/**
+ * Line paint union type.
+ * 线样式联合类型
+ * @category Paint
+ */
+export declare type LinePaintUnion = LinePaint | TubePaint | FlowTubePaint | FlowTexturePaint | ArrowPaint;
+
+/**
  * LineString feature class.
  * 线要素类
  *
@@ -3582,7 +3476,7 @@ export declare class LineString extends Line {
      * 当前支持样式类型：
      * - 'basic-line': 基础线样式
      */
-    _createObject(style: Style): Promise<Object3D>;
+    _createObject(paint: Paint): Promise<Object3D>;
 }
 
 /**
@@ -3595,10 +3489,25 @@ export declare class LineString extends Line {
 export declare type LineStringOptions = LineOptions & {};
 
 /**
- * 线样式联合类型
- * @category Style
+ * Geographic coordinate type.
+ * 基础坐标类型
+ * @description Represents a point in 2D or 3D space. 表示二维或三维空间中的坐标点
+ *
+ * @typedef {Array} LngLatLike
+ * @property {number} 0 - Longitude or X coordinate. X坐标（经度或水平位置）
+ * @property {number} 1 - Latitude or Y coordinate. Y坐标（纬度或垂直位置）
+ * @property {number} [2] - Optional altitude or Z coordinate. 可选Z坐标（高度或深度）
+ *
+ * @example
+ * // 2D coordinate
+ * const coord2D: LngLatLike = [116.404, 39.915];
+ *
+ * @example
+ * // 3D coordinate
+ * const coord3D: LngLatLike = [116.404, 39.915, 500];
+ * @category Types
  */
-export declare type LineStyle = BaseLineStyle | PipelineStyle | FlowLineStyle | FlowTextureLineStyle | ArrowLineStyle;
+declare type LngLatLike = [number, number] | [number, number, number];
 
 /**
  * 加载器元数据
@@ -3662,17 +3571,21 @@ export declare class LoaderUtils {
      * @category Map
      * @example
      * const map = new Map('map-container', {
-     *   center: [120, 30],
-     *   zoom: 12,
-     *   basemap: { ... }
+     *   state: {
+     *     center: [120, 30],
+     *     zoom: 12
+     *   },
+     *   source: {
+     *     baseLayers: [...]
+     *   }
      * });
      */
     declare class Map extends Map_base {
         /**
-         * Viewer instance.
-         * 查看器实例
+         * SceneRenderer instance.
+         * 场景渲染器实例
          */
-        viewer: Viewer;
+        sceneRenderer: SceneRenderer;
         /**
          * Map root object
          * 地图根对象
@@ -3716,61 +3629,60 @@ export declare class LoaderUtils {
         get projection(): MapProjection;
         get lon0(): number;
         /**
-         * Project geographic coordinate to map model coordinate
-         * 地理坐标投影到地图模型坐标
-         * @param coord Geographic coordinate (Long, Lat, Alt)
+         * Convert geographic coordinate to map model coordinate
+         * 地理坐标转换到地图模型坐标
+         * @param lngLat Geographic coordinate (Long, Lat, Alt)
          * @returns Map model coordinate
          */
-        project(coord: Vector3): Vector3;
+        lngLatToPoint(lngLat: Vector3): Vector3;
         /**
-         * Project geographic coordinate to world coordinate
-         * 地理坐标投影到世界坐标
-         * @param coord Geographic coordinate (Long, Lat, Alt)
+         * Convert geographic coordinate to world coordinate
+         * 地理坐标转换到世界坐标
+         * @param lngLat Geographic coordinate (Long, Lat, Alt)
          * @returns World coordinate
          */
-        projectToWorld(coord: Vector3): Vector3;
+        lngLatToWorld(lngLat: Vector3): Vector3;
         /**
-         * Unproject map model coordinate to geographic coordinate
-         * 地图模型坐标反投影到地理坐标
+         * Convert map model coordinate to geographic coordinate
+         * 地图模型坐标转换到地理坐标
          * @param point Map model coordinate
          * @returns Geographic coordinate (Long, Lat, Alt)
          */
-        unproject(point: Vector3): Vector3;
+        pointToLngLat(point: Vector3): Vector3;
         /**
-         * Unproject world coordinate to geographic coordinate
-         * 世界坐标反投影到地理坐标
+         * Convert world coordinate to geographic coordinate
+         * 世界坐标转换到地理坐标
          * @param worldPos World coordinate
          * @returns Geographic coordinate (Long, Lat, Alt)
          */
-        unprojectFromWorld(worldPos: Vector3): Vector3;
+        worldToLngLat(worldPos: Vector3): Vector3;
         /**
-         * Get intersection info from geographic coordinate
-         * 获取指定地理坐标的交互/地面信息
-         * @param geoCoord Geographic coordinate
+         * Query intersection info at geographic coordinate
+         * 查询指定地理坐标的交互/地面信息
+         * @param lngLat Geographic coordinate
          * @returns Intersection info
          */
-        pickFromGeo(geoCoord: Vector3): LocationInfo | undefined;
+        queryAtLngLat(lngLat: Vector3): LocationInfo | undefined;
         /**
-         * Get intersection info from world coordinate
-         * 获取指定世界坐标的交互/地面信息
+         * Query intersection info at world coordinate
+         * 查询指定世界坐标的交互/地面信息
          * @param worldPos World coordinate
          * @returns Intersection info
          */
-        pickFromWorld(worldPos: Vector3): LocationInfo | undefined;
+        queryAtWorld(worldPos: Vector3): LocationInfo | undefined;
         /**
-         * Get intersection info from screen pixel coordinate
-         * 获取指定屏幕坐标的交互/地面信息
-         * @param camera Camera instance
-         * @param pixel Screen pixel coordinate
+         * Query intersection info at screen pixel coordinate
+         * 查询指定屏幕坐标的交互/地面信息
+         * @param point Screen pixel coordinate
          * @returns Intersection info
          */
-        pickFromPixel(camera: Camera, pixel: Vector2): LocationInfo | undefined;
+        queryAtPoint(point: Vector2): LocationInfo | undefined;
         /**
          * Map center coordinates.
 
          * 地图中心点坐标
          */
-        readonly center: Coordinate;
+        readonly center: LngLatLike;
         /**
          * Projected map center coordinates.
          * 投影后的地图中心点坐标
@@ -3897,7 +3809,7 @@ export declare class LoaderUtils {
          * 从 TileMap 的底图瓦片树中统计出来的实际 z。
          * 最大值受数据源和 TileLayer.maxLevel 限制，例如数据只到 18。
          */
-        getDataZoom(): number;
+        getTileZoom(): number;
         /**
          * Get view minimum zoom level.
          * 获取视图最小缩放级别
@@ -3917,7 +3829,7 @@ export declare class LoaderUtils {
          * @param maxZoom Maximum zoom level
          *                最大缩放级别
          */
-        setZoomRange(minZoom: number, maxZoom: number): this;
+        setZoomBounds(minZoom: number, maxZoom: number): this;
         /**
          * Set minimum zoom level.
          * 设置最小缩放级别
@@ -3972,19 +3884,19 @@ export declare class LoaderUtils {
          * @param visible - Whether to show the ground plane. 是否显示地面
          * @returns Current map instance. 当前地图实例
          */
-        setDefaultGroundVisible(visible: boolean): this;
+        setGroundVisible(visible: boolean): this;
         /**
          * Check if the default ground plane is visible.
          * 检查默认地面是否可见
          *
          * @returns Whether the ground is visible. 地面是否可见
          */
-        isDefaultGroundVisible(): boolean;
+        isGroundVisible(): boolean;
         /**
          * Update map and layers.
          * 更新地图和图层
          */
-        update(camera: Camera): void;
+        render(camera: Camera): void;
         /**
          * Add layer(s) to the map.
          * 添加图层到地图
@@ -4037,7 +3949,7 @@ export declare class LoaderUtils {
          * @returns Layer instance or undefined
          *          图层实例或undefined
          */
-        getLayerById(id: string): any;
+        getLayer(id: string): any;
         /**
          * Get canvas.
          * 获取画布
@@ -4080,7 +3992,7 @@ export declare class LoaderUtils {
          * Find all Features at a specific position.
          * 找出某位置的所有Feature
          */
-        _findFeaturesAt(position: {
+        _queryFeaturesAt(position: {
             x: number;
             y: number;
         }): any[];
@@ -4090,12 +4002,12 @@ export declare class LoaderUtils {
          *
          * @returns Coordinate [lng, lat, height]
          */
-        getCenter(): Coordinate;
+        getCenter(): LngLatLike;
         /**
          * Get event position (Screen coordinates).
          * 获取事件位置（屏幕坐标）
          */
-        _getEventPosition(domEvent: MouseEvent | TouchEvent): {
+        _getPointerPosition(domEvent: MouseEvent | TouchEvent): {
             x: number;
             y: number;
         } | null;
@@ -4127,7 +4039,7 @@ export declare class LoaderUtils {
          * @param flyConfig Flight parameters object
          *                飞行参数对象
          */
-        flyToPoint(flyConfig: FlyToPointOptions): void;
+        easeTo(flyConfig: EaseToOptions): void;
         /**
          * Destroy map instance, release all resources.
          * 销毁地图实例，释放所有资源
@@ -4147,7 +4059,7 @@ export declare class LoaderUtils {
          * 4. 销毁viewer（包括renderer、scene、controls等）
          * 5. 清理DOM容器
          */
-        destroy(): void;
+        dispose(): void;
     }
     export { Map_2 as Map }
 
@@ -4163,7 +4075,7 @@ export declare class LoaderUtils {
         new (...args: any[]): {
             eventClass: EventClass;
             on: (type: string, listener: (data?: any) => void) => EventClass;
-            trigger: (type: string, data?: any) => EventClass;
+            fire: (type: string, data?: any) => EventClass;
             off: (type: string, listener: (...args: any[]) => void) => EventClass;
         };
     } & {
@@ -4173,11 +4085,11 @@ export declare class LoaderUtils {
             _isUpdatingOptions?: boolean;
             _initHooksCalled?: boolean;
             _initHooks?: Function[];
-            proxyOptions(): /*elided*/ any;
-            callInitHooks(): /*elided*/ any;
+            _proxyOptions(): /*elided*/ any;
+            _callInitHooks(): /*elided*/ any;
             setOptions(options: ClassOptions): /*elided*/ any;
-            config(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
-            onConfig(_conf: ClassOptions): void;
+            configure(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
+            onOptionsChange(_conf: ClassOptions): void;
             _visitInitHooks(proto: {
                 _initHooks: any;
             }): void;
@@ -4319,42 +4231,30 @@ export declare class LoaderUtils {
      */
     export declare type MapOptions = {
         /**
-         * Viewer configuration options.
-         * 查看器配置选项
+         * Renderer configuration options.
+         * 渲染器配置选项
          */
-        viewer?: ViewerOptions;
+        renderer?: SceneRendererOptions;
         /**
-         * Tile map parameter configuration.
-         * 瓦片地图参数配置
+         * Camera configuration options.
+         * 相机配置选项
          */
-        basemap: TileMapParams;
+        camera?: CameraOptions;
         /**
-         * Map center coordinates (Required).
-         * 地图中心点坐标（必填项）
+         * Interaction configuration options.
+         * 交互配置选项
          */
-        center: Coordinate;
+        interaction?: InteractionOptions;
         /**
-         * Initial zoom level (View level).
-         * 初始缩放级别（视图级别）
+         * Source configuration options (tile layers and data levels).
+         * 数据源配置选项（瓦片图层和数据级别）
          */
-        zoom?: number;
+        source?: MapSourceOptions;
         /**
-         * Minimum allowed zoom level for the view.
-         * 视图允许的最小缩放级别
+         * Map state configuration options.
+         * 地图状态配置选项
          */
-        minZoom?: number;
-        /**
-         * Maximum allowed zoom level for the view.
-         * 视图允许的最大缩放级别
-         */
-        maxZoom?: number;
-    } & MapOptionsType;
-
-    /**
-     * @category Map
-     */
-    export declare type MapOptionsType = {
-        FeatureEvents?: boolean;
+        state: StateOptions;
     };
 
     /**
@@ -4389,7 +4289,7 @@ export declare class LoaderUtils {
          * @param latitude 纬度 (度)
          * @returns 投影坐标 {x, y} (米)
          */
-        project(longitude: number, latitude: number): {
+        forward(longitude: number, latitude: number): {
             x: number;
             y: number;
         };
@@ -4399,7 +4299,7 @@ export declare class LoaderUtils {
          * @param y 投影坐标 Y (米)
          * @returns 地理坐标 {lon, lat} (度)
          */
-        unProject(x: number, y: number): {
+        inverse(x: number, y: number): {
             lon: number;
             lat: number;
         };
@@ -4433,6 +4333,20 @@ export declare class LoaderUtils {
          */
         getTileGeoBounds(x: number, y: number, z: number): [number, number, number, number];
     }
+
+    /**
+     * Map source configuration options (tile layers and data levels).
+     * 地图数据源配置选项（瓦片图层和数据级别）
+     * @category Map
+     */
+    export declare type MapSourceOptions = {
+        /** Min data level 最小数据级别 */
+        minLevel?: number;
+        /** Max data level 最大数据级别 */
+        maxLevel?: number;
+        /** Base tile layers 底图瓦片图层 */
+        baseLayers?: ITileLayer[];
+    };
 
     /**
      * 地图瓦片几何体
@@ -4535,7 +4449,7 @@ export declare class LoaderUtils {
         new (...args: any[]): {
             eventClass: EventClass;
             on: (type: string, listener: (data?: any) => void) => EventClass;
-            trigger: (type: string, data?: any) => EventClass;
+            fire: (type: string, data?: any) => EventClass;
             off: (type: string, listener: (...args: any[]) => void) => EventClass;
         };
     } & {
@@ -4545,11 +4459,11 @@ export declare class LoaderUtils {
             _isUpdatingOptions?: boolean;
             _initHooksCalled?: boolean;
             _initHooks?: Function[];
-            proxyOptions(): /*elided*/ any;
-            callInitHooks(): /*elided*/ any;
+            _proxyOptions(): /*elided*/ any;
+            _callInitHooks(): /*elided*/ any;
             setOptions(options: ClassOptions): /*elided*/ any;
-            config(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
-            onConfig(_conf: ClassOptions): void;
+            configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+            onOptionsChange(_conf: ClassOptions): void;
             _visitInitHooks(proto: {
                 _initHooks: any;
             }): void;
@@ -4635,7 +4549,7 @@ export declare class LoaderUtils {
          * @returns 创建的标记点对象
          * @throws 如果样式类型不支持会抛出错误
          */
-        _createObject(style: Style): Promise<Object3D>;
+        _createObject(paint: Paint): Promise<Object3D>;
         /**
          * Calculate collision bounding box (different strategies based on type)
          * 计算碰撞检测用的屏幕空间包围盒（根据不同类型使用不同的计算策略）
@@ -4808,7 +4722,7 @@ export declare class LoaderUtils {
          * @throws Throws error if style type is not supported
          *         如果样式类型不支持会抛出错误
          */
-        _createObject(style: Style): Promise<any>;
+        _createObject(paint: Paint): Promise<any>;
         /**
          * Apply emission properties.
          * 应用自发光属性
@@ -5006,14 +4920,15 @@ export declare class LoaderUtils {
     };
 
     /**
+     * Model paint configuration.
      * 模型样式配置
-     * @category Style
+     * @category Paint
      */
-    export declare interface ModelStyle extends BaseStyle {
-        /** 模型URL */
+    export declare interface ModelPaint extends BasePaint {
+        /** Model URL 模型URL */
         url: string;
-        /** 模型类型 */
-        type: 'gltf' | 'fbx';
+        /** Model type 模型类型 */
+        type: 'model-gltf' | 'model-fbx';
         /** 位置 */
         position?: Vector3;
         /** 缩放 */
@@ -5214,14 +5129,14 @@ export declare class LoaderUtils {
      */
     export declare class MVTSource extends TileSource {
         dataType: string;
-        style: VectorStyles;
+        paint: VectorPaints;
         constructor(options: MVTSourceOptions);
     }
 
     /**
      */
     export declare type MVTSourceOptions = SourceOptions & {
-        style?: VectorStyles;
+        paint?: VectorPaints;
     };
 
     /**
@@ -5345,24 +5260,175 @@ export declare class LoaderUtils {
     };
 
     /**
-     * 管道线样式配置
-     * @category Style
+     * Paint class.
+     * @description Manages and applies various 3D object paints/styles
+     * @category Paint
      */
-    export declare interface PipelineStyle extends BaseStyle {
-        type: 'tube-line';
-        /** 管道颜色 */
-        color?: string | number | Color;
-        /** 管道半径 */
-        radius: number;
-        /** 圆柱分段数 */
-        segments?: number;
-        /** 是否包含端盖 */
-        caps?: boolean;
-        /** 流动贴图URL */
-        flowTexture?: string;
-        /** 压力值 */
-        pressure?: number;
+    export declare class Paint {
+        config: PaintConfig;
+        /** Texture cache */
+        private static _textureCache;
+        /** Texture loader */
+        private static _textureLoader;
+        /**
+         * Constructor
+         * @param config Paint configuration
+         */
+        constructor(config: PaintConfig);
+        /**
+         * 应用样式到3D对象
+         * @param object 目标3D对象
+         * @returns 是否应用成功
+         */
+        applyTo(object: Object3D): Promise<boolean>;
+        /**
+         * Apply point paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyPointPaint;
+        /**
+         * Apply icon paint
+         * @param object Target object
+         * @param config Paint configuration
+         */
+        private _applyIconPaint;
+        /**
+         * Apply circle paint
+         * @param object Target object
+         * @param config Paint configuration
+         */
+        private _applyCirclePaint;
+        /**
+         * Apply symbol paint
+         * @param object Target object
+         * @param config Paint configuration
+         */
+        private _applySymbolPaint;
+        /**
+         * Apply line paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyLinePaint;
+        /**
+         * Apply flow tube paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyFlowTubePaint;
+        /**
+         * Apply arrow paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyArrowPaint;
+        /**
+         * Apply flow texture paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyFlowTexturePaint;
+        /**
+         * Apply fill paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyFillPaint;
+        /**
+         * Apply extrusion paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyExtrusionPaint;
+        /**
+         * Apply water paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyWaterPaint;
+        /**
+         * Apply cloud paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyCloudPaint;
+        /**
+         * Apply text paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyTextPaint;
+        /**
+         * Apply light paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyLightPaint;
+        /**
+         * Apply model paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyModelPaint;
+        /**
+         * Apply custom paint
+         * @param object Target object
+         * @returns Success status
+         */
+        private _applyCustomPaint;
+        /**
+         * Load texture
+         * @param url Texture URL
+         * @returns Texture object
+         */
+        static _loadTexture(url: string): Promise<Texture>;
+        /**
+         * Create paint instance
+         * @param input Paint input
+         * @returns Paint instance
+         */
+        static create(input: PaintInput): Paint;
     }
+
+    /**
+     * Paint configuration union type.
+     * 样式配置联合类型
+     * @category Paint
+     */
+    export declare type PaintConfig = PointPaintUnion | LinePaintUnion | FillPaintUnion | CloudPaint | CustomPaint;
+
+    /**
+     * Paint input type.
+     * 样式输入类型
+     * @category Paint
+     */
+    export declare type PaintInput = PaintConfig | Paint;
+
+    /**
+     * Paint rule interface (Simplified)
+     * 样式规则接口 (简化版)
+     * @description Defines a paint rule that will be applied via an external Feature Filter mechanism.
+     * 定义一个样式规则，它将通过外部的 Feature Filter 机制来应用。
+     * @category Paint
+     */
+    declare interface PaintRule {
+        /**
+         * Filter condition expression (Placeholder)
+         * 过滤条件表达式（Placeholder）
+         * This is a placeholder to represent a future feature-filter expression or rule ID.
+         * 这是一个占位符，用于表示您将来要引入的 feature-filter 表达式或规则ID。
+         * e.g., ['==', 'class', 'highway'] or 'highway-z10-14'
+         * 例如: ['==', 'class', 'highway'] 或 'highway-z10-14'
+         */
+        filter: any;
+        /** Paint configuration */
+        paint: PaintConfig;
+    }
+
+    export declare type PaintType = {
+        layer: VectorPaint[];
+    };
 
     /**
      * 点类型
@@ -5502,10 +5568,11 @@ export declare class LoaderUtils {
     };
 
     /**
+     * Point paint union type.
      * 点样式联合类型
-     * @category Style
+     * @category Paint
      */
-    export declare type PointStyle = BasicPointStyle | IconPointStyle | IconLabelStyle | LightStyle | ModelStyle | LabelStyle;
+    export declare type PointPaintUnion = CirclePaint | IconPaint | SymbolPaint | LightPaint | ModelPaint | TextPaint;
 
     /**
      * Polygon feature class.
@@ -5593,7 +5660,7 @@ export declare class LoaderUtils {
          * - 'water': 水面效果
          * - 'base-water': 基础水面效果
          */
-        _createObject(style: Style): Promise<Object3D>;
+        _createObject(paint: Paint): Promise<Object3D>;
         /**
          * Calculate collision bounding box.
          * 计算碰撞检测包围盒
@@ -5663,12 +5730,6 @@ export declare class LoaderUtils {
          */
         geometry?: Polygon_2 | MultiPolygon;
     };
-
-    /**
-     * 面样式联合类型
-     * @category Style
-     */
-    export declare type PolygonStyle = BasePolygonStyle | ExtrudeStyle | WaterStyle;
 
     /**
      * 投影工厂类
@@ -5804,6 +5865,443 @@ export declare class LoaderUtils {
     export declare function registerDefaultLoaders(): void;
 
     /**
+     * Three.js scene initialization class
+     * Three.js场景初始化类
+     * @extends EventDispatcher<SceneRendererEventMap>
+     * @category SceneRenderer
+     */
+    export declare class SceneRenderer extends SceneRendererBase {
+        /** Scene object 场景对象 */
+        readonly scene: Scene;
+        /** WebGL renderer WebGL渲染器 */
+        readonly renderer: WebGLRenderer;
+        /** Perspective camera 透视相机 */
+        readonly camera: PerspectiveCamera;
+        /** Map controls 地图控制器 */
+        readonly controls: MapControls;
+        /** Ambient light 环境光 */
+        readonly ambLight: AmbientLight;
+        /** Directional light 平行光 */
+        readonly dirLight: DirectionalLight;
+        /** 辅助平行光 (补光) */
+        /** 云层效果 */
+        clouds: Clouds | null;
+        /** 容器元素 */
+        container?: HTMLElement;
+        /** 内部时钟 */
+        private readonly _clock;
+        /** 性能统计器 */
+        private stats;
+        /** 动画回调集合 */
+        private _animationCallbacks;
+        /** 雾效因子 */
+        private _fogFactor;
+        private _sceneSize;
+        /** 地面网格 */
+        private _defaultGround;
+        /** 地图实例 */
+        map: Map_2;
+        centerWorldPos: Vector3;
+        private _isInteracting;
+        /** 是否启用调试模式 */
+        private debug;
+        private flyTween;
+        /** 后期处理：bloom 管线 */
+        private composer?;
+        private renderPass?;
+        private bloomPass?;
+        /**
+         * 获取雾效因子
+         */
+        get fogFactor(): number;
+        get isInteracting(): boolean;
+        /**
+         * 设置雾效因子（默认1）
+         */
+        set fogFactor(value: number);
+        /**
+         * 获取容器宽度
+         */
+        get width(): number;
+        /**
+         * 获取容器高度
+         */
+        get height(): number;
+        /**
+         * 构造函数
+         * @param container 容器元素或选择器字符串
+         * @param options 配置选项
+         */
+        constructor(container?: HTMLElement | string, options?: SceneRendererOptions);
+        /**
+         * Add renderer to container
+         * 将渲染器添加到容器
+         * @param container Container element or selector string 容器元素或选择器字符串
+         * @returns this
+         */
+        addTo(container: HTMLElement | string): this;
+        /**
+         * Create scene
+         * 创建场景
+         * @param skyboxConfig Skybox configuration 天空盒配置
+         * @returns Scene object 场景对象
+         */
+        private _createScene;
+        /**
+         * 使用PMREM加载HDR环境贴图
+         * @param scene 场景对象
+         * @param skyboxConfig 天空盒配置
+         */
+        private _loadHDRWithPMREM;
+        /**
+         * 创建WebGL渲染器
+         * @param antialias 是否抗锯齿
+         * @param stencil 是否使用模板缓冲区
+         * @param logarithmicDepthBuffer 是否使用对数深度缓冲区
+         * @returns 渲染器对象
+         */
+        private _createRenderer;
+        /**
+         * Create camera
+         * 创建相机
+         * @returns Camera object 相机对象
+         */
+        private _createCamera;
+        /**
+         * Create map controls
+         * 创建地图控制器
+         * @param minDistance Minimum zoom distance 最小缩放距离
+         * @param maxDistance Maximum zoom distance 最大缩放距离
+         * @returns Controls object 控制器对象
+         */
+        private _createControls;
+        /**
+         * Create ambient light
+         * 创建环境光
+         * @returns Ambient light object 环境光对象
+         */
+        private _createAmbLight;
+        /**
+         * 创建平行光
+         * @returns 平行光对象
+         */
+        private _createDirLight;
+        /* Excluded from this release type: _createAuxDirLight */
+        /**
+         * Create a single auxiliary directional light instance.
+         * 创建单个辅助平行光实例。
+         * @param x Light source world X coordinate 光源的世界X坐标
+         * @param y Light source world Y coordinate 光源的世界Y坐标
+         * @param z Light source world Z coordinate 光源的世界Z坐标
+         * @param intensity Light intensity 光源强度
+         * @returns DirectionalLight
+         */
+        private _createAuxLightInstance;
+        /**
+         * Resize container
+         * 调整容器大小
+         * @returns this
+         */
+        resize(): this;
+        /**
+         * 添加动画回调
+         * @param callback 回调函数，接收deltaTime和elapsedTime参数
+         * @returns 移除回调的函数
+         */
+        addAnimationCallback(callback: (delta: number, elapsedtime: number, context: SceneRenderer) => void): () => void;
+        /**
+         * 动画循环
+         */
+        private animate;
+        /**
+         * Fly to specified position
+         * 飞行到指定位置
+         * @param centerWorldPos Map center target position (world coordinates) 地图中心目标位置（世界坐标）
+         * @param cameraWorldPos Camera target position (world coordinates) 相机目标位置（世界坐标）
+         * @param animate Whether to enable animation 是否启用动画
+         * @param onComplete Completion callback 完成回调
+         */
+        flyTo(centerWorldPos: Vector3, cameraWorldPos: Vector3, animate?: boolean, onComplete?: (obj: Vector3) => void): void;
+        /**
+         * Advanced fly to specified position method
+         * 高级飞行到指定位置的方法
+         *
+         * Supports both straight and curved flight paths, allowing customization of flight duration, delay, and completion callback.
+         * Achieves smooth camera movement and view transition via Tween animation.
+         * 支持直线和曲线两种飞行路径，可以自定义飞行持续时间、延迟和完成回调。
+         * 通过Tween动画实现平滑的相机移动和视角过渡。
+         *
+         * @param options - Flight configuration options 飞行配置选项
+         * @param options.center - Target center point longitude and latitude coordinates 目标中心点的经纬度坐标
+         * @param options.cameraCoord - Camera target position longitude and latitude coordinates 相机目标位置的经纬度坐标
+         * @param options.duration - Flight animation duration (ms), default 2000ms 飞行动画持续时间（毫秒），默认2000ms
+         * @param options.delay - Delay before flight starts (ms), default 0ms 开始飞行前的延迟时间（毫秒），默认0ms
+         * @param options.complete - Callback function when flight completes 飞行完成时的回调函数
+         * @param options.curvePath - Whether to use curved flight path, true for cubic Bezier curve, false for straight line (default) 是否使用曲线路径飞行，true为三次贝塞尔曲线，false为直线（默认）
+         *
+         *
+         * @remarks
+         * - If there is an ongoing flight animation, it will be stopped automatically
+         * - Camera position, view, and target point will be updated during flight
+         * - Curved path uses cubic Bezier curve, control points are automatically generated
+         * - Longitude and latitude coordinates will be automatically converted to world coordinates
+         * - 如果之前有正在进行的飞行动画，会自动停止
+         * - 飞行过程中会更新相机位置、视角和目标点
+         * - 曲线路径使用三次贝塞尔曲线，控制点自动生成
+         * - 经纬度坐标会自动转换为世界坐标
+         *
+         * @throws Returns silently when center or cameraCoord parameters are invalid, no exception thrown 当center或cameraCoord参数无效时静默返回，不抛出异常
+         */
+        flyToAdvanced(options: FlyToOptions): void;
+        /**
+         * Options change callback.
+         * 配置更新回调
+         * Triggered when viewer.configure() is called to update options.
+         * 当调用 viewer.configure() 更新配置时，会触发此方法
+         */
+        onOptionsChange(conf: SceneRendererOptions): void;
+        /**
+         * 飞行到指定点，自动计算相机位置
+         * @param center 目标点的经纬度坐标
+         * @param options 飞行选项
+         */
+        easeTo(options: EaseToOptions): void;
+        /**
+         * Calculate camera position in world coordinates.
+         * 计算相机在世界坐标系中的位置
+         * @param target Target point (world coordinates) 目标点（世界坐标）
+         * @param distance Distance from camera to target 相机到目标的距离
+         * @param pitchRad Pitch angle in radians (0=top-down, Math.PI/2=horizontal) 俯仰角（弧度）
+         * @param bearingRad Bearing angle in radians 方位角（弧度）
+         * @returns Camera position (world coordinates) 相机位置（世界坐标）
+         */
+        calculateCameraPosition: (target: Vector3, distance: number, pitchRad: number, bearingRad: number) => Vector3;
+        /**
+         * Get current scene state
+         * 获取当前场景状态
+         * @returns Object containing center position and camera position 包含中心位置和相机位置的对象
+         */
+        getState(): {
+            centerPosition: Vector3;
+            cameraPosition: Vector3;
+        };
+        /**
+         * Bind map instance
+         * 绑定地图实例
+         * @param map Map instance 地图实例
+         *
+         * @protected
+         */
+        _bindMap(map: Map_2): void;
+        /**
+         * Get associated map instance
+         * 获取关联的地图实例
+         * @returns Map instance or null 地图实例或null
+         */
+        getMap(): Map_2 | null;
+        /**
+         * Get current browser window aspect ratio.
+         * 获取当前浏览器窗口的宽高比（aspect ratio）。
+         * @returns {number} Aspect ratio (width / height), e.g., returns ~1.777 for 16:9 screen. 宽高比（width / height），例如 16:9 的屏幕返回 ~1.777。
+         */
+        getAspect(): number;
+        /**
+         * 获取当前浏览器窗口的实际宽度和高度（视口尺寸）。
+         * @returns {Array<number>} 包含宽度和高度的数组 [width, height]，单位是像素。
+         */
+        getWidthHeight(): number[];
+        /* Excluded from this release type: _createDefaultGround */
+        /**
+         * Show the default ground plane.
+         * 显示默认地面平面
+         *
+         * @description
+         * Makes the default ground plane visible. This is typically called automatically
+         * when no tile layers are present in the map.
+         * 使默认地面平面可见。通常在地图中没有瓦片图层时自动调用。
+         */
+        showDefaultGround(): void;
+        /* Excluded from this release type: _updateDefaultGroundPosition */
+        /**
+         * Hide the default ground plane.
+         * 隐藏默认地面平面
+         *
+         * @description
+         * Hides the default ground plane. This is typically called automatically
+         * when tile layers are added to the map.
+         * 隐藏默认地面平面。通常在向地图添加瓦片图层时自动调用。
+         */
+        hideDefaultGround(): void;
+        /**
+         * Check if the default ground plane is visible.
+         * 检查默认地面平面是否可见
+         *
+         * @returns Whether the ground is visible. 地面是否可见
+         */
+        isDefaultGroundVisible(): boolean;
+        /**
+         * 销毁viewer实例，释放所有资源
+         * @description
+         * 该方法会清理以下资源：
+         * 1. 停止动画循环
+         * 2. 销毁控制器
+         * 3. 清理场景中的所有对象
+         * 4. 销毁渲染器
+         * 5. 销毁后期处理器
+         * 6. 移除DOM元素
+         */
+        destroy(): void;
+        /**
+         * Dispose material resources
+         * 销毁材质资源
+         * @param material Material to dispose 要销毁的材质
+         */
+        private _disposeMaterial;
+    }
+
+    declare const SceneRendererBase: {
+        new (...args: any[]): {
+            eventClass: EventClass;
+            on: (type: string, listener: (data?: any) => void) => EventClass;
+            fire: (type: string, data?: any) => EventClass;
+            off: (type: string, listener: (...args: any[]) => void) => EventClass;
+        };
+    } & {
+        new (...args: any[]): {
+            [x: string]: any;
+            options: any;
+            _isUpdatingOptions?: boolean;
+            _initHooksCalled?: boolean;
+            _initHooks?: Function[];
+            _proxyOptions(): /*elided*/ any;
+            _callInitHooks(): /*elided*/ any;
+            setOptions(options: ClassOptions): /*elided*/ any;
+            configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+            onOptionsChange(_conf: ClassOptions): void;
+            _visitInitHooks(proto: {
+                _initHooks: any;
+            }): void;
+        };
+        mergeOptions(options: ClassOptions): /*elided*/ any & {
+            new (): EventDispatcher<SceneRendererEventMap>;
+        };
+        addInitHook(fn: Function | string, ...args: any[]): /*elided*/ any & {
+            new (): EventDispatcher<SceneRendererEventMap>;
+        };
+        include(...sources: any[]): /*elided*/ any & {
+            new (): EventDispatcher<SceneRendererEventMap>;
+        };
+    } & {
+        new (): EventDispatcher<SceneRendererEventMap>;
+    };
+
+    /**
+     * SceneRenderer event mapping interface
+     * SceneRenderer事件映射接口
+     * @extends Object3DEventMap
+     * @category SceneRenderer
+     */
+    export declare interface SceneRendererEventMap extends Object3DEventMap {
+        /** Update event, including time delta 更新事件，包含时间增量 */
+        update: BaseEvent & {
+            delta: number;
+        };
+    }
+
+    /**
+     * SceneRenderer configuration options
+     * SceneRenderer配置选项
+     * @category SceneRenderer
+     */
+    export declare type SceneRendererOptions = {
+        /** Whether to enable antialiasing, default is false 是否启用抗锯齿，默认为false */
+        antialias?: boolean;
+        /** Whether to use stencil buffer, default is true 是否使用模板缓冲区，默认为true */
+        stencil?: boolean;
+        /** Whether to use logarithmic depth buffer, default is true 是否使用对数深度缓冲区，默认为true */
+        logarithmicDepthBuffer?: boolean;
+        /** Whether panning is draggable, default is true 是否可拖拽平移，默认为 true */
+        draggable?: boolean;
+        /** Skybox configuration 天空盒配置 */
+        skybox?: {
+            /** Skybox image path 天空盒图片路径 */
+            path?: string;
+            /** HDR file path HDR文件路径 */
+            hdr?: string;
+            /**
+             * Skybox image filenames array, order: [px, nx, py, ny, pz, nz]
+             * 天空盒图片文件名数组，顺序为：[右,左,上,下,前,后]
+             */
+            files?: string[];
+            /** Default skybox color (used when loading fails) 天空盒默认颜色（当加载失败时使用） */
+            defaultColor?: number;
+            /** Whether HDR is equirectangular, true for equirectangular, false for cubemap HDR是否为等距柱状投影，true为等距柱状，false为立方体贴图 */
+            hdrEquirectangular?: boolean;
+            /** HDR exposure value HDR曝光值 */
+            hdrExposure?: number;
+            /** HDR encoding HDR编码方式 */
+            hdrEncoding?: number;
+        };
+        /** Whether to enable debug mode 是否启用调试模式 */
+        debug?: boolean;
+        /** Map instance 地图实例 */
+        map?: Map_2;
+        /**
+         * Camera bearing angle (in degrees)
+         * 相机方位角（角度制）
+         * 0 = looking North, 90 = looking East, 180 = looking South, 270 = looking West
+         * 0 = 朝北，90 = 朝东，180 = 朝南，270 = 朝西
+         */
+        bearing?: number;
+        /**
+         * Camera pitch angle (in degrees)
+         * 相机俯仰角（角度制）
+         * 0 = top-down view, 90 = horizontal (no artificial limit)
+         * 0 = 正上方俯视，90 = 水平（无人为限制）
+         */
+        pitch?: number;
+        /** Bloom post-processing configuration (optional) Bloom 后处理配置（可选） */
+        bloom?: {
+            enabled?: boolean;
+            /** Bloom strength, corresponds to UnrealBloomPass strength 辉光强度，对应 UnrealBloomPass 的 strength */
+            strength?: number;
+            /** Bloom radius, corresponds to UnrealBloomPass radius 辉光扩散半径，对应 UnrealBloomPass 的 radius */
+            radius?: number;
+            /** Bloom threshold, corresponds to UnrealBloomPass threshold 触发辉光的亮度阈值，对应 UnrealBloomPass 的 threshold */
+            threshold?: number;
+        };
+        /** Minimum controller zoom distance (how close the camera can get), default is 100 控制器最小缩放距离（相机能靠多近），默认为 100 */
+        minDistance?: number;
+        /** Maximum controller zoom distance (how far the camera can move), default is 60000 控制器最大缩放距离（相机能拉多远），默认为 60000 */
+        maxDistance?: number;
+    };
+
+    /**
+     * Simple water paint configuration.
+     * 基础水面样式配置
+     * @category Paint
+     */
+    export declare interface SimpleWaterPaint extends BasePaint {
+        type: 'water-simple';
+        /** 水面颜色 */
+        color?: number | string;
+        /** 透明度 */
+        opacity?: number;
+        /** 阳光方向 */
+        sunDirection?: Vector3;
+        /** 阳光颜色 */
+        sunColor?: number | string;
+        /** 波纹强度 */
+        distortionScale?: number;
+        /** 波纹大小 */
+        size?: number;
+        /** 法线贴图URL */
+        normalMap: string;
+        /** 是否受雾影响 */
+        fog?: boolean;
+    }
+
+    /**
      * 数据源加载上下文
      */
     export declare type SourceLoadContext<TSource extends ISource = ISource> = TileLoadContext & {
@@ -5839,178 +6337,26 @@ export declare class LoaderUtils {
     }
 
     /**
-     * 样式主类
-     * @description 负责管理和应用各种3D对象的样式
-     * @category Style
+     * Map state configuration options.
+     * 地图状态配置选项
+     * @category Map
      */
-    export declare class Style {
-        config: StyleConfig;
-        /** 纹理缓存 */
-        private static _textureCache;
-        /** 纹理加载器 */
-        private static _textureLoader;
-        /**
-         * 构造函数
-         * @param config 样式配置
-         */
-        constructor(config: StyleConfig);
-        /**
-         * 应用样式到3D对象
-         * @param object 目标3D对象
-         * @returns 是否应用成功
-         */
-        applyTo(object: Object3D): Promise<boolean>;
-        /**
-         * 应用点样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyPointStyle;
-        /**
-         * 应用图标点样式
-         * @param object 目标对象
-         * @param config 样式配置
-         */
-        private _applyIconPoint;
-        /**
-         * 应用基础点样式
-         * @param object 目标对象
-         * @param config 样式配置
-         */
-        private _applyBasicPoint;
-        /**
-         * 应用图标标签点样式
-         * @param object 目标对象
-         * @param config 样式配置
-         */
-        private _applyIconLabelPoint;
-        /**
-         * 应用线样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyLineStyle;
-        /**
-         * 应用流动管线样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyFlowLineStyle;
-        /**
-         * 应用箭头流动线样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyArrowLineStyle;
-        /**
-         * 应用流动纹理管线样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyFlowTextureLineStyle;
-        /**
-         * 应用多边形样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyPolygonStyle;
-        /**
-         * 应用拉伸多边形样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyExtrudeStyle;
-        /**
-         * 应用水面样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyWaterStyle;
-        /**
-         * 应用云朵样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyCloudStyle;
-        /**
-         * 应用文本精灵样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyTextSpriteStyle;
-        /**
-         * 应用灯光样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyLightStyle;
-        /**
-         * 应用模型样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyModelStyle;
-        /**
-         * 应用自定义样式
-         * @param object 目标对象
-         * @returns 是否应用成功
-         */
-        private _applyCustomStyle;
-        /**
-         * 加载纹理
-         * @param url 纹理URL
-         * @returns 纹理对象
-         */
-        static _loadTexture(url: string): Promise<Texture>;
-        /**
-         * 创建样式实例
-         * @param input 样式输入
-         * @returns 样式实例
-         */
-        static create(input: StyleInput): Style;
-    }
+    export declare type StateOptions = {
+        /** Map center coordinates (Required) 地图中心点坐标（必填） */
+        center: LngLatLike;
+        /** Initial zoom level 初始缩放级别 */
+        zoom?: number;
+        /** Minimum allowed zoom level 最小缩放级别 */
+        minZoom?: number;
+        /** Maximum allowed zoom level 最大缩放级别 */
+        maxZoom?: number;
+    };
 
     /**
      * 天地图地图样式类型
      * @description 定义天地图支持的各种地图样式
      */
-    declare type Style_2 = "img_w" | "cia_w" | "cva_w" | "ibo_w" | "ter_w" | "vec_w" | "cta_w" | "img_c" | "cia_c";
-
-    /**
-     * 样式配置联合类型
-     * @category Style
-     */
-    export declare type StyleConfig = PointStyle | BaseLineStyle | PipelineStyle | FlowLineStyle | ArrowLineStyle | FlowTextureLineStyle | ModelStyle | CustomStyle | BasePolygonStyle | ExtrudeStyle | WaterStyle | CloudStyle | BaseWaterStyle | LabelStyle | IconLabelStyle | IconPointStyle | BasicPointStyle;
-
-    /**
-     * 样式输入类型
-     * @category Style
-     */
-    export declare type StyleInput = StyleConfig | Style;
-
-    /**
-     * 样式规则接口 (简化版)
-     * Style Rule Interface (Simplified)
-     * @description 定义一个样式规则，它将通过外部的 Feature Filter 机制来应用。
-     * Defines a style rule that will be applied via an external Feature Filter mechanism.
-     * @category Style
-     */
-    declare interface StyleRule {
-        /** * 过滤条件表达式（Placeholder）
-         * Filter condition expression (Placeholder)
-         * 这是一个占位符，用于表示您将来要引入的 feature-filter 表达式或规则ID。
-         * This is a placeholder to represent a future feature-filter expression or rule ID.
-         * 例如: ['==', 'class', 'highway'] 或 'highway-z10-14'
-         * e.g., ['==', 'class', 'highway'] or 'highway-z10-14'
-         */
-        filter: any;
-        /** 样式配置 Style Configuration */
-        style: StyleConfig;
-    }
-
-    export declare type StyleType = {
-        layer: VectorStyle[];
-    };
+    declare type Style = "img_w" | "cia_w" | "cva_w" | "ibo_w" | "ter_w" | "vec_w" | "cta_w" | "img_c" | "cia_c";
 
     /**
      * Surface feature abstract base class.
@@ -6019,7 +6365,7 @@ export declare class LoaderUtils {
      * @description
      * Represents a surface feature in the 3D scene, inheriting from the Feature class.
      * Provides basic functionality for polygon surface features, including:
-     * - Coordinate transformation
+     * - LngLatLike transformation
      * - Geometry creation
      * - Style application
      *
@@ -6059,7 +6405,7 @@ export declare class LoaderUtils {
         constructor(options: SurfaceOptions);
         _buildRenderObject(): void;
         /**
-         * Coordinate transformation method.
+         * LngLatLike transformation method.
          * 坐标转换方法
          *
          * @returns Transformed coordinate information
@@ -6067,11 +6413,11 @@ export declare class LoaderUtils {
          *
          * @description
          * Handles coordinate transformation for Polygon and MultiPolygon, returning:
-         * - _worldCoordinates: Array of transformed coordinates
+         * - _worldLngLatLikes: Array of transformed coordinates
          * - _vertexPoints: Array of flattened vertex coordinates
          *
          * 处理多边形和多面体的坐标转换，返回：
-         * - _worldCoordinates: 转换后的坐标数组
+         * - _worldLngLatLikes: 转换后的坐标数组
          * - _vertexPoints: 展平的顶点坐标数组
          *
          * @throws Throws error if geometry type is not supported
@@ -6093,7 +6439,7 @@ export declare class LoaderUtils {
          * - 'extrude-polygon': 挤出多边形
          * - 'water': 水面效果
          */
-        protected _refreshCoordinates(): void;
+        protected _refreshLngLatLikes(): void;
         /**
          * Create basic geometry.
          * 创建基础几何体
@@ -6124,6 +6470,57 @@ export declare class LoaderUtils {
          */
         geometry?: Polygon_2 | MultiPolygon;
     };
+
+    /**
+     * Symbol paint configuration.
+     * 图标标签样式配置
+     * @category Paint
+     */
+    export declare interface SymbolPaint extends BasePaint {
+        type: 'symbol';
+        /** 文本内容 */
+        text: string;
+        /** 图标URL */
+        url?: string;
+        /** 图标大小 */
+        iconSize?: number | [number, number];
+        size?: number | [number, number];
+        /** 图标缩放 */
+        iconScale?: number;
+        /** 字体大小 */
+        fontSize?: number;
+        /** 字体家族 */
+        fontFamily?: string;
+        fontWeight?: number;
+        /** 文字颜色 */
+        textColor?: string;
+        /** 描边颜色 */
+        strokeColor?: string;
+        /** 描边宽度 */
+        strokeWidth?: number;
+        /** 是否渲染背景 */
+        renderbg?: boolean;
+        /** 背景颜色 */
+        bgColor?: string;
+        /** 背景透明度 */
+        bgOpacity?: number;
+        /** 内边距 */
+        padding?: {
+            top?: number;
+            right?: number;
+            bottom?: number;
+            left?: number;
+        };
+        /** 画布缩放 */
+        canvasScale?: number;
+        /** 文本偏移 */
+        textOffset?: {
+            x: number;
+            y: number;
+        };
+        /** 整体锚点，等同于 Sprite.center / IconPointStyle.anchor */
+        anchor?: [number, number];
+    }
 
     /**
      * 天地图量化网格地形数据源
@@ -6196,7 +6593,7 @@ export declare class LoaderUtils {
          * 地图样式类型
          * @default "img_w" (全球影像地图)
          */
-        style: Style_2;
+        style: Style;
         /**
          * 服务器子域列表
          * @default "01234"
@@ -6232,7 +6629,7 @@ export declare class LoaderUtils {
          * 地图样式类型
          * @default "img_w" (全球影像地图)
          */
-        style?: Style_2;
+        style?: Style;
         /**
          * 天地图访问令牌
          * @description 必须提供有效的天地图API访问令牌
@@ -6291,6 +6688,68 @@ export declare class LoaderUtils {
          * 从误差图生成几何体。
          */
         private generateGeometry;
+    }
+
+    /**
+     * Text paint configuration.
+     * 标签样式配置
+     * @category Paint
+     */
+    export declare interface TextPaint extends BasePaint {
+        type: 'text' | 'text-fixed';
+        /** 文本内容 */
+        text: string;
+        /** 字体大小像素Dpi，默认不传，内部会自动处理 */
+        fontSizeDpi?: number;
+        /** 字体家族 */
+        fontFamily?: string;
+        /** 字体粗细 */
+        fontWeight?: 'normal' | 'bold' | 'bolder' | 'lighter' | number;
+        /** 字体样式 */
+        fontStyle?: 'normal' | 'italic' | 'oblique';
+        /** 文字颜色 */
+        textColor?: string;
+        /** 描边颜色 */
+        strokeColor?: string;
+        /** 描边宽度 */
+        strokeWidth?: number;
+        /** 是否显示背景 */
+        showBackground?: boolean;
+        /** 背景样式 */
+        bgStyle?: 1 | 2;
+        /** 背景颜色 */
+        bgColor?: string;
+        /** 背景透明度 */
+        bgOpacity?: number;
+        /** 阴影颜色 */
+        shadowColor?: string;
+        /** 阴影模糊度 */
+        shadowBlur?: number;
+        /** 阴影X偏移 */
+        shadowOffsetX?: number;
+        /** 阴影Y偏移 */
+        shadowOffsetY?: number;
+        /** 圆角半径 */
+        roundRectRadius?: number;
+        /** 气泡指针高度 */
+        bubblePointerHeight?: number;
+        /** 气泡指针宽度 */
+        bubblePointerWidth?: number;
+        /** 气泡边框颜色 */
+        bubbleBorderColor?: string;
+        /** 气泡边框宽度 */
+        bubbleBorderWidth?: number;
+        /** 固定显示大小（与 screenSpaceSize 含义一致，推荐使用 screenSpaceSize） */
+        fixedSize?: number;
+        /** 屏幕空间大小，语义为在屏幕上的目标高度（CSS 像素） */
+        screenSpaceSize?: number;
+        /** 文本偏移 */
+        textOffset?: {
+            x: number;
+            y: number;
+        };
+        /** 整体锚点 */
+        anchor?: [number, number];
     }
 
     /**
@@ -6533,17 +6992,6 @@ export declare class LoaderUtils {
     }
 
     /**
-     * TileMap creation parameters
-     * 瓦片地图创建参数
-     * @category Meshmap
-     */
-    export declare type TileMapParams = {
-        minLevel?: number;
-        maxLevel?: number;
-        Baselayers?: ITileLayer[];
-    };
-
-    /**
      * Tile material
      */
     export declare class TileMaterial extends MeshStandardMaterial {
@@ -6559,6 +7007,14 @@ export declare class LoaderUtils {
         materials: Material[];
         geometry: BufferGeometry;
     };
+
+    /**
+     * Tile paint input type.
+     * 矢量瓦片样式输入类型
+     * @description 支持单个样式配置或数组
+     * @category Paint
+     */
+    export declare type TilePaintInput = PaintConfig | PaintConfig[];
 
     /**
      *  Base class for data sources, users can customize data sources by inheriting this class
@@ -6626,13 +7082,6 @@ export declare class LoaderUtils {
     }
 
     /**
-     * 矢量瓦片样式输入类型
-     * @description 支持单个样式配置或数组
-     * @category Style
-     */
-    export declare type TileStyleInput = StyleConfig | StyleConfig[];
-
-    /**
      * Tile update parameters
      */
     export declare type TileUpdateParams = {
@@ -6641,6 +7090,95 @@ export declare class LoaderUtils {
         minLevel: number;
         maxLevel: number;
         LODThreshold: number;
+    };
+
+    /**
+     * ToolTip Component.
+     * 提示框组件
+     * @extends UIComponent
+     * @category UI
+     */
+    export declare class ToolTip extends UIComponent {
+        options: ToolTipOptions;
+        private _content?;
+        private _timeoutId;
+        private _boundOnOwnerMove;
+        private _boundOnOwnerOut;
+        private _boundOnOwnerRemoved;
+        /**
+         * @param options ToolTip options ToolTip 配置
+         */
+        constructor(options?: ToolTipOptions);
+        protected _getClassName(): string;
+        /**
+         * Build ToolTip DOM structure.
+         * 构建 ToolTip 的 DOM 结构
+         */
+        protected buildOn(): HTMLElement;
+        /**
+         * Calculate offset based on DOM size to make tooltip appear slightly above and to the right of the point.
+         * 根据 DOM 尺寸，做一个简单的偏移，让 tooltip 出现在点的上方偏右一点
+         */
+        protected getOffset(): {
+            x: number;
+            y: number;
+        };
+        /**
+         * Bind to feature or map. The key is to bind mouse move/leave events to owner.
+         * 绑定到要素或地图。这里重点是给 owner 绑鼠标移动/离开事件。
+         */
+        addTo(owner: any): this;
+        /**
+         * Internal: Handle owner move event.
+         * 内部：处理 owner 移动事件
+         */
+        private _onOwnerMove;
+        /**
+         * Internal: Handle owner out event.
+         * 内部：处理 owner 离开事件
+         */
+        private _onOwnerOut;
+        /**
+         * Internal: Handle owner removed event.
+         * 内部：处理 owner 移除事件
+         */
+        private _onOwnerRemoved;
+        protected onRemove(): void;
+    }
+
+    /**
+     * ToolTip content type.
+     * ToolTip 内容类型
+     * @category UI
+     */
+    declare type ToolTipContent = string | HTMLElement | ((container: HTMLElement) => void);
+
+    /**
+     * ToolTip options.
+     * ToolTip 配置项
+     * @category UI
+     */
+    declare type ToolTipOptions = UIComponentOptions & {
+        /**
+         * Width.
+         * 宽度
+         */
+        width?: number;
+        /**
+         * Height.
+         * 高度
+         */
+        height?: number;
+        /**
+         * Show timeout (ms), 0 means show immediately.
+         * 延时显示（毫秒），0 表示立即显示
+         */
+        showTimeout?: number;
+        /**
+         * Content.
+         * 提示内容
+         */
+        content?: ToolTipContent;
     };
 
     /**
@@ -6708,7 +7246,7 @@ export declare class LoaderUtils {
          *
          * @private
          */
-        _createObject(style: Style): Promise<any>;
+        _createObject(paint: Paint): Promise<any>;
     }
 
     /**
@@ -6727,6 +7265,27 @@ export declare class LoaderUtils {
     };
 
     /**
+     * Tube paint configuration.
+     * 管道线样式配置
+     * @category Paint
+     */
+    export declare interface TubePaint extends BasePaint {
+        type: 'tube';
+        /** 管道颜色 */
+        color?: string | number | Color;
+        /** 管道半径 */
+        radius: number;
+        /** 圆柱分段数 */
+        segments?: number;
+        /** 是否包含端盖 */
+        caps?: boolean;
+        /** 流动贴图URL */
+        flowTexture?: string;
+        /** 压力值 */
+        pressure?: number;
+    }
+
+    /**
      * UI Component Base Class.
      * UI 组件基类
      * @description
@@ -6734,13 +7293,13 @@ export declare class LoaderUtils {
      * - Attach to Map or Feature (addTo)
      * - Internally manage DOM lifecycle (buildOn / remove)
      * - Position DOM to screen coordinates based on world coordinates + camera
-     * - Update position when listening to map view changes (control-change)
+     * - Update position when listening to map view changes (viewchange)
      *
      * 抽象目标：
      * - 挂到 Map 或 Feature 上（addTo）
      * - 内部管理 DOM 生命周期（buildOn / remove）
      * - 根据世界坐标 + 相机，将 DOM 定位到屏幕坐标
-     * - 监听地图视图变化（control-change）时更新位置
+     * - 监听地图视图变化（viewchange）时更新位置
      * @category UI
      */
     export declare abstract class UIComponent extends UIComponent_base {
@@ -6785,8 +7344,8 @@ export declare class LoaderUtils {
          */
         private _boundMapHandlers;
         /**
-         * Viewer update event handler.
-         * 绑定到 Viewer 的 update 事件处理函数
+         * SceneRenderer update event handler.
+         * 绑定到 SceneRenderer 的 update 事件处理函数
          */
         private _viewerUpdateHandler?;
         /**
@@ -6855,7 +7414,7 @@ export declare class LoaderUtils {
          * 显示 UIComponent
          * @param coordinate Geographic coordinate ([lng, lat, alt]), optional 地理坐标（[lng, lat, alt]），可选
          */
-        show(coordinate?: Coordinate): this;
+        show(coordinate?: LngLatLike): this;
         /**
          * Hide UIComponent (keep DOM, do not unbind).
          * 隐藏 UIComponent（保留 DOM，不解绑）
@@ -6903,7 +7462,7 @@ export declare class LoaderUtils {
             * DOM zIndex.
             * DOM zIndex
             */: any) => void) => EventClass;
-            trigger: (type: string, data?: any) => EventClass;
+            fire: (type: string, data?: any) => EventClass;
             off: (type: string, listener: (...args: any[]) => void) => EventClass;
         };
     } & {
@@ -6913,11 +7472,11 @@ export declare class LoaderUtils {
             _isUpdatingOptions?: boolean;
             _initHooksCalled?: boolean;
             _initHooks?: Function[];
-            proxyOptions(): /*elided*/ any;
-            callInitHooks(): /*elided*/ any;
+            _proxyOptions(): /*elided*/ any;
+            _callInitHooks(): /*elided*/ any;
             setOptions(options: ClassOptions): /*elided*/ any;
-            config(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
-            onConfig(_conf: ClassOptions): void;
+            configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+            onOptionsChange(_conf: ClassOptions): void;
             _visitInitHooks(proto: {
                 _initHooks: any;
             }): void;
@@ -6966,6 +7525,117 @@ export declare class LoaderUtils {
     };
 
     /**
+     * UIMarker Component
+     * UIMarker 组件
+     *
+     * @description
+     * A DOM-based marker component that is anchored to a specific geographic coordinate on the map.
+     * Updates its position automatically as the map moves or zooms.
+     * 基于 DOM 的标记点组件，锚定在地图上的特定地理坐标。
+     * 随地图移动或缩放自动更新位置。
+     * @category UI
+     */
+    export declare class UIMarker extends UIComponent {
+        options: UIMarkerOptions;
+        /**
+         * Current marker coordinate
+         * 当前标记点坐标
+         */
+        private _markerCoord;
+        /**
+         * Content cache
+         * 内容缓存
+         */
+        private _content;
+        constructor(options: UIMarkerOptions);
+        protected _getClassName(): string;
+        /**
+         * Build UIMarker DOM
+         * 构建 UIMarker 的 DOM
+         */
+        protected buildOn(): HTMLElement;
+        /**
+         * Position offset: default centers the marker on the coordinate
+         * 位置偏移：默认让标记点中心落在坐标位置上
+         */
+        protected getOffset(): {
+            x: number;
+            y: number;
+        };
+        /**
+         * Show: updates internal coordinate if a new one is provided
+         * 显示：如果传了新坐标，就更新内部坐标
+         */
+        show(coordinate?: LngLatLike): this;
+        /**
+         * 设置坐标（会触发重新定位）
+         */
+        setLngLatLikes(coordinate: LngLatLike): this;
+        /**
+         * 获取当前坐标
+         */
+        getLngLatLikes(): LngLatLike;
+        /**
+         *
+         */
+        getCenter(): LngLatLike;
+        /**
+         * 获取高度（优先坐标的 z，再退回 options.altitude）
+         */
+        getAltitude(): number;
+        /**
+         * 设置高度：内部直接改第三个分量
+         */
+        setAltitude(alt: number): this;
+        /**
+         * 设置内容：如果当前已显示，会立即更新 DOM
+         */
+        setContent(content: UIMarkerContent): this;
+        getContent(): UIMarkerContent;
+        addTo(owner: any): this;
+    }
+
+    /**
+     * UIMarker content type
+     * UIMarker 内容类型
+     * @category UI
+     */
+    declare type UIMarkerContent = string | HTMLElement | ((container: HTMLElement) => void);
+
+    /**
+     * UIMarker options
+     * UIMarker 配置项
+     * @category UI
+     */
+    declare type UIMarkerOptions = UIComponentOptions & {
+        /**
+         * Required: Geographic coordinate [lng, lat, alt?]
+         * 必填：地理坐标 [lng, lat, alt?]
+         */
+        coordinate: LngLatLike;
+        /**
+         * Content: can be HTML string / DOM / render function
+         * 内容，可以是 HTML 字符串 / DOM / 渲染函数
+         */
+        content: UIMarkerContent;
+        /**
+         * Width (pixels, optional)
+         * 宽度（像素，可选）
+         */
+        width?: number;
+        /**
+         * Height (pixels, optional)
+         * 高度（像素，可选）
+         */
+        height?: number;
+        /**
+         * Fallback altitude (used if z is missing in coordinate)
+         * 备用高度（如果坐标里没 z，就用这个）
+         */
+        altitude?: number;
+    };
+
+    /**
      * 矢量特征值
      */
     export declare type VectorFeature = {
@@ -6987,7 +7657,7 @@ export declare class LoaderUtils {
     /**
      *  瓦片绘图样式，参考leaflet的path样式定义
      */
-    export declare interface VectorStyle {
+    export declare interface VectorPaint {
         minLevel?: number;
         maxLevel?: number;
         stroke?: boolean | undefined;
@@ -7012,9 +7682,14 @@ export declare class LoaderUtils {
     /**
      * 样式集合
      */
-    export declare type VectorStyles = {
-        [key: string]: VectorStyle;
+    export declare type VectorPaints = {
+        [key: string]: VectorPaint;
     };
+
+    /**
+     * Alias for VectorPaint (for backwards compatibility)
+     */
+    export declare type VectorStyle = VectorPaint;
 
     /**
      * Vector Tile Layer.
@@ -7233,7 +7908,7 @@ export declare class LoaderUtils {
     declare class VectorTileRenderLayer extends OverlayLayer<Feature> {
         private readonly TILE_SIZE;
         private readonly EXTENT;
-        style: StyleRule[];
+        paint: PaintRule[];
         /**
          * Store Features corresponding to each tile for lifecycle management and updates.
          * 存储每个瓦片对应的 Features，用于管理生命周期和更新。
@@ -7320,10 +7995,10 @@ export declare class LoaderUtils {
 
     declare type VectorTileRenderLayerOptions = OverlayLayerOptions<Feature> & {
         /**
-         * Style configuration: Global StyleRule array, applied to all vector layers.
-         * 样式配置：全局 StyleRule 数组，应用于所有矢量图层
+         * Paint configuration: Global PaintRule array, applied to all vector layers.
+         * 样式配置：全局 PaintRule 数组，应用于所有矢量图层
          */
-        style: StyleRule[];
+        paint: PaintRule[];
         tileSize?: number;
         extent?: number;
     };
@@ -7371,435 +8046,36 @@ export declare class LoaderUtils {
     }
 
     /**
-     * Three.js scene initialization class
-     * Three.js场景初始化类
-     * @extends EventDispatcher<ViewerEventMap>
-     * @category Viewer
+     * Water paint configuration.
+     * 水面样式配置
+     * @category Paint
      */
-    export declare class Viewer extends ViewerBase {
-        /** Scene object 场景对象 */
-        readonly scene: Scene;
-        /** WebGL renderer WebGL渲染器 */
-        readonly renderer: WebGLRenderer;
-        /** Perspective camera 透视相机 */
-        readonly camera: PerspectiveCamera;
-        /** Map controls 地图控制器 */
-        readonly controls: MapControls;
-        /** Ambient light 环境光 */
-        readonly ambLight: AmbientLight;
-        /** Directional light 平行光 */
-        readonly dirLight: DirectionalLight;
-        /** 辅助平行光 (补光) */
-        /** 云层效果 */
-        clouds: Clouds | null;
-        /** 容器元素 */
-        container?: HTMLElement;
-        /** 内部时钟 */
-        private readonly _clock;
-        /** 性能统计器 */
-        private stats;
-        /** 动画回调集合 */
-        private _animationCallbacks;
-        /** 雾效因子 */
-        private _fogFactor;
-        private _sceneSize;
-        /** 地面网格 */
-        private _defaultGround;
-        /** 地图实例 */
-        map: Map_2;
-        centerWorldPos: Vector3;
-        private _isInteracting;
-        /** 是否启用调试模式 */
-        private debug;
-        private flyTween;
-        /** 后期处理：bloom 管线 */
-        private composer?;
-        private renderPass?;
-        private bloomPass?;
-        /**
-         * 获取雾效因子
-         */
-        get fogFactor(): number;
-        get isInteracting(): boolean;
-        /**
-         * 设置雾效因子（默认1）
-         */
-        set fogFactor(value: number);
-        /**
-         * 获取容器宽度
-         */
-        get width(): number;
-        /**
-         * 获取容器高度
-         */
-        get height(): number;
-        /**
-         * 构造函数
-         * @param container 容器元素或选择器字符串
-         * @param options 配置选项
-         */
-        constructor(container?: HTMLElement | string, options?: ViewerOptions);
-        /**
-         * Add renderer to container
-         * 将渲染器添加到容器
-         * @param container Container element or selector string 容器元素或选择器字符串
-         * @returns this
-         */
-        addTo(container: HTMLElement | string): this;
-        /**
-         * Create scene
-         * 创建场景
-         * @param skyboxConfig Skybox configuration 天空盒配置
-         * @returns Scene object 场景对象
-         */
-        private _createScene;
-        /**
-         * 使用PMREM加载HDR环境贴图
-         * @param scene 场景对象
-         * @param skyboxConfig 天空盒配置
-         */
-        private _loadHDRWithPMREM;
-        /**
-         * 创建WebGL渲染器
-         * @param antialias 是否抗锯齿
-         * @param stencil 是否使用模板缓冲区
-         * @param logarithmicDepthBuffer 是否使用对数深度缓冲区
-         * @returns 渲染器对象
-         */
-        private _createRenderer;
-        /**
-         * Create camera
-         * 创建相机
-         * @returns Camera object 相机对象
-         */
-        private _createCamera;
-        /**
-         * Create map controls
-         * 创建地图控制器
-         * @param minDistance Minimum zoom distance 最小缩放距离
-         * @param maxDistance Maximum zoom distance 最大缩放距离
-         * @returns Controls object 控制器对象
-         */
-        private _createControls;
-        /**
-         * Create ambient light
-         * 创建环境光
-         * @returns Ambient light object 环境光对象
-         */
-        private _createAmbLight;
-        /**
-         * 创建平行光
-         * @returns 平行光对象
-         */
-        private _createDirLight;
-        /* Excluded from this release type: _createAuxDirLight */
-        /**
-         * Create a single auxiliary directional light instance.
-         * 创建单个辅助平行光实例。
-         * @param x Light source world X coordinate 光源的世界X坐标
-         * @param y Light source world Y coordinate 光源的世界Y坐标
-         * @param z Light source world Z coordinate 光源的世界Z坐标
-         * @param intensity Light intensity 光源强度
-         * @returns DirectionalLight
-         */
-        private _createAuxLightInstance;
-        /**
-         * Resize container
-         * 调整容器大小
-         * @returns this
-         */
-        resize(): this;
-        /**
-         * 添加动画回调
-         * @param callback 回调函数，接收deltaTime和elapsedTime参数
-         * @returns 移除回调的函数
-         */
-        addAnimationCallback(callback: (delta: number, elapsedtime: number, context: Viewer) => void): () => void;
-        /**
-         * 动画循环
-         */
-        private animate;
-        /**
-         * Fly to specified position
-         * 飞行到指定位置
-         * @param centerWorldPos Map center target position (world coordinates) 地图中心目标位置（世界坐标）
-         * @param cameraWorldPos Camera target position (world coordinates) 相机目标位置（世界坐标）
-         * @param animate Whether to enable animation 是否启用动画
-         * @param onComplete Completion callback 完成回调
-         */
-        flyTo(centerWorldPos: Vector3, cameraWorldPos: Vector3, animate?: boolean, onComplete?: (obj: Vector3) => void): void;
-        /**
-         * Advanced fly to specified position method
-         * 高级飞行到指定位置的方法
-         *
-         * Supports both straight and curved flight paths, allowing customization of flight duration, delay, and completion callback.
-         * Achieves smooth camera movement and view transition via Tween animation.
-         * 支持直线和曲线两种飞行路径，可以自定义飞行持续时间、延迟和完成回调。
-         * 通过Tween动画实现平滑的相机移动和视角过渡。
-         *
-         * @param options - Flight configuration options 飞行配置选项
-         * @param options.center - Target center point longitude and latitude coordinates 目标中心点的经纬度坐标
-         * @param options.cameraCoord - Camera target position longitude and latitude coordinates 相机目标位置的经纬度坐标
-         * @param options.duration - Flight animation duration (ms), default 2000ms 飞行动画持续时间（毫秒），默认2000ms
-         * @param options.delay - Delay before flight starts (ms), default 0ms 开始飞行前的延迟时间（毫秒），默认0ms
-         * @param options.complete - Callback function when flight completes 飞行完成时的回调函数
-         * @param options.curvePath - Whether to use curved flight path, true for cubic Bezier curve, false for straight line (default) 是否使用曲线路径飞行，true为三次贝塞尔曲线，false为直线（默认）
-         *
-         *
-         * @remarks
-         * - If there is an ongoing flight animation, it will be stopped automatically
-         * - Camera position, view, and target point will be updated during flight
-         * - Curved path uses cubic Bezier curve, control points are automatically generated
-         * - Longitude and latitude coordinates will be automatically converted to world coordinates
-         * - 如果之前有正在进行的飞行动画，会自动停止
-         * - 飞行过程中会更新相机位置、视角和目标点
-         * - 曲线路径使用三次贝塞尔曲线，控制点自动生成
-         * - 经纬度坐标会自动转换为世界坐标
-         *
-         * @throws Returns silently when center or cameraCoord parameters are invalid, no exception thrown 当center或cameraCoord参数无效时静默返回，不抛出异常
-         */
-        flyToAdvanced(options: FlyToOptions): void;
-        /**
-         * Configuration update callback
-         * 配置更新回调
-         * Triggered when viewer.config() is called to update configuration
-         * 当调用 viewer.config() 更新配置时，会触发此方法
-         */
-        onConfig(conf: ViewerOptions): void;
-        /**
-         * 飞行到指定点，自动计算相机位置
-         * @param center 目标点的经纬度坐标
-         * @param options 飞行选项
-         */
-        flyToPoint(options: FlyToPointOptions): void;
-        /**
-         * 计算相机在世界坐标系中的位置
-         * @param target 目标点（世界坐标）
-         * @param distance 相机到目标的距离
-         * @param polarAngle 极角（与垂直方向的夹角，0=垂直向下，Math.PI/2=水平）
-         * @param azimuthAngle 方位角（0=从南向北，Math.PI/2=从西向东）
-         * @returns 相机位置（世界坐标）
-         */
-        calculateCameraPosition: (target: Vector3, distance: number, polarAngle: number, azimuthAngle: number) => Vector3;
-        /**
-         * Get current scene state
-         * 获取当前场景状态
-         * @returns Object containing center position and camera position 包含中心位置和相机位置的对象
-         */
-        getState(): {
-            centerPosition: Vector3;
-            cameraPosition: Vector3;
-        };
-        /**
-         * Bind map instance
-         * 绑定地图实例
-         * @param map Map instance 地图实例
-         *
-         * @protected
-         */
-        _bindMap(map: Map_2): void;
-        /**
-         * Get associated map instance
-         * 获取关联的地图实例
-         * @returns Map instance or null 地图实例或null
-         */
-        getMap(): Map_2 | null;
-        /**
-         * Get current browser window aspect ratio.
-         * 获取当前浏览器窗口的宽高比（aspect ratio）。
-         * @returns {number} Aspect ratio (width / height), e.g., returns ~1.777 for 16:9 screen. 宽高比（width / height），例如 16:9 的屏幕返回 ~1.777。
-         */
-        getAspect(): number;
-        /**
-         * 获取当前浏览器窗口的实际宽度和高度（视口尺寸）。
-         * @returns {Array<number>} 包含宽度和高度的数组 [width, height]，单位是像素。
-         */
-        getWidthHeight(): number[];
-        /* Excluded from this release type: _createDefaultGround */
-        /**
-         * Show the default ground plane.
-         * 显示默认地面平面
-         *
-         * @description
-         * Makes the default ground plane visible. This is typically called automatically
-         * when no tile layers are present in the map.
-         * 使默认地面平面可见。通常在地图中没有瓦片图层时自动调用。
-         */
-        showDefaultGround(): void;
-        /* Excluded from this release type: _updateDefaultGroundPosition */
-        /**
-         * Hide the default ground plane.
-         * 隐藏默认地面平面
-         *
-         * @description
-         * Hides the default ground plane. This is typically called automatically
-         * when tile layers are added to the map.
-         * 隐藏默认地面平面。通常在向地图添加瓦片图层时自动调用。
-         */
-        hideDefaultGround(): void;
-        /**
-         * Check if the default ground plane is visible.
-         * 检查默认地面平面是否可见
-         *
-         * @returns Whether the ground is visible. 地面是否可见
-         */
-        isDefaultGroundVisible(): boolean;
-        /**
-         * 销毁viewer实例，释放所有资源
-         * @description
-         * 该方法会清理以下资源：
-         * 1. 停止动画循环
-         * 2. 销毁控制器
-         * 3. 清理场景中的所有对象
-         * 4. 销毁渲染器
-         * 5. 销毁后期处理器
-         * 6. 移除DOM元素
-         */
-        destroy(): void;
-        /**
-         * Dispose material resources
-         * 销毁材质资源
-         * @param material Material to dispose 要销毁的材质
-         */
-        private _disposeMaterial;
-    }
-
-    declare const ViewerBase: {
-        new (...args: any[]): {
-            eventClass: EventClass;
-            on: (type: string, listener: (data?: any) => void) => EventClass;
-            trigger: (type: string, data?: any) => EventClass;
-            off: (type: string, listener: (...args: any[]) => void) => EventClass;
-        };
-    } & {
-        new (...args: any[]): {
-            [x: string]: any;
-            options: any;
-            _isUpdatingOptions?: boolean;
-            _initHooksCalled?: boolean;
-            _initHooks?: Function[];
-            proxyOptions(): /*elided*/ any;
-            callInitHooks(): /*elided*/ any;
-            setOptions(options: ClassOptions): /*elided*/ any;
-            config(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
-            onConfig(_conf: ClassOptions): void;
-            _visitInitHooks(proto: {
-                _initHooks: any;
-            }): void;
-        };
-        mergeOptions(options: ClassOptions): /*elided*/ any & {
-            new (): EventDispatcher<ViewerEventMap>;
-        };
-        addInitHook(fn: Function | string, ...args: any[]): /*elided*/ any & {
-            new (): EventDispatcher<ViewerEventMap>;
-        };
-        include(...sources: any[]): /*elided*/ any & {
-            new (): EventDispatcher<ViewerEventMap>;
-        };
-    } & {
-        new (): EventDispatcher<ViewerEventMap>;
-    };
-
-    /**
-     * Viewer event mapping interface
-     * Viewer事件映射接口
-     * @extends Object3DEventMap
-     * @category Viewer
-     */
-    export declare interface ViewerEventMap extends Object3DEventMap {
-        /** Update event, including time delta 更新事件，包含时间增量 */
-        update: BaseEvent & {
-            delta: number;
-        };
+    export declare interface WaterPaint extends BasePaint {
+        type: 'water';
+        /** 水面颜色 */
+        color?: number | string;
+        /** 透明度 */
+        opacity?: number;
+        /** 阳光方向 */
+        sunDirection?: Vector3;
+        /** 阳光颜色 */
+        sunColor?: number | string;
+        /** 波纹强度 */
+        distortionScale?: number;
+        /** 波纹大小 */
+        size?: number;
+        /** 法线贴图URL */
+        normalMap: string;
+        /** 是否受雾影响 */
+        fog?: boolean;
     }
 
     /**
-     * Viewer configuration options
-     * Viewer配置选项
-     * @category Viewer
-     */
-    export declare type ViewerOptions = {
-        /** Whether to enable antialiasing, default is false 是否启用抗锯齿，默认为false */
-        antialias?: boolean;
-        /** Whether to use stencil buffer, default is true 是否使用模板缓冲区，默认为true */
-        stencil?: boolean;
-        /** Whether to use logarithmic depth buffer, default is true 是否使用对数深度缓冲区，默认为true */
-        logarithmicDepthBuffer?: boolean;
-        /** Whether panning is draggable, default is true 是否可拖拽平移，默认为 true */
-        draggable?: boolean;
-        /** Skybox configuration 天空盒配置 */
-        skybox?: {
-            /** Skybox image path 天空盒图片路径 */
-            path?: string;
-            /** HDR file path HDR文件路径 */
-            hdr?: string;
-            /**
-             * Skybox image filenames array, order: [px, nx, py, ny, pz, nz]
-             * 天空盒图片文件名数组，顺序为：[右,左,上,下,前,后]
-             */
-            files?: string[];
-            /** Default skybox color (used when loading fails) 天空盒默认颜色（当加载失败时使用） */
-            defaultColor?: number;
-            /** Whether HDR is equirectangular, true for equirectangular, false for cubemap HDR是否为等距柱状投影，true为等距柱状，false为立方体贴图 */
-            hdrEquirectangular?: boolean;
-            /** HDR exposure value HDR曝光值 */
-            hdrExposure?: number;
-            /** HDR encoding HDR编码方式 */
-            hdrEncoding?: number;
-        };
-        /** Whether to enable debug mode 是否启用调试模式 */
-        debug?: boolean;
-        /** Map instance 地图实例 */
-        map?: Map_2;
-        /**
-         * Camera azimuth angle (in radians, optional)
-         * 相机方位角（弧度制，可选）
-         * 0 = looking North from South, Math.PI / 2 = looking East from West
-         * 0 = 从南看北，Math.PI / 2 = 从西看东
-         */
-        azimuthAngle?: number;
-        /**
-         * Camera polar angle (in radians, optional)
-         * 相机俯仰角（弧度制，可选）
-         * 0 = top-down view, Math.PI / 2 = horizontal
-         * 0 = 正上方俯视，Math.PI / 2 = 水平
-         */
-        polarAngle?: number;
-        /**
-         * Azimuth angle (in degrees, optional)
-         * 方位角（角度制，可选）
-         * 0 = looking North from South, 90 = looking East from West
-         * 0 = 从南看北，90 = 从西看东
-         */
-        azimuthDeg?: number;
-        /**
-         * Polar angle (in degrees, optional)
-         * 俯仰角（角度制，可选）
-         * 0 = top-down view, 90 = horizontal
-         * 0 = 正上方俯视，90 = 水平
-         */
-        polarDeg?: number;
-        /** Bloom post-processing configuration (optional) Bloom 后处理配置（可选） */
-        bloom?: {
-            enabled?: boolean;
-            /** Bloom strength, corresponds to UnrealBloomPass strength 辉光强度，对应 UnrealBloomPass 的 strength */
-            strength?: number;
-            /** Bloom radius, corresponds to UnrealBloomPass radius 辉光扩散半径，对应 UnrealBloomPass 的 radius */
-            radius?: number;
-            /** Bloom threshold, corresponds to UnrealBloomPass threshold 触发辉光的亮度阈值，对应 UnrealBloomPass 的 threshold */
-            threshold?: number;
-        };
-        /** Minimum controller zoom distance (how close the camera can get), default is 100 控制器最小缩放距离（相机能靠多近），默认为 100 */
-        minDistance?: number;
-        /** Maximum controller zoom distance (how far the camera can move), default is 60000 控制器最大缩放距离（相机能拉多远），默认为 60000 */
-        maxDistance?: number;
-    };
-
-    /**
+     * Water paint union type.
      * 水面样式联合类型
-     * @category Style
+     * @category Paint
      */
-    export declare type WaterStyle = BaseWaterStyle | LightWaterStyle;
+    export declare type WaterPaintUnion = SimpleWaterPaint | WaterPaint;
 
     /**
      * Web 图像加载器

@@ -136,17 +136,17 @@ export class MultiLineString extends Line {
      * @private
      */
     private async _createLineObject(paint: Paint, vertexPoints: number[]): Promise<Line2 | Mesh> {
-        switch (style.config.type) {
-            case 'basic-line':
-                return _createBasicLine(style.config, vertexPoints);
-            case 'flow-tube-line':
-                return _createFlowLine(style.config, vertexPoints);
-            case 'arrow-line':
-                return _createArrowLine(style.config, vertexPoints);
-            case 'flow-texture-line':
-                return await _createFlowTextureLine(style.config as any, vertexPoints);
+        switch (paint.config.type) {
+            case 'line':
+                return _createBasicLine(paint.config, vertexPoints);
+            case 'flow-tube':
+                return _createFlowLine(paint.config, vertexPoints);
+            case 'arrow':
+                return _createArrowLine(paint.config, vertexPoints);
+            case 'flow-texture':
+                return await _createFlowTextureLine(paint.config as any, vertexPoints);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 

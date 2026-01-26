@@ -286,12 +286,12 @@ export class Model extends Point {
      *         如果样式类型不支持会抛出错误
      */
     async _createObject(paint: Paint): Promise<any> {
-        switch (style.config.type) {
-            case "fbx":
-            case "gltf":
-                return _createModel(style.config, this._worldCoordinates as Vector3);
+        switch (paint.config.type) {
+            case "model-fbx":
+            case "model-gltf":
+                return _createModel(paint.config, this._worldCoordinates as Vector3);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 

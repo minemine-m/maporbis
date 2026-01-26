@@ -8,7 +8,7 @@ import {
     Group, 
     Camera
 } from "three";
-import { SceneRenderer, SceneRendererOptions, FlyToOptions, FlyToPointOptions } from "../viewer";
+import { SceneRenderer, SceneRendererOptions, FlyToOptions, EaseToOptions } from "../renderer";
 import { LngLatLike } from "../types";
 import { requireParam, requireProp } from "../utils/validate";
 import { BaseMixin, EventMixin } from "../core/mixins";
@@ -34,70 +34,99 @@ import {
 import { Tile } from "../core/tile";
 
 /**
- * TileMap creation parameters
- * 瓦片地图创建参数
- * @category Meshmap
- */
-export type TileMapParams = {
-    minLevel?: number; // Min zoom level 最小缩放级别
-    maxLevel?: number; // Max zoom level 最大缩放级别
-    Baselayers?: ITileLayer[]; // Image layers 影像图层
-};
-
-
-
-// import { ImageTileLayer } from '../layer/TileLayer/ImageTileLayer';
-
-// import { CameraHelper } from "three";
-// import { DirectionalLightHelper } from "three";
-
-
-/**
+ * Map source configuration options (tile layers and data levels).
+ * 地图数据源配置选项（瓦片图层和数据级别）
  * @category Map
  */
-export type MapOptionsType = {
-    FeatureEvents?: boolean;
-}
+export type MapSourceOptions = {
+    /** Min data level 最小数据级别 */
+    minLevel?: number;
+    /** Max data level 最大数据级别 */
+    maxLevel?: number;
+    /** Base tile layers 底图瓦片图层 */
+    baseLayers?: ITileLayer[];
+};
 
+/**
+ * Camera configuration options.
+ * 相机配置选项
+ * @category Map
+ */
+export type CameraOptions = {
+    /** Camera pitch angle in degrees (0 = looking straight down) 俯仰角（度，0为垂直向下看） */
+    pitch?: number;
+    /** Camera bearing angle in degrees (0 = north) 方位角（度，0为正北） */
+    bearing?: number;
+    /** Minimum camera distance 最小相机距离 */
+    minDistance?: number;
+    /** Maximum camera distance 最大相机距离 */
+    maxDistance?: number;
+};
+
+/**
+ * Interaction configuration options.
+ * 交互配置选项
+ * @category Map
+ */
+export type InteractionOptions = {
+    /** Enable feature event handling 启用要素事件处理 */
+    featureEvents?: boolean;
+    /** Enable collision detection 启用碰撞检测 */
+    collision?: boolean;
+    /** Enable map dragging 启用地图拖拽 */
+    draggable?: boolean;
+    /** Enable scroll zoom 启用滚轮缩放 */
+    scrollZoom?: boolean;
+};
+
+/**
+ * Map state configuration options.
+ * 地图状态配置选项
+ * @category Map
+ */
+export type StateOptions = {
+    /** Map center coordinates (Required) 地图中心点坐标（必填） */
+    center: LngLatLike;
+    /** Initial zoom level 初始缩放级别 */
+    zoom?: number;
+    /** Minimum allowed zoom level 最小缩放级别 */
+    minZoom?: number;
+    /** Maximum allowed zoom level 最大缩放级别 */
+    maxZoom?: number;
+};
 
 /**
  * Map general configuration (using nested objects to distinguish modules).
  * 地图总配置类型（用嵌套对象区分模块）
-  * @category Map
+ * @category Map
  */
 export type MapOptions = {
     /**
-     * SceneRenderer configuration options.
+     * Renderer configuration options.
      * 渲染器配置选项
      */
     renderer?: SceneRendererOptions;
     /**
-     * Tile map parameter configuration.
-     * 瓦片地图参数配置
+     * Camera configuration options.
+     * 相机配置选项
      */
-    basemap: TileMapParams;
+    camera?: CameraOptions;
     /**
-     * Map center coordinates (Required).
-     * 地图中心点坐标（必填项）
+     * Interaction configuration options.
+     * 交互配置选项
      */
-    center: LngLatLike;
+    interaction?: InteractionOptions;
     /**
-     * Initial zoom level (View level).
-     * 初始缩放级别（视图级别）
+     * Source configuration options (tile layers and data levels).
+     * 数据源配置选项（瓦片图层和数据级别）
      */
-    zoom?: number;
+    source?: MapSourceOptions;
     /**
-     * Minimum allowed zoom level for the view.
-     * 视图允许的最小缩放级别
+     * Map state configuration options.
+     * 地图状态配置选项
      */
-    minZoom?: number;
-    /**
-     * Maximum allowed zoom level for the view.
-     * 视图允许的最大缩放级别
-     */
-    maxZoom?: number;
-
-} & MapOptionsType;
+    state: StateOptions;
+};
 
 /**
  * Map event type definitions.
@@ -119,7 +148,7 @@ class EmptyClass {
 }
 
 
-const options: MapOptionsType = {
+const options: InteractionOptions = {
 
 };
 
@@ -131,9 +160,13 @@ const options: MapOptionsType = {
  * @category Map
  * @example
  * const map = new Map('map-container', {
- *   center: [120, 30],
- *   zoom: 12,
- *   basemap: { ... }
+ *   state: {
+ *     center: [120, 30],
+ *     zoom: 12
+ *   },
+ *   source: {
+ *     baseLayers: [...]
+ *   }
  * });
  */
 export class Map extends Handlerable(
@@ -199,77 +232,76 @@ export class Map extends Handlerable(
     public get lon0() { return this.projection.centralMeridian; }
 
     /**
-	 * Project geographic coordinate to map model coordinate
-	 * 地理坐标投影到地图模型坐标
-	 * @param coord Geographic coordinate (Long, Lat, Alt)
+	 * Convert geographic coordinate to map model coordinate
+	 * 地理坐标转换到地图模型坐标
+	 * @param lngLat Geographic coordinate (Long, Lat, Alt)
 	 * @returns Map model coordinate
 	 */
-	public project(coord: Vector3) {
-		const pos = this.projection.project(coord.x, coord.y);
-		return new Vector3(pos.x, pos.y, coord.z);
+	public lngLatToPoint(lngLat: Vector3) {
+		const pos = this.projection.forward(lngLat.x, lngLat.y);
+		return new Vector3(pos.x, pos.y, lngLat.z);
 	}
 
 	/**
-	 * Project geographic coordinate to world coordinate
-	 * 地理坐标投影到世界坐标
-	 * @param coord Geographic coordinate (Long, Lat, Alt)
+	 * Convert geographic coordinate to world coordinate
+	 * 地理坐标转换到世界坐标
+	 * @param lngLat Geographic coordinate (Long, Lat, Alt)
 	 * @returns World coordinate
 	 */
-	public projectToWorld(coord: Vector3) {
-		return this._rootGroup.localToWorld(this.project(coord));
+	public lngLatToWorld(lngLat: Vector3) {
+		return this._rootGroup.localToWorld(this.lngLatToPoint(lngLat));
 	}
 
 	/**
-	 * Unproject map model coordinate to geographic coordinate
-	 * 地图模型坐标反投影到地理坐标
+	 * Convert map model coordinate to geographic coordinate
+	 * 地图模型坐标转换到地理坐标
 	 * @param point Map model coordinate
 	 * @returns Geographic coordinate (Long, Lat, Alt)
 	 */
-	public unproject(point: Vector3) {
-		const pos = this.projection.unProject(point.x, point.y);
+	public pointToLngLat(point: Vector3) {
+		const pos = this.projection.inverse(point.x, point.y);
 		return new Vector3(pos.lon, pos.lat, point.z);
 	}
 
 	/**
-	 * Unproject world coordinate to geographic coordinate
-	 * 世界坐标反投影到地理坐标
+	 * Convert world coordinate to geographic coordinate
+	 * 世界坐标转换到地理坐标
 	 * @param worldPos World coordinate
 	 * @returns Geographic coordinate (Long, Lat, Alt)
 	 */
-	public unprojectFromWorld(worldPos: Vector3) {
-		return this.unproject(this._rootGroup.worldToLocal(worldPos.clone()));
+	public worldToLngLat(worldPos: Vector3) {
+		return this.pointToLngLat(this._rootGroup.worldToLocal(worldPos.clone()));
 	}
 
 	/**
-	 * Get intersection info from geographic coordinate
-	 * 获取指定地理坐标的交互/地面信息
-	 * @param geoCoord Geographic coordinate
+	 * Query intersection info at geographic coordinate
+	 * 查询指定地理坐标的交互/地面信息
+	 * @param lngLat Geographic coordinate
 	 * @returns Intersection info
 	 */
-	public pickFromGeo(geoCoord: Vector3) {
-		const pointer = this.projectToWorld(geoCoord);
+	public queryAtLngLat(lngLat: Vector3) {
+		const pointer = this.lngLatToWorld(lngLat);
 		return getLocalInfoFromWorld(this, pointer);
 	}
 
 	/**
-	 * Get intersection info from world coordinate
-	 * 获取指定世界坐标的交互/地面信息
+	 * Query intersection info at world coordinate
+	 * 查询指定世界坐标的交互/地面信息
 	 * @param worldPos World coordinate
 	 * @returns Intersection info
 	 */
-	public pickFromWorld(worldPos: Vector3) {
+	public queryAtWorld(worldPos: Vector3) {
 		return getLocalInfoFromWorld(this, worldPos);
 	}
 
 	/**
-	 * Get intersection info from screen pixel coordinate
-	 * 获取指定屏幕坐标的交互/地面信息
-	 * @param camera Camera instance
-	 * @param pixel Screen pixel coordinate
+	 * Query intersection info at screen pixel coordinate
+	 * 查询指定屏幕坐标的交互/地面信息
+	 * @param point Screen pixel coordinate
 	 * @returns Intersection info
 	 */
-	public pickFromPixel(camera: Camera, pixel: Vector2) {
-		return getLocalInfoFromScreen(camera, this, pixel);
+	public queryAtPoint(point: Vector2) {
+		return getLocalInfoFromScreen(this.sceneRenderer.camera, this, point);
 	}
 
     /**
@@ -382,39 +414,39 @@ export class Map extends Handlerable(
     ) {
         // super();
         requireParam(container, "container", "Map container element must be specified");
-        const configPaths = ['center', 'basemap'];
-        for (const path of configPaths) {
-            requireProp<string>(options, path)
-        }
-        // Default options (Only effective for optional property renderer)
-        // 默认配置（仅对可选属性 renderer 生效）
-        const defaultOptions: Pick<Required<MapOptions>, "renderer"> = {
+        requireProp<string>(options, 'state');
+        requireProp<string>(options.state, 'center');
+        
+        // Default options
+        // 默认配置
+        const defaultOptions = {
             renderer: {
                 antialias: true,
                 stencil: true,
                 logarithmicDepthBuffer: true,
-            }
+            },
+            camera: {},
+            interaction: {},
+            source: {},
         };
 
         // Merge options
         // 合并配置
-        const opts = {
+        const opts: MapOptions = {
             ...options,
             renderer: { ...defaultOptions.renderer, ...options.renderer },
-
+            camera: { ...defaultOptions.camera, ...options.camera },
+            interaction: { ...defaultOptions.interaction, ...options.interaction },
+            source: { ...defaultOptions.source, ...options.source },
         };
 
-        // this.options = options
-
-
-
         super(opts);
-        this.initMap(opts.basemap);
+        this.initMap(opts.source ?? {});
         
         // Register default tile loaders
         registerDefaultLoaders();
 
-        this.center = this.options.center;
+        this.center = this.options.state.center;
         this.sceneRenderer = new SceneRenderer(container, { ...opts.renderer, map: this });
 
         // Default enable shadow
@@ -429,25 +461,25 @@ export class Map extends Handlerable(
         this.sceneRenderer._updateDefaultGroundPosition();
         // Map center (Target point) world coordinates
         // 地图中心（目标点）世界坐标
-        const centerWorldPos = this.projectToWorld(new Vector3(this.center[0], this.center[1], 0));
+        const centerWorldPos = this.lngLatToWorld(new Vector3(this.center[0], this.center[1], 0));
         this.prjcenter = centerWorldPos;
         
         // Register update loop
         // 注册更新循环
         this.sceneRenderer.on('update', () => {
-             this.update(this.sceneRenderer.camera);
+             this.render(this.sceneRenderer.camera);
         });
 
-        // ========= Use same parameter semantics as flyToPoint, initialize camera =========
-        // ========= 使用与 flyToPoint 同一套参数语义，初始化相机 =========
-        const rendererOpts = this.options.renderer ?? {};
+        // ========= Use camera options for pitch/bearing, initialize camera =========
+        // ========= 使用 camera 配置的 pitch/bearing，初始化相机 =========
+        const cameraOpts = this.options.camera ?? {};
 
-        this.sceneRenderer.flyToPoint({
+        this.sceneRenderer.easeTo({
             center: this.center,
             distance: typeof this.center[2] === 'number' ? this.center[2] : undefined,
-            // Use pitch/bearing in degrees
-            pitch: typeof rendererOpts.pitch === 'number' ? rendererOpts.pitch : undefined,
-            bearing: typeof rendererOpts.bearing === 'number' ? rendererOpts.bearing : undefined,
+            // Use pitch/bearing in degrees from camera options
+            pitch: typeof cameraOpts.pitch === 'number' ? cameraOpts.pitch : undefined,
+            bearing: typeof cameraOpts.bearing === 'number' ? cameraOpts.bearing : undefined,
             duration: 0,
             curvePath: false
         });
@@ -513,7 +545,7 @@ export class Map extends Handlerable(
 
         // Current real tile level
         // 当前真实瓦片层级
-        const dataZoom = this.getDataZoom();
+        const dataZoom = this.getTileZoom();
 
         // Data max level
         // 数据最大层级
@@ -667,7 +699,7 @@ export class Map extends Handlerable(
     public getZoom(): number {
         // Current real tile level
         // 当前真实瓦片层级
-        const dataZoom = this.getDataZoom();
+        const dataZoom = this.getTileZoom();
 
         // Base map configured max data level
         // 底图配置的最大数据级别
@@ -697,7 +729,7 @@ export class Map extends Handlerable(
     * 从 TileMap 的底图瓦片树中统计出来的实际 z。
     * 最大值受数据源和 TileLayer.maxLevel 限制，例如数据只到 18。
      */
-    public getDataZoom(): number {
+    public getTileZoom(): number {
         let current = this.minLevel;
 
         // 找到底图图层（isBaseLayer === true）
@@ -744,7 +776,7 @@ export class Map extends Handlerable(
     * @param maxZoom Maximum zoom level
     *                最大缩放级别
     */
-    public setZoomRange(minZoom: number, maxZoom: number): this {
+    public setZoomBounds(minZoom: number, maxZoom: number): this {
         if (minZoom > maxZoom) {
             const tmp = minZoom;
             minZoom = maxZoom;
@@ -772,7 +804,7 @@ export class Map extends Handlerable(
      * 设置最小缩放级别
      */
     public setMinZoom(minZoom: number): this {
-        return this.setZoomRange(minZoom, this._maxZoom);
+        return this.setZoomBounds(minZoom, this._maxZoom);
     }
 
     /**
@@ -780,7 +812,7 @@ export class Map extends Handlerable(
      * 设置最大缩放级别
      */
     public setMaxZoom(maxZoom: number): this {
-        return this.setZoomRange(this._minZoom, maxZoom);
+        return this.setZoomBounds(this._minZoom, maxZoom);
     }
 
     /**
@@ -890,12 +922,12 @@ export class Map extends Handlerable(
      * Initialize map.
      * 初始化地图
      */
-    private initMap(params: TileMapParams) {
-        this.minLevel = params.minLevel ?? 2;
-        this.maxLevel = params.maxLevel ?? 19;
+    private initMap(source: MapSourceOptions) {
+        this.minLevel = source.minLevel ?? 2;
+        this.maxLevel = source.maxLevel ?? 19;
         
-        if (params.Baselayers?.length) {
-            for (const layer of params.Baselayers) {
+        if (source.baseLayers?.length) {
+            for (const layer of source.baseLayers) {
                 layer.isBaseLayer = true;
                 this.addTileLayer(layer);
             }
@@ -950,7 +982,7 @@ export class Map extends Handlerable(
      * @param visible - Whether to show the ground plane. 是否显示地面
      * @returns Current map instance. 当前地图实例
      */
-    public setDefaultGroundVisible(visible: boolean): this {
+    public setGroundVisible(visible: boolean): this {
         if (visible) {
             this.sceneRenderer.showDefaultGround();
         } else {
@@ -965,7 +997,7 @@ export class Map extends Handlerable(
      * 
      * @returns Whether the ground is visible. 地面是否可见
      */
-    public isDefaultGroundVisible(): boolean {
+    public isGroundVisible(): boolean {
         return this.sceneRenderer.isDefaultGroundVisible();
     }
 
@@ -973,7 +1005,7 @@ export class Map extends Handlerable(
      * Update map and layers.
      * 更新地图和图层
      */
-    public update(camera: Camera) {
+    public render(camera: Camera) {
         if (!this.autoUpdate) return;
         const elapseTime = this._animationClock.getElapsedTime();
         if (elapseTime > this.updateInterval / 1000) {
@@ -1204,7 +1236,7 @@ export class Map extends Handlerable(
      * @returns Layer instance or undefined
      *          图层实例或undefined
      */
-    getLayerById(id: string) {
+    getLayer(id: string) {
         // Check TileLayers first
         if (this._layers.has(id)) {
             return this._layers.get(id);
@@ -1275,7 +1307,7 @@ export class Map extends Handlerable(
      * Find all Features at a specific position.
      * 找出某位置的所有Feature
      */
-    _findFeaturesAt(position: { x: number, y: number }): any[] {
+    _queryFeaturesAt(position: { x: number, y: number }): any[] {
         const map = this;
         const renderer = map.getRenderer();
         const camera = map.getCamera();
@@ -1360,7 +1392,7 @@ export class Map extends Handlerable(
      * Get event position (Screen coordinates).
      * 获取事件位置（屏幕坐标）
      */
-    _getEventPosition(domEvent: MouseEvent | TouchEvent): { x: number, y: number } | null {
+    _getPointerPosition(domEvent: MouseEvent | TouchEvent): { x: number, y: number } | null {
         let clientX, clientY;
 
         if ('touches' in domEvent) {
@@ -1421,7 +1453,7 @@ export class Map extends Handlerable(
         if (minDist <= 0 || minDist >= maxDist) {
             // Anomaly: Degrade to "Single Zoom"
             // 异常情况：退化为“只有一个 zoom”
-            const dataZoom = this.getDataZoom();
+            const dataZoom = this.getTileZoom();
             return { min: dataZoom, max: dataZoom };
         }
 
@@ -1463,7 +1495,7 @@ export class Map extends Handlerable(
      * @param flyConfig Flight parameters object
      *                飞行参数对象
      */
-    public flyToPoint(flyConfig: FlyToPointOptions) {
+    public easeTo(flyConfig: EaseToOptions) {
         this.sceneRenderer.flyToPoint(flyConfig);
     }
 
@@ -1486,7 +1518,7 @@ export class Map extends Handlerable(
      * 4. 销毁viewer（包括renderer、scene、controls等）
      * 5. 清理DOM容器
      */
-    public destroy(): void {
+    public dispose(): void {
         // console.log('🗑️ Destroying map instance... 开始销毁地图实例...');
 
         try {
@@ -1557,7 +1589,7 @@ export class Map extends Handlerable(
             // 9. Clear event map
             // 9. 清空事件映射表
             this._eventState = {
-                loaded: { listened: false }
+                load: { listened: false }
             };
 
             // console.log('✅ Map instance destruction completed 地图实例销毁完成');

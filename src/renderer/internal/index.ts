@@ -1,6 +1,6 @@
 /**
- * Internal viewer managers and helpers.
- * 内部查看器管理器和辅助类
+ * Internal renderer managers and helpers.
+ * 内部渲染器管理器和辅助类
  * 
  * @internal
  */

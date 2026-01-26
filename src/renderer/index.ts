@@ -150,7 +150,7 @@ export interface FlyToOptions {
 
 // Configuration options interface for camera flying to a specific coordinate point
 // 相机飞向指定坐标点的配置选项接口
-export interface FlyToPointOptions {
+export interface EaseToOptions {
   // Target coordinate point (required) 目标坐标点（必需参数）
   center: LngLatLike;
 
@@ -1101,7 +1101,7 @@ export class SceneRenderer extends SceneRendererBase {
    * @param options 飞行选项
    */
 
-  public flyToPoint(options: FlyToPointOptions) {
+  public easeTo(options: EaseToOptions) {
     const { controls } = this;
     const center = options.center;
     const duration = options.duration ?? 2000;

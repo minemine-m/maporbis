@@ -184,17 +184,17 @@ export class Polygon extends Surface {
      * - 'base-water': 基础水面效果
      */
     async _createObject(paint: Paint): Promise<Object3D> {
-        switch (style.config.type) {
-            case 'basic-polygon':
-                return _createBasePolygon(style.config, this._vertexPoints);
-            case 'extrude-polygon':
-                return _createExtrudedPolygon(style.config, this._vertexPoints);
+        switch (paint.config.type) {
+            case 'fill':
+                return _createBasePolygon(paint.config, this._vertexPoints);
+            case 'extrusion':
+                return _createExtrudedPolygon(paint.config, this._vertexPoints);
             case 'water':
-                return _createWaterSurface(style.config, this.getMap() as Map, this._vertexPoints);
-            case 'base-water':
-                return _createBaseWaterSurface(style.config, this._vertexPoints);
+                return _createWaterSurface(paint.config, this.getMap() as Map, this._vertexPoints);
+            case 'water-simple':
+                return _createBaseWaterSurface(paint.config, this._vertexPoints);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
     /**

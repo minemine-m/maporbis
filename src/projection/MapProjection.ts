@@ -41,7 +41,7 @@ export interface MapProjection {
      * @param latitude 纬度 (度)
      * @returns 投影坐标 {x, y} (米)
      */
-    project(longitude: number, latitude: number): { x: number; y: number };
+    forward(longitude: number, latitude: number): { x: number; y: number };
 
     /**
      * 将投影坐标转换为地理坐标
@@ -49,7 +49,7 @@ export interface MapProjection {
      * @param y 投影坐标 Y (米)
      * @returns 地理坐标 {lon, lat} (度)
      */
-    unProject(x: number, y: number): { lon: number; lat: number };
+    inverse(x: number, y: number): { lon: number; lat: number };
 
     /**
      * 计算瓦片在考虑中央经线偏移后的 X 坐标

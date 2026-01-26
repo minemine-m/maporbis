@@ -157,17 +157,17 @@ export class LineString extends Line {
      * - 'basic-line': 基础线样式
      */
     async _createObject(paint: Paint): Promise<Object3D> {
-        switch (style.config.type) {
-            case 'basic-line':
-                return _createBasicLine(style.config, this._vertexPoints);
-            case 'flow-tube-line':
-                return _createFlowLine(style.config, this._vertexPoints);
-            case 'arrow-line':
-                return _createArrowLine(style.config, this._vertexPoints);
-            case 'flow-texture-line':
-                return await _createFlowTextureLine(style.config as any, this._vertexPoints);
+        switch (paint.config.type) {
+            case 'line':
+                return _createBasicLine(paint.config, this._vertexPoints);
+            case 'flow-tube':
+                return _createFlowLine(paint.config, this._vertexPoints);
+            case 'arrow':
+                return _createArrowLine(paint.config, this._vertexPoints);
+            case 'flow-texture':
+                return await _createFlowTextureLine(paint.config as any, this._vertexPoints);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 

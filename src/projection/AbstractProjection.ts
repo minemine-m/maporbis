@@ -30,8 +30,8 @@ export abstract class AbstractProjection implements MapProjection {
         this._centralMeridian = centralMeridian;
     }
 
-    public abstract project(longitude: number, latitude: number): { x: number; y: number };
-    public abstract unProject(x: number, y: number): { lon: number; lat: number };
+    public abstract forward(longitude: number, latitude: number): { x: number; y: number };
+    public abstract inverse(x: number, y: number): { lon: number; lat: number };
 
     /**
      * 调整瓦片 X 坐标以适应中央经线
@@ -79,8 +79,8 @@ export abstract class AbstractProjection implements MapProjection {
      */
     public getProjectedBoundsFromGeoBounds(bounds: [number, number, number, number]): [number, number, number, number] {
         const [minLon, minLat, maxLon, maxLat] = bounds;
-        const min = this.project(minLon, minLat);
-        const max = this.project(maxLon, maxLat);
+        const min = this.forward(minLon, minLat);
+        const max = this.forward(maxLon, maxLat);
         return [min.x, min.y, max.x, max.y];
     }
 
@@ -108,8 +108,8 @@ export abstract class AbstractProjection implements MapProjection {
      */
     public getTileGeoBounds(x: number, y: number, z: number): [number, number, number, number] {
         const [minX, minY, maxX, maxY] = this.getTileProjectedBounds(x, y, z);
-        const p1 = this.unProject(minX, minY);
-        const p2 = this.unProject(maxX, maxY);
+        const p1 = this.inverse(minX, minY);
+        const p2 = this.inverse(maxX, maxY);
         
         return [
             Math.min(p1.lon, p2.lon),

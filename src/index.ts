@@ -31,7 +31,7 @@ import "./feature/ext/Feature.InfoWindow";
  * 导出Viewer模块
  * @description 包含地图查看器相关功能
  */
-export * from "./viewer";
+export * from "./renderer";
 
 /**
  * 导出Map模块

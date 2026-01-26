@@ -5,7 +5,7 @@ import {
 import { Line2, LineMaterial, LineGeometry, Water } from 'three-stdlib';
 import { ExternalModelLoader } from '../loaders/ExternalModelLoader';
 import { Map } from '../map';
-import { CirclePaint, LinePaint, IconPaint, ModelPaint, FillPaint, ExtrusionPaint, WaterPaint, CloudPaint, TextPaint, SymbolPaint, LightPaint, Paint, FlowTubePaint, ArrowPaint, FlowTexturePaint } from '../style';
+import { CirclePaint, LinePaint, IconPaint, ModelPaint, FillPaint, ExtrusionPaint, WaterPaint, CloudPaint, TextPaint, SymbolPaint, LightPaint, Paint, FlowTubePaint, ArrowPaint, FlowTexturePaint, WaterPaintUnion } from '../style';
 import { Cloud as vanillaCloud } from "@pmndrs/vanilla";
 
 /**
@@ -1144,7 +1144,7 @@ export function _createPolygonGeometry(
  * @returns Promise<Mesh> 水面网格
  */
 export async function _createBaseWaterSurface(
-    config: WaterPaint,
+    config: WaterPaintUnion,
     vertices: number[],
 ): Promise<Mesh> {
     const { geometry, center, avgY } = _createPolygonGeometry(vertices);

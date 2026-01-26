@@ -119,11 +119,11 @@ export class ICloud extends Point {
      * @private
      */
     async _createObject(paint: Paint): Promise<any> {
-        switch (style.config.type) {
+        switch (paint.config.type) {
             case "cloud":
-                return _createClouds(style.config, this._worldCoordinates as Vector3);
+                return _createClouds(paint.config, this._worldCoordinates as Vector3);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 }

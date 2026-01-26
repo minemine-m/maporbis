@@ -135,11 +135,11 @@ export class TPoints extends Point {
      * @private
      */
     async _createObject(paint: Paint): Promise<any> {
-        switch (style.config.type) {
+        switch (paint.config.type) {
             case "light":
-                return createLight(style.config, this._geometries, this.getMap() as Map);
+                return createLight(paint.config, this._geometries, this.getMap() as Map);
             default:
-                throw new Error(`Unsupported style type: ${style.config.type}`);
+                throw new Error(`Unsupported style type: ${paint.config.type}`);
         }
     }
 }

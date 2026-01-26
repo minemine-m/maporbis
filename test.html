@@ -179,23 +179,15 @@
         loading.style.display = "block";
         try {
           map = new maporbis.Map("container", {
-            center: [116.4, 39.9, 2000], // Beijing, [lon, lat, height]
-            basemap: {
+            state: {
+              center: [116.4, 39.9, 2000], // Beijing, [lon, lat, height]
+            },
+            source: {
               minLevel: 2,
               maxLevel: 19,
-              Baselayers: [
-                // new maporbis.TileLayer("esri_imagery", {
-                //   source: new maporbis.TileSource({
-                //     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                //     projectionID: "3857",
-                //   }),
-                //   projection: maporbis.ProjectionFactory.create("3857"),
-                //   opacity: 1.0,
-                //   visible: true,
-                // }),
-              ],
+              baseLayers: [],
             },
-            viewer: {
+            renderer: {
               stats: true,
               antialias: true,
               skybox: {
@@ -203,15 +195,17 @@
                 hdrExposure: 1,
                 defaultColor: "#B9D4FE", // 默认天空颜色
               },
-              polarDeg: 75,
-              azimuthDeg: 0,
               minDistance: 20,
               maxDistance: 80000,
             },
+            camera: {
+              pitch: 75,
+              bearing: 0,
+            }
           });
-          map.setDefaultGroundVisible(true);
+          map.setGroundVisible(true);
           updateStatus();
-          map.on("loaded", () => {
+          map.on("load", () => {
             loading.style.display = "none";
             showNotification('地图加载完成，点击"添加"开始使用', "info");
           });
@@ -225,8 +219,8 @@
         }
       }
       function initlayer() {
-        layer = new maporbis.PointLayer("markers", { altitude: 1 });
-        map.addLayer(layer);
+        // layer = new maporbis.PointLayer("markers", { altitude: 1 });
+        // map.addLayer(layer);
       }
 
       // 创建地图标记内容
@@ -265,11 +259,11 @@
           statusIndicator.className = "orbis-indicator orbis-indicator-active";
           statusText.textContent = "标记已添加";
 
-          const position = marker.getPosition();
+          const position = marker.getLngLatLikes();
           if (position) {
-            positionInfo.textContent = `${position.lng.toFixed(
+            positionInfo.textContent = `${position[0].toFixed(
               6
-            )}, ${position.lat.toFixed(6)}`;
+            )}, ${position[1].toFixed(6)}`;
           } else {
             positionInfo.textContent = markerUpdated
               ? "116.391467, 39.927761"
@@ -297,25 +291,12 @@
       window.addMarker = function () {
         if (!marker) {
           const markerContent = createMarkerContent("当前位置", false);
-          marker = new maporbis.Marker({
-            geometry: {
-              type: "Point",
-              coordinates: [116.4, 39.9],
-            },
-            style: {
-              type: "icon-point",
-              url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
-              size: 30,
-              rotation: Math.PI / 4,
-              anchor: [0.5, 0],
-              sizeAttenuation: false,
-              transparent: true,
-              color: "#fff",
-            },
-            userData: {},
+          marker = new maporbis.UIMarker({
+            coordinate: [116.4, 39.9],
+            content: markerContent,
           });
 
-          marker.addTo(layer);
+          marker.addTo(map);
           markerAdded = true;
 
           // map.setCenter([116.406315, 39.908775]);
@@ -328,7 +309,7 @@
       };
 
       // 更新标记图标
-      function updateIcon() {
+      window.updateIcon = function () {
         if (marker) {
           const newContent = createMarkerContent("当前位置", true);
           marker.setContent(newContent);
@@ -341,13 +322,13 @@
       }
 
       // 更新标记内容
-      function updateContent() {
+      window.updateContent = function () {
         if (marker) {
           const newContent = createMarkerContent("已更新位置", true);
           marker.setContent(newContent);
-          marker.setPosition([116.391467, 39.927761]);
+          marker.setLngLatLikes([116.391467, 39.927761]);
 
-          map.setCenter([116.391467, 39.927761]);
+          map.easeTo({ center: [116.391467, 39.927761], duration: 500 });
 
           markerUpdated = true;
 
@@ -361,7 +342,7 @@
       // 清除标记
       window.clearMarker = function () {
         if (marker) {
-          layer.removeFeature(marker);
+          marker.remove();
           marker = null;
           markerAdded = false;
           markerUpdated = false;
@@ -385,9 +366,9 @@
           icon.className = "fas fa-sun";
           themeToggle.title = "切换到浅色模式";
 
-          if (map) {
-            map.setMapStyle("amap://styles/dark");
-          }
+          // if (map) {
+          //   map.setMapStyle("amap://styles/dark");
+          // }
 
           showNotification("暗黑模式已开启", "info");
         } else {
@@ -395,9 +376,9 @@
           icon.className = "fas fa-moon";
           themeToggle.title = "切换到暗黑模式";
 
-          if (map) {
-            map.setMapStyle("amap://styles/light");
-          }
+          // if (map) {
+          //   map.setMapStyle("amap://styles/light");
+          // }
 
           showNotification("浅色模式已开启", "info");
         }

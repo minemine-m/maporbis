@@ -21,14 +21,14 @@ export class WGS84Projection extends AbstractProjection {
         super(centralMeridian);
     }
 
-    public project(longitude: number, latitude: number): { x: number; y: number } {
+    public forward(longitude: number, latitude: number): { x: number; y: number } {
         return {
             x: (longitude - this.centralMeridian) * WGS84Projection.SCALE_FACTOR,
             y: latitude * WGS84Projection.SCALE_FACTOR
         };
     }
 
-    public unProject(x: number, y: number): { lon: number; lat: number } {
+    public inverse(x: number, y: number): { lon: number; lat: number } {
         return {
             lon: x / WGS84Projection.SCALE_FACTOR + this.centralMeridian,
             lat: y / WGS84Projection.SCALE_FACTOR

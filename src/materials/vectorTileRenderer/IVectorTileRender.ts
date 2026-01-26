@@ -2,7 +2,7 @@
 /**
  *  瓦片绘图样式，参考leaflet的path样式定义
  */
-export interface VectorStyle {
+export interface VectorPaint {
 	// 最小层级
 	minLevel?: number;
 	// 最大层级
@@ -46,7 +46,12 @@ export interface VectorStyle {
 /**
  * 样式集合
  */
-export type VectorStyles = { [key: string]: VectorStyle };
+export type VectorPaints = { [key: string]: VectorPaint };
+
+/**
+ * Alias for VectorPaint (for backwards compatibility)
+ */
+export type VectorStyle = VectorPaint;
 
 /**
  * 元素类型

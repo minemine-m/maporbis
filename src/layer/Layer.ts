@@ -1,7 +1,7 @@
 import { Group, Sprite } from "three";
 import { BaseMixin, EventMixin } from "../core/mixins";
 import type { Map } from '../map';
-import type { SceneRenderer } from '../viewer';
+import type { SceneRenderer } from '../renderer';
 import { requireParam } from "../utils/validate";
 import Handlerable from '../handler/Handlerable';
 
