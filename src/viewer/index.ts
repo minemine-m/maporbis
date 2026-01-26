@@ -748,7 +748,9 @@ export class Viewer extends ViewerBase {
   /**
    * 创建三个辅助平行光 (后补光、左侧光、右侧光)，指向场景中心。
    * @returns 返回后补光实例 (匹配 this.auxDirLight 属性)
+   * @internal Reserved for future use
    */
+  // @ts-ignore - Reserved method for auxiliary light creation
   private _createAuxDirLight(): DirectionalLight {
     const size = 55000;
     const intensity = 0.5; // 辅助光强度

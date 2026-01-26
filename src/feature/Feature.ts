@@ -1,6 +1,6 @@
 import { Point as GeoJSONPoint, MultiPoint as GeoJSONMultiPoint, LineString as GeoJSONLineString, MultiLineString as GeoJSONMultiLineString, Polygon as GeoJSONPolygon, MultiPolygon as GeoJSONMultiPolygon } from 'geojson';
 import { Line2 } from 'three-stdlib';
-import { Object3D, Vector3, Mesh, Camera, WebGLRenderer, Box3, Vector2, Points, PointsMaterial } from 'three';
+import { Object3D, Vector3, Mesh, Camera, WebGLRenderer, Box3, Vector2 } from 'three';
 import { BaseMixin, EventMixin } from "../core/mixins";
 import { requireParam } from "../utils/validate";
 import { OverlayLayer } from '../layer/OverlayLayer';
@@ -8,10 +8,10 @@ import { Layer } from '../layer/Layer';
 import { Style, StyleInput } from '../style/index';
 import { v4 as uuidv4 } from 'uuid';
 import Handlerable from '../handler/Handlerable';
-import { ICollidable, ICollisionState } from '../core/collision/interfaces/ICollidable';
+import { ICollidable } from '../core/collision/interfaces/ICollidable';
 import { CollisionType, CollisionReason, IBoundingBox } from '../core/collision/types/CollisionTypes';
 import { FeatureDragHandler } from '../handler/drag/FeatureDragHandler';
-// import { isObjectInFrustum } from '../utils';
+import { FeatureStyleManager, FeatureBloomHelper } from './internal';
 
 import type { Map } from '../map';
 
@@ -141,62 +141,24 @@ export abstract class Feature extends Handlerable(
      * 要素ID
      */
     _id: string;
+    
     /**
-     * Style queue (for handling asynchronous style application).
-     * 样式队列（用于处理异步样式应用）
+     * Internal style manager.
+     * 内部样式管理器
      */
-    private _styleQueue: StyleInput[] = [];
+    private _styleManager: FeatureStyleManager;
+    
     /**
-     * Whether style is currently being applied.
-     * 是否正在应用样式
+     * Internal bloom helper.
+     * 内部发光效果辅助器
      */
-    private _isApplyingStyle = false;
+    private _bloomHelper: FeatureBloomHelper;
+    
     /**
      * Whether geometry is currently initializing.
      * 是否正在初始化几何体
      */
     private _isGeometryInitializing = false;
-
-    /**
-     * Current bloom configuration (if any).
-     * 当前发光配置（如果有）
-     */
-    private _bloomConfig?: {
-        enabled: boolean;
-        intensity: number;
-        color: string;
-    };
-
-    /**
-     * Collision state.
-     * 避让相关状态
-     */
-    private _collisionState: ICollisionState = {
-        visible: true,
-        reason: CollisionReason.NO_COLLISION,
-        collidedWith: [],
-        timestamp: Date.now()
-    };
-
-    /**
-     * Collision detection configuration.
-     * 碰撞检测配置
-     */
-    private _collisionConfig = {
-        enabled: true,
-        priority: 50,
-        padding: 4,
-        minZoom: 0,
-        maxZoom: 24
-    };
-
-    /**
-     * Animation reference ID.
-     * 动画引用标识
-     */
-    private _animationRef: number | null = null;
-    /** 上次计算的包围盒缓存 */
-    // private _lastBoundingBox: IBoundingBox | null = null;
 
     /**
      * Create a feature instance.
@@ -212,11 +174,29 @@ export abstract class Feature extends Handlerable(
         this._worldCoordinates = new Vector3(0, 0, 0);
         this._renderObject = new Object3D();
 
-        // 初始化 options 对象供 Handler 使用
+        // Initialize options object for Handler use
         this.options = {
             draggable: options.draggable || false,
             editable: options.editable || false
         };
+
+        // Generate feature ID
+        if (options.id) {
+            this._id = options.id
+        } else {
+            this._id = uuidv4();
+        }
+        
+        // Initialize internal managers
+        this._styleManager = new FeatureStyleManager(
+            () => this._renderObject,
+            () => this._ensureRenderObjectInScene()
+        );
+        this._styleManager.setOnStyleApplied((style) => {
+            this._onStyleApplied(style);
+        });
+        
+        this._bloomHelper = new FeatureBloomHelper();
 
         if (options.userData) {
             this.userData = Object.assign(
@@ -227,13 +207,51 @@ export abstract class Feature extends Handlerable(
         if (options.style) {
             this.setStyle(options.style);
         }
-        if (options.id) {
-            this._id = options.id
-        } else {
-            this._id = uuidv4();
-        }
-        // 注册处理器
+        // Register handler
         this.addHandler('draggable', FeatureDragHandler);
+    }
+
+    /**
+     * Ensure render object is added to the scene.
+     * 确保渲染对象已添加到场景中
+     */
+    private _ensureRenderObjectInScene(): void {
+        if (this._renderObject && !this._renderObject.parent) {
+            this.add(this._renderObject);
+        }
+    }
+
+    /**
+     * Apply alpha value to object.
+     * 应用透明度值到对象
+     * @internal Reserved for collision visibility animation
+     */
+    // @ts-ignore - Reserved method for alpha transitions
+    private _applyAlphaToObject(alpha: number): void {
+        (this._renderObject as Object3D)?.traverse?.((child: any) => {
+            if (child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach((mat: any) => {
+                    if (mat && typeof mat.opacity !== 'undefined') {
+                        mat.opacity = alpha * (mat.userData?.originalOpacity ?? 1);
+                        mat.transparent = mat.opacity < 1;
+                        mat.needsUpdate = true;
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Called when style is successfully applied.
+     * 样式成功应用后调用
+     */
+    private _onStyleApplied(style: Style): void {
+        // Apply bloom configuration if present
+        if (style.config.bloom !== undefined) {
+            this._bloomHelper.applyStyleBloom(style.config.bloom);
+            this._bloomHelper.applyBloomToObject(this._renderObject);
+        }
     }
 
     /**
@@ -251,7 +269,7 @@ export abstract class Feature extends Handlerable(
         this._isGeometryInitializing = true;
         try {
             await this._buildRenderObject();
-            this._processStyleQueue();
+            this._styleManager._tryProcessStyleQueue();
         } finally {
             this._isGeometryInitializing = false;
         }
@@ -280,11 +298,7 @@ export abstract class Feature extends Handlerable(
      * @returns Current feature instance (supports method chaining). 当前要素实例（支持链式调用）
      */
     setStyle(input: StyleInput): this {
-        const style = input instanceof Style ? input : new Style(input);
-        this._style = style;
-        const configCopy = JSON.parse(JSON.stringify(style.config));
-        this._styleQueue.push(configCopy);
-        this._tryProcessQueue();
+        this._style = this._styleManager.enqueueStyle(input);
         return this;
     }
 
@@ -310,23 +324,8 @@ export abstract class Feature extends Handlerable(
         enabled: boolean,
         options?: { intensity?: number; color?: string }
     ): this {
-        const prev = this._bloomConfig || {
-            enabled: false,
-            intensity: 1.0,
-            color: '#ffffff'
-        };
-
-        this._bloomConfig = {
-            enabled,
-            intensity: options?.intensity ?? prev.intensity,
-            color: options?.color ?? prev.color
-        };
-
-        // 如果几何体已初始化，则直接应用到 Three 对象
-        if (this._renderObject) {
-            this._applyBloomToObject(this._renderObject);
-        }
-
+        this._bloomHelper.setBloomConfig(enabled, options);
+        this._bloomHelper.applyBloomToObject(this._renderObject);
         return this;
     }
 
@@ -334,294 +333,8 @@ export abstract class Feature extends Handlerable(
      * Get bloom configuration of the current feature.
      * 获取当前要素的发光配置
      */
-    getBloom():
-        | {
-            enabled: boolean;
-            intensity: number;
-            color: string;
-        }
-        | undefined {
-        return this._bloomConfig;
-    }
-
-
-    /**
-     * Internal method: Apply bloom configuration to Three object.
-     * 内部方法：把发光配置应用到 Three 对象上
-     */
-    private _applyBloomToObject(root: Object3D | Line2): void {
-        if (!this._bloomConfig) return;
-        const { enabled, intensity, color } = this._bloomConfig;
-
-        // 目前对 Mesh / Points / Line2 / Sprite 做处理
-        (root as Object3D).traverse((child: any) => {
-            // Points：用 size + sizeAttenuation 模拟 HUD 式发光点
-            if (child instanceof Points && child.material) {
-                const mat = child.material as PointsMaterial;
-                child.userData = child.userData || {};
-                if (!child.userData.__bloomBackup) {
-                    child.userData.__bloomBackup = {
-                        size: mat.size,
-                        sizeAttenuation: mat.sizeAttenuation
-                    };
-                }
-                const backup = child.userData.__bloomBackup;
-                if (!enabled) {
-                    mat.size = backup.size;
-                    mat.sizeAttenuation = backup.sizeAttenuation;
-                } else {
-                    mat.size = backup.size * (1 + intensity);
-                    mat.sizeAttenuation = false;
-                }
-                mat.needsUpdate = true;
-                return;
-            }
-
-            // Sprite：提高材质颜色亮度实现发光
-            if (child.type === 'Sprite' && child.material) {
-                const mat = child.material as any;
-                child.userData = child.userData || {};
-                if (!child.userData.__bloomBackup) {
-                    child.userData.__bloomBackup = {
-                        color: mat.color ? mat.color.clone() : null,
-                        opacity: mat.opacity ?? 1.0
-                    };
-                }
-                const backup = child.userData.__bloomBackup;
-                if (!enabled) {
-                    if (backup.color && mat.color) {
-                        mat.color.copy(backup.color);
-                    }
-                    mat.opacity = backup.opacity;
-                } else {
-                    if (mat.color && backup.color) {
-                        mat.color.copy(backup.color);
-                        if (color && color !== '#ffffff') {
-                            mat.color.setStyle(color);
-                            mat.color.multiplyScalar(1 + intensity * 2.0);
-                        } else {
-                            mat.color.multiplyScalar(1 + intensity * 2.0);
-                        }
-                    }
-                    mat.opacity = Math.min(1.0, (backup.opacity ?? 1.0) * (1 + intensity * 0.3));
-                }
-                mat.needsUpdate = true;
-                return;
-            }
-
-            // Line2 (LineSegments2)：通过提高 color 亮度 + opacity 实现发光
-            if (child.isLine2 && child.material) {
-                const mat = child.material as any;
-                child.userData = child.userData || {};
-                if (!child.userData.__bloomBackup) {
-                    child.userData.__bloomBackup = {
-                        color: mat.color ? mat.color.clone() : null,
-                        opacity: mat.opacity ?? 1.0
-                    };
-                }
-                const backup = child.userData.__bloomBackup;
-                if (!enabled) {
-                    if (backup.color && mat.color) {
-                        mat.color.copy(backup.color);
-                    }
-                    mat.opacity = backup.opacity;
-                } else {
-                    // Line2 发光：用更大的系数让它能穿透 threshold
-                    if (mat.color && backup.color) {
-                        mat.color.copy(backup.color);
-                        if (color && color !== '#ffffff') {
-                            // 指定了发光颜色：用该颜色且大幅提亮以穿透 threshold
-                            mat.color.setStyle(color);
-                            mat.color.multiplyScalar(1 + intensity * 2.0);
-                        } else {
-                            // 没指定发光颜色：保持原色，大幅提亮以穿透 threshold
-                            mat.color.multiplyScalar(1 + intensity * 2.0);
-                        }
-                    }
-                    mat.opacity = Math.min(1.0, (backup.opacity ?? 1.0) * (1 + intensity * 0.3));
-                }
-                mat.needsUpdate = true;
-                return;
-            }
-
-            // Mesh：使用材质的 emissive / emissiveIntensity
-            if (child instanceof Mesh && child.material) {
-                const materials = Array.isArray(child.material)
-                    ? child.material
-                    : [child.material];
-
-                materials.forEach((mat: any) => {
-                    child.userData = child.userData || {};
-                    if (!child.userData.__bloomBackup) {
-                        child.userData.__bloomBackup = {
-                            emissiveIntensity: mat.emissiveIntensity ?? 0,
-                            emissiveColor: mat.emissive ? mat.emissive.clone() : null,
-                            color: mat.color ? mat.color.clone() : null
-                        };
-                    }
-                    const backup = child.userData.__bloomBackup;
-
-                    if (!enabled) {
-                        // 关闭发光：恢复原始值
-                        if ('emissiveIntensity' in mat) {
-                            mat.emissiveIntensity =
-                                backup.emissiveIntensity !== undefined
-                                    ? backup.emissiveIntensity
-                                    : 0;
-                        }
-                        if (backup.emissiveColor && mat.emissive) {
-                            mat.emissive.copy(backup.emissiveColor);
-                        }
-                        if (backup.color && mat.color) {
-                            mat.color.copy(backup.color);
-                        }
-                    } else {
-                        // Mesh 发光：优先用 emissive（不改原色），没 emissive 用 color
-                        if ('emissive' in mat && mat.emissive) {
-                            mat.emissiveIntensity = intensity;
-                            if (color && color !== '#ffffff' && mat.emissive.setStyle) {
-                                // 指定了 bloom.color，用它作为 emissive 颜色
-                                mat.emissive.setStyle(color);
-                            } else if (backup.color && mat.emissive) {
-                                // 没指定 bloom.color，用原色作为 emissive 颜色
-                                mat.emissive.copy(backup.color);
-                            }
-                        } else if (mat.color) {
-                            // 没有 emissive 的材质，只能用 color
-                            if (backup.color) {
-                                mat.color.copy(backup.color);
-                            }
-                            if (color && color !== '#ffffff') {
-                                // 指定了 bloom.color，直接用该颜色
-                                mat.color.setStyle(color);
-                            } else {
-                                // 没指定 bloom.color，保持原色微微提亮
-                                mat.color.multiplyScalar(1 + intensity * 0.3);
-                            }
-                        }
-                    }
-                    mat.needsUpdate = true;
-                });
-            }
-        });
-    }
-
-    /**
-    * Apply style with retry mechanism
-    * 应用样式（带重试机制）
-    * 
-    * @param style - Style instance 样式实例
-    * @param maxRetries - Maximum retries (default: 3) 最大重试次数（默认3）
-    * @param baseDelay - Base delay in ms (default: 100) 基础延迟时间（毫秒，默认100）
-    * @returns Promise<void>
-    * @private
-    */
-    private async _applyStyleWithRetry(
-        style: Style,
-        maxRetries: number = 3,
-        baseDelay: number = 100
-    ): Promise<void> {
-        let lastError: Error | null = null;
-
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                if (!this._renderObject!.parent) {
-                    this.add(this._renderObject!);
-                    await new Promise(r => requestAnimationFrame(r));
-                }
-                await style.applyTo(this._renderObject!);
-
-                // 样式应用完成后，自动从样式里提取 bloom 配置并应用
-                const baseStyle = style.config as any;
-                if (baseStyle.bloom !== undefined) {
-                    const bloomOpt = baseStyle.bloom;
-                    if (typeof bloomOpt === 'boolean') {
-                        this._bloomConfig = {
-                            enabled: bloomOpt,
-                            intensity: 1.0,
-                            color: '#ffffff'
-                        };
-                    } else {
-                        this._bloomConfig = {
-                            enabled: bloomOpt.enabled ?? true,
-                            intensity: bloomOpt.intensity ?? 1.0,
-                            color: bloomOpt.color ?? '#ffffff'
-                        };
-                    }
-                }
-
-                // 如果有发光配置（来自样式或手动 setBloom），立即套在几何体上
-                if (this._bloomConfig && this._renderObject) {
-                    this._applyBloomToObject(this._renderObject);
-                }
-
-                return;
-            } catch (error) {
-                lastError = error as Error;
-                if (attempt < maxRetries) {
-                    const delay = baseDelay * Math.pow(2, attempt - 1);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-        }
-        throw lastError || new Error(`样式应用失败，重试次数耗尽`);
-    }
-
-    /**
-     * Process style queue
-     * 处理样式队列
-     * 
-     * @private
-     * @returns Promise<void>
-     */
-    private async _processStyleQueue(): Promise<void> {
-        if (!this._renderObject || this._isApplyingStyle || this._styleQueue.length === 0) {
-            return;
-        }
-
-        this._isApplyingStyle = true;
-        const currentStyle = this._styleQueue[0];
-
-        try {
-            const styleInstance = new Style(JSON.parse(JSON.stringify(currentStyle)));
-            await this._applyStyleWithRetry(styleInstance);
-            this._styleQueue.shift();
-            if (this._styleQueue.length > 0) {
-                await this._processStyleQueue();
-            }
-        } catch (error) {
-            throw error;
-        } finally {
-            this._isApplyingStyle = false;
-            if (this._styleQueue.length > 0) {
-                this._tryProcessQueue();
-            }
-        }
-    }
-
-    /**
-     * Try to process style queue
-     * 尝试处理样式队列
-     * 
-     * @private
-     */
-    _tryProcessQueue(): void {
-        const shouldProcess = (
-            this._renderObject &&
-            !this._isApplyingStyle &&
-            this._styleQueue.length > 0
-        );
-
-        if (shouldProcess) {
-            this._processStyleQueue()
-                .catch((error) => {
-                    this._isApplyingStyle = false;
-                    this._tryProcessQueue();
-                    console.warn(error);
-                });
-        } else if (!this._renderObject && !this._isGeometryInitializing) {
-            this.initializeGeometry();
-        }
+    getBloom(): { enabled: boolean; intensity: number; color: string } | undefined {
+        return this._bloomHelper.getBloomConfig();
     }
 
     /**

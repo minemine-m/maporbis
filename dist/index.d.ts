@@ -416,6 +416,7 @@ export declare interface BaseStyle {
     depthTest?: boolean;
     depthWrite?: boolean;
     transparent?: boolean;
+    alphaTest?: number;
     /** 发光配置（可选，配合全局 bloom 后处理） */
     bloom?: boolean | {
         /** 是否启用发光（默认 true） */
@@ -1559,41 +1560,20 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      */
     _id: string;
     /**
-     * Style queue (for handling asynchronous style application).
-     * 样式队列（用于处理异步样式应用）
+     * Internal style manager.
+     * 内部样式管理器
      */
-    private _styleQueue;
+    private _styleManager;
     /**
-     * Whether style is currently being applied.
-     * 是否正在应用样式
+     * Internal bloom helper.
+     * 内部发光效果辅助器
      */
-    private _isApplyingStyle;
+    private _bloomHelper;
     /**
      * Whether geometry is currently initializing.
      * 是否正在初始化几何体
      */
     private _isGeometryInitializing;
-    /**
-     * Current bloom configuration (if any).
-     * 当前发光配置（如果有）
-     */
-    private _bloomConfig?;
-    /**
-     * Collision state.
-     * 避让相关状态
-     */
-    private _collisionState;
-    /**
-     * Collision detection configuration.
-     * 碰撞检测配置
-     */
-    private _collisionConfig;
-    /**
-     * Animation reference ID.
-     * 动画引用标识
-     */
-    private _animationRef;
-    /** 上次计算的包围盒缓存 */
     /**
      * Create a feature instance.
      * 创建要素实例
@@ -1602,6 +1582,17 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      * @throws Throws error if geometry is not provided. 如果未提供geometry参数会抛出错误
      */
     constructor(options: FeatureOptions);
+    /**
+     * Ensure render object is added to the scene.
+     * 确保渲染对象已添加到场景中
+     */
+    private _ensureRenderObjectInScene;
+    /* Excluded from this release type: _applyAlphaToObject */
+    /**
+     * Called when style is successfully applied.
+     * 样式成功应用后调用
+     */
+    private _onStyleApplied;
     /**
      * Initialize geometry (template method).
      * 初始化几何体（模板方法）
@@ -1658,37 +1649,6 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
         intensity: number;
         color: string;
     } | undefined;
-    /**
-     * Internal method: Apply bloom configuration to Three object.
-     * 内部方法：把发光配置应用到 Three 对象上
-     */
-    private _applyBloomToObject;
-    /**
-     * Apply style with retry mechanism
-     * 应用样式（带重试机制）
-     *
-     * @param style - Style instance 样式实例
-     * @param maxRetries - Maximum retries (default: 3) 最大重试次数（默认3）
-     * @param baseDelay - Base delay in ms (default: 100) 基础延迟时间（毫秒，默认100）
-     * @returns Promise<void>
-     * @private
-     */
-    private _applyStyleWithRetry;
-    /**
-     * Process style queue
-     * 处理样式队列
-     *
-     * @private
-     * @returns Promise<void>
-     */
-    private _processStyleQueue;
-    /**
-     * Try to process style queue
-     * 尝试处理样式队列
-     *
-     * @private
-     */
-    _tryProcessQueue(): void;
     /**
      * Add feature to layer
      * 将要素添加到图层
@@ -7414,7 +7374,6 @@ export declare class LoaderUtils {
         /** Directional light 平行光 */
         readonly dirLight: DirectionalLight;
         /** 辅助平行光 (补光) */
-        readonly auxDirLight: DirectionalLight;
         /** 云层效果 */
         clouds: Clouds | null;
         /** 容器元素 */
@@ -7472,11 +7431,6 @@ export declare class LoaderUtils {
          */
         addTo(container: HTMLElement | string): this;
         /**
-         * 创建场景
-         * @param skyboxConfig 天空盒配置
-         * @returns 场景对象
-         */
-        /**
          * Create scene
          * 创建场景
          * @param skyboxConfig Skybox configuration 天空盒配置
@@ -7522,11 +7476,7 @@ export declare class LoaderUtils {
          * @returns 平行光对象
          */
         private _createDirLight;
-        /**
-         * 创建三个辅助平行光 (后补光、左侧光、右侧光)，指向场景中心。
-         * @returns 返回后补光实例 (匹配 this.auxDirLight 属性)
-         */
-        private _createAuxDirLight;
+        /* Excluded from this release type: _createAuxDirLight */
         /**
          * Create a single auxiliary directional light instance.
          * 创建单个辅助平行光实例。

@@ -476,49 +476,11 @@ export class Map extends Handlerable(
         const baseLayer = this.getLayers()
             .find((layer) => (layer as any).isBaseLayer === true) as any;
         const dataMin = baseLayer?.minLevel ?? this.minLevel;
-        // const dataMax = baseLayer?.maxLevel ?? this.maxLevel;
 
         // Min zoom uses data minLevel, Max zoom uses global theoretical limit (e.g. 22)
         // 最小 zoom 用数据的 minLevel，最大 zoom 用全局理论上限（比如 22）
         this._minZoom = Math.max(this._ZOOM_MIN_CONST, Math.min(this._ZOOM_MAX_CONST, dataMin));
         this._maxZoom = this._ZOOM_MAX_CONST;
-
-        // If minZoom/maxZoom provided externally, apply range limit (will sync controls.minDistance/maxDistance)
-        // 如果外部传了 minZoom/maxZoom，先应用范围限制（里面会顺带同步 controls.minDistance/maxDistance）
-
-        // TODO: Temporarily remove limit, setZoomRange is not quite correct
-        // TODO: 暂时去掉限制  setZoomRange 不太正确
-        // if (!isNullOrUndefined(options.minZoom) || !isNullOrUndefined(options.maxZoom)) {
-        //     const minZoom = !isNullOrUndefined(options.minZoom) ? options.minZoom as number : this._minZoom;
-        //     const maxZoom = !isNullOrUndefined(options.maxZoom) ? options.maxZoom as number : this._maxZoom;
-        //     this.setZoomRange(minZoom, maxZoom);
-        // } else {
-        //     // If not explicitly provided, update control distance with default range
-        //     // 没有显式传入，就用默认范围更新控制器距离
-        //     this.setZoomRange(this._minZoom, this._maxZoom);
-        // }
-
-        // === Determine initial zoom, and pull camera to corresponding height based on zoom ===
-        // === 决定初始 zoom，并根据 zoom 拉相机到对应高度 ===
-        const initialCenterPos = this.prjcenter;
-        const currentCameraPos = this.viewer.camera.position.clone();
-        const viewDirection = currentCameraPos.clone().sub(initialCenterPos).normalize(); // View direction 视线方向
-
-        // Initial zoom: prioritize external input, otherwise use default value (e.g. 13)
-        // 初始 zoom：优先使用外部传入，否则用一个默认值（比如 13）
-        const defaultZoom = 13;
-        const initZoomRaw = !isNullOrUndefined(options.zoom) ? (options.zoom as number) : defaultZoom;
-        const initZoom = Math.max(this._minZoom, Math.min(this._maxZoom, initZoomRaw));
-
-        // Calculate target distance based on zoom, and move camera along current view direction
-        // 根据 zoom 计算目标距离，并沿当前视线方向移动相机
-        const targetDistance = this._computeDistanceFromZoom(initZoom);
-        // @ts-ignore TODO: Temporarily comment out zoom initialization related code TODO:暂时注释掉zoom初始化相关的代码
-        const newCameraPos = centerWorldPos.clone().addScaledVector(viewDirection, targetDistance);
-
-        // this.viewer.camera.position.copy(newCameraPos);
-        // this.viewer.camera.lookAt(centerWorldPos);
-        // this.viewer.controls.target.copy(centerWorldPos);
 
         // Initialize "last zoom" to current tile level
         // 初始化“上一次 zoom”为当前瓦片级别
@@ -538,13 +500,6 @@ export class Map extends Handlerable(
                 proximity: true
             }
         });
-
-        // this.on('control-change', debounce((evt: any) => {
-        //     this._collisionEngine.update(evt.camera);
-        // }, 10, {  // Increase delay to 100ms 增加延迟到100ms
-        //     leading: false,
-        //     trailing: true
-        // }));
 
         // Listen to control changes: update zoom, and drive collision and zoom events
         // 监听控制器变化：更新 zoom，并驱动碰撞与缩放事件
@@ -623,7 +578,6 @@ export class Map extends Handlerable(
 
                 this._lastZoomForControls = newZoom;
             }
-            // console.log('dataZoom', dataZoom, 'overZoom', this._overZoom, 'zoom', this.getZoom());
             this._collisionEngine.update(evt.camera);
         }, 10, {
             leading: false,
