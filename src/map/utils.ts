@@ -41,7 +41,7 @@ export function getLocalInfoFromRay(map: Map, ray: Raycaster) {
             // const point = map.worldToLocal(intersect.point.clone());
             const point = intersect.point.clone(); 
             
-            const lonlat = map.unproject(point);
+            const lonlat = map.pointToLngLat(point);
             return Object.assign(intersect, {
                 location: lonlat,
             }) as LocationInfo;

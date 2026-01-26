@@ -185,7 +185,19 @@
             source: {
               minLevel: 2,
               maxLevel: 19,
-              baseLayers: [],
+              baseLayers: [
+                new maporbis.WMTSTileLayer("esri_imagery", {
+                  source: new maporbis.TileSource({
+                    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    projectionID: "3857",
+                  }),
+                  projection: maporbis.ProjectionFactory.create("3857"),
+                  opacity: 1.0,
+                  visible: true,
+                  altitude:1
+                  
+                }),
+              ],
             },
             renderer: {
               stats: true,
@@ -201,7 +213,7 @@
             camera: {
               pitch: 75,
               bearing: 0,
-            }
+            },
           });
           map.setGroundVisible(true);
           updateStatus();
@@ -319,7 +331,7 @@
         } else {
           showNotification("请先添加标记", "warning");
         }
-      }
+      };
 
       // 更新标记内容
       window.updateContent = function () {
@@ -337,7 +349,7 @@
         } else {
           showNotification("请先添加标记", "warning");
         }
-      }
+      };
 
       // 清除标记
       window.clearMarker = function () {

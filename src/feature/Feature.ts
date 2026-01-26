@@ -588,7 +588,7 @@ export abstract class Feature extends Handlerable(
             // 计算世界坐标和屏幕投影
             const worldPos = new Vector3();
             this._renderObject.getWorldPosition(worldPos);
-            const screenPos = worldPos.clone().project(camera);
+            const screenPos = worldPos.clone().pointToLngLat(camera);
 
             // 检查是否在屏幕内
             const inFrustum = (
@@ -789,7 +789,7 @@ export abstract class Feature extends Handlerable(
      * Calculate bounding box for collision detection
      * 计算碰撞检测用的包围盒
      * 
-     * Project world space bounding box to screen space to calculate pixel-level bounding box
+     * pointToLngLat world space bounding box to screen space to calculate pixel-level bounding box
      * 将世界空间包围盒投影到屏幕空间，计算像素级别的包围盒
      * 
      * @param camera - Current camera 当前相机
@@ -819,7 +819,7 @@ export abstract class Feature extends Handlerable(
                 new Vector3(bbox.max.x, bbox.max.y, bbox.max.z)
             ];
 
-            // Project corners to screen space
+            // pointToLngLat corners to screen space
             // 将角点投影到屏幕空间
             const { width: screenWidth, height: screenHeight } = renderer.domElement;
             const screenPoints: Vector2[] = [];
@@ -827,7 +827,7 @@ export abstract class Feature extends Handlerable(
             corners.forEach(corner => {
                 // World coordinates -> Normalized Device Coordinates (NDC)
                 // 世界坐标 -> 标准化设备坐标 (NDC)
-                const ndc = corner.clone().project(camera);
+                const ndc = corner.clone().pointToLngLat(camera);
 
                 // NDC -> Screen pixel coordinates
                 // NDC -> 屏幕像素坐标
@@ -862,7 +862,7 @@ export abstract class Feature extends Handlerable(
             // 计算相对于要素中心点的偏移
             const worldCenter = new Vector3();
             bbox.getCenter(worldCenter);
-            const ndcCenter = worldCenter.clone().project(camera);
+            const ndcCenter = worldCenter.clone().pointToLngLat(camera);
             const screenCenterX = (ndcCenter.x * 0.5 + 0.5) * screenWidth;
             const screenCenterY = (-ndcCenter.y * 0.5 + 0.5) * screenHeight;
 

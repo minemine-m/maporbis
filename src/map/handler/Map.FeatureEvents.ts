@@ -148,14 +148,14 @@ class MapFeatureEventsHandler extends Handler {
 
         // Get event position
         // 获取事件位置
-        const position = map._getEventPosition(domEvent as any);
+        const position = map._getPointerPosition(domEvent as any);
         if (!position) return;
 
         // Find all Features at this position
         // 找出该位置的所有Feature
-        const features = map._findFeaturesAt(position);
-        // _findFeaturesAt internally filters tile and other non-Feature objects
-        // _findFeaturesAt 内部已过滤 tile 等非 Feature 对象
+        const features = map._queryFeaturesAt(position);
+        // _queryFeaturesAt internally filters tile and other non-Feature objects
+        // _queryFeaturesAt 内部已过滤 tile 等非 Feature 对象
         if (features.length === 0) return;
 
         const topFeature = features[0].feature as Feature; // Top Feature 最上层的Feature

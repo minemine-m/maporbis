@@ -207,7 +207,7 @@ export class FeatureCollisionHelper {
             // Calculate world coordinates and screen projection
             const worldPos = new Vector3();
             renderObject.getWorldPosition(worldPos);
-            const screenPos = worldPos.clone().project(camera);
+            const screenPos = worldPos.clone().pointToLngLat(camera);
 
             // Check if in screen bounds
             const inFrustum = this._isInScreenBounds(screenPos);
@@ -272,7 +272,7 @@ export class FeatureCollisionHelper {
             // Get 8 corners of the bounding box
             const corners = this._getBoxCorners(bbox);
 
-            // Project corners to screen space
+            // pointToLngLat corners to screen space
             const { width: screenWidth, height: screenHeight } = renderer.domElement;
             const screenPoints = this._projectCornersToScreen(corners, camera, screenWidth, screenHeight);
 
@@ -290,7 +290,7 @@ export class FeatureCollisionHelper {
             // Calculate offset relative to feature center
             const worldCenter = new Vector3();
             bbox.getCenter(worldCenter);
-            const ndcCenter = worldCenter.clone().project(camera);
+            const ndcCenter = worldCenter.clone().pointToLngLat(camera);
             const screenCenterX = (ndcCenter.x * 0.5 + 0.5) * screenWidth;
             const screenCenterY = (-ndcCenter.y * 0.5 + 0.5) * screenHeight;
 
@@ -325,7 +325,7 @@ export class FeatureCollisionHelper {
     }
 
     /**
-     * Project 3D corners to screen coordinates.
+     * pointToLngLat 3D corners to screen coordinates.
      * 将3D角点投影到屏幕坐标
      */
     private _projectCornersToScreen(
@@ -335,7 +335,7 @@ export class FeatureCollisionHelper {
         screenHeight: number
     ): Vector2[] {
         return corners.map(corner => {
-            const ndc = corner.clone().project(camera);
+            const ndc = corner.clone().pointToLngLat(camera);
             const screenX = (ndc.x * 0.5 + 0.5) * screenWidth;
             const screenY = (-ndc.y * 0.5 + 0.5) * screenHeight;
             return new Vector2(screenX, screenY);

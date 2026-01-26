@@ -1,5 +1,5 @@
 
-/** Project ID */
+/** pointToLngLat ID */
 export type ProjectionType = "3857" | "4326";
 /**
  * Source interface
