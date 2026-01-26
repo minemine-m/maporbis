@@ -345,7 +345,7 @@ export class SceneRenderer extends SceneRendererBase {
     // this.scene.add(this.headlight.target);
 
     this._defaultGround = this._createDefaultGround();
-    // this.scene.add(this._defaultGround);
+    this.scene.add(this._defaultGround);
 
     // 初始化 bloom 管线：普通渲染 + UnrealBloomPass
     if (bloom && bloom.enabled) {
@@ -1273,6 +1273,9 @@ export class SceneRenderer extends SceneRendererBase {
       color: new Color("rgb(45,52,60)").multiplyScalar(0.7),
       metalness: 0.2,
       roughness: 1.0,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
     });
     const geometry = new PlaneGeometry(
       this._sceneSize * 2,
@@ -1282,7 +1285,7 @@ export class SceneRenderer extends SceneRendererBase {
     mesh.name = "DefaultGround";
     mesh.castShadow = false;
     mesh.receiveShadow = true;
-    mesh.position.y = 0;
+    mesh.position.y = -0.1;
     mesh.position.add(centerWorldPos);
     mesh.rotateX(-Math.PI / 2);
     mesh.visible = false;
@@ -1330,8 +1333,8 @@ export class SceneRenderer extends SceneRendererBase {
     
     // Reset ground position
     // 重置地面位置
-    this._defaultGround.position.set(0, 0, 0);
-    this._defaultGround.position.add(newCenterWorldPos);
+    this._defaultGround.position.copy(newCenterWorldPos);
+    this._defaultGround.position.y -= 0.1;
   }
 
   /**
