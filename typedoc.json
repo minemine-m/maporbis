@@ -6,6 +6,7 @@
     "out": "docs/typedoc",
     "plugin": [],
     "customCss": "./docs/typedoc-custom.css",
+    "favicon": "./assets/favicon/favicon.ico",
     "categorizeByGroup": true,
     "categoryOrder": [
         "Map",
