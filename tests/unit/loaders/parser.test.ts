@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { RGBParser } from '@/loaders/parsers/rgb-parse';
 import { MVTParser } from '@/loaders/parsers/mvt-parser';
-import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 
 // Mock @mapbox/vector-tile

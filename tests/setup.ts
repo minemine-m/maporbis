@@ -1,5 +1,5 @@
 import 'vitest-canvas-mock';
-import { vi, beforeEach, afterEach } from 'vitest';
+import { vi, afterEach } from 'vitest';
 
 // Clear all timers after each test to prevent timer leaks
 afterEach(() => {

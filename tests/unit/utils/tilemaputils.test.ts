@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getLocalFromMouse, limitCameraHeight } from '@/utils/tilemaputils';
-import { Vector2, Vector3, PerspectiveCamera } from 'three';
+import { Vector3, PerspectiveCamera } from 'three';
 import * as mapUtils from '@/map/utils';
 
 // Mock mapUtils

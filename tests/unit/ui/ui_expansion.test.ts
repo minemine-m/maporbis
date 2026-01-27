@@ -31,12 +31,6 @@ vi.mock('@/map', () => {
 });
 
 describe('InfoWindow', () => {
-    let mockMap: any;
-
-    beforeEach(() => {
-        mockMap = new Map('container', {} as any);
-    });
-
     it('should create DOM structure with title and content', () => {
         const info = new InfoWindow({
             title: 'Test Title',

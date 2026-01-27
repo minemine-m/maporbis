@@ -49,11 +49,8 @@ vi.mock('@/core/tile', async () => {
     };
 });
 
-import { Feature } from '@/feature/Feature';
-
 // Mock Features
 vi.mock('../../../src/feature', async (importOriginal) => {
-    const { Object3D } = await vi.importActual('three') as any;
     const actual = await importOriginal<any>();
     const { Feature: RealFeature } = await vi.importActual('../../../src/feature/Feature') as any;
     
@@ -91,11 +88,9 @@ vi.mock('../../../src/feature', async (importOriginal) => {
 });
 
 describe('VectorTileLayer', () => {
-    let mockMap: any;
     let mockSource: any;
 
     beforeEach(() => {
-        mockMap = new Map('container', {} as any);
         mockSource = {
             on: vi.fn(),
             off: vi.fn(),

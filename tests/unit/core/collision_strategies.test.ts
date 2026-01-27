@@ -11,7 +11,7 @@ describe('StrategyOrchestrator', () => {
         const strategy1 = {
             name: 'strategy1',
             enabled: true,
-            execute: vi.fn().mockImplementation(async (features) => [
+            execute: vi.fn().mockImplementation(async () => [
                 { featureId: 'f1', visible: false, reason: CollisionReason.PRIORITY_LOST, timestamp: 0 }
             ])
         };
@@ -19,7 +19,7 @@ describe('StrategyOrchestrator', () => {
         const strategy2 = {
             name: 'strategy2',
             enabled: true,
-            execute: vi.fn().mockImplementation(async (features) => [
+            execute: vi.fn().mockImplementation(async () => [
                 { featureId: 'f2', visible: false, reason: CollisionReason.PRIORITY_LOST, timestamp: 0 }
             ])
         };

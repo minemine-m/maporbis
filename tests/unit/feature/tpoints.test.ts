@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TPoints } from '@/feature/TPoints';
-import { Vector3, Object3D } from 'three';
+import { Vector3 } from 'three';
 
 // Mock createobject utilities
 vi.mock('@/utils/createobject', async (importOriginal) => {

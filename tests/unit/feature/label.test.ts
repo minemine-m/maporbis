@@ -90,8 +90,6 @@ describe('Label Feature', () => {
         label._bindLayer({ getMap: () => mockMap } as any);
         await label._buildRenderObject();
 
-        const oldPos = (label as any)._renderObject?.position.clone();
-        
         // Simulate move
         mockMap.lngLatToWorld.mockReturnValue(new Vector3(150, 250, 0));
         (label as any)._refreshCoordinates();

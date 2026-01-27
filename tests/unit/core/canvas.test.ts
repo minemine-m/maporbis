@@ -39,7 +39,7 @@ describe('CanvasManager', () => {
         ctx.fillRect(0, 0, 10, 10);
         
         // Get again should clear it
-        const canvas2 = manager.getCanvas(10, 10);
+        manager.getCanvas(10, 10);
         const imageData = ctx.getImageData(0, 0, 1, 1).data;
         expect(imageData[3]).toBe(0); // Transparent (cleared)
     });

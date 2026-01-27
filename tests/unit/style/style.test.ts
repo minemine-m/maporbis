@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { matchFilter } from '@/style/filter';
 import { LayerPaint } from '@/style/Layerstyle';
 import { Paint } from '@/style/index';
-import { Points, Vector3, PointsMaterial } from 'three';
+import { Points, PointsMaterial } from 'three';
 
 describe('Style Filter', () => {
     const properties = {

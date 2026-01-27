@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { LineString } from '@/feature/LineString';
 import { Vector3 } from 'three';
-import { Map } from '@/map/index';
 
 describe('LineString Feature', () => {
     it('should initialize with geometry', () => {

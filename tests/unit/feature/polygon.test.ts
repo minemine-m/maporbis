@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Polygon } from '@/feature/Polygon';
 import { Paint } from '@/style/index';
-import * as THREE from 'three';
 
 // Mock the createobject utilities
 vi.mock('@/utils/createobject', () => ({

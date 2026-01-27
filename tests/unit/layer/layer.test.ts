@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { LayerContainer } from '@/layer/LayerContainer';
 import { PointLayer } from '@/layer/PointLayer';
 import { LineLayer } from '@/layer/LineLayer';

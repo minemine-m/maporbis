@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Map } from '@/map/index';
 import { PointLayer } from '@/layer/PointLayer';
 import { Marker } from '@/feature/Marker';
-import { CollisionReason } from '@/core/collision/types/CollisionTypes';
 
 describe('Map Collision Integration', () => {
     let container: HTMLElement;

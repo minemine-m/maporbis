@@ -1541,6 +1541,20 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      */
     private _isGeometryInitializing;
     /**
+     * Internal collision configuration.
+     * 内部碰撞配置
+     */
+    private _collisionConfig;
+    /**
+     * Collision state.
+     * 碰撞状态
+     */
+    private _collisionState;
+    /**
+     * Animation reference ID.
+     */
+    private _animationRef;
+    /**
      * Create a feature instance.
      * 创建要素实例
      *
@@ -1677,6 +1691,11 @@ export declare abstract class Feature extends Feature_base implements ICollidabl
      * 更新几何体
      */
     _updateGeometry(): void;
+    /**
+     * Try to process paint queue. (Internal)
+     * 尝试处理样式队列
+     */
+    protected _tryProcessQueue(): void;
     /**
      * Remove self from layer
      * 从图层中移除自身

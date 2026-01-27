@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Vector3, Sprite, Object3D } from 'three';
+import { Sprite, Object3D } from 'three';
 import { Marker } from '@/feature/Marker';
 import { Paint } from '@/style/index';
 
