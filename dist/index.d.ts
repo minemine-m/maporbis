@@ -6140,6 +6140,23 @@ export declare class LoaderUtils {
          */
         isDefaultGroundVisible(): boolean;
         /**
+         * Set the default ground plane visibility.
+         * 设置默认地面平面可见性
+         *
+         * @param visible Whether the ground is visible. 地面是否可见
+         */
+        setDefaultGroundVisible(visible: boolean): void;
+        /**
+         * Set the default ground plane style.
+         * 设置默认地面平面样式
+         *
+         * @param style Style properties. 样式属性
+         */
+        setDefaultGroundStyle(style: {
+            color?: string | number;
+            opacity?: number;
+        }): void;
+        /**
          * 销毁sceneRenderer实例，释放所有资源
          * @description
          * 该方法会清理以下资源：
@@ -6274,6 +6291,17 @@ export declare class LoaderUtils {
         minDistance?: number;
         /** Maximum controller zoom distance (how far the camera can move), default is 60000 控制器最大缩放距离（相机能拉多远），默认为 60000 */
         maxDistance?: number;
+        /** Default ground configuration 默认地面配置 */
+        defaultGround?: {
+            /** Whether to enable default ground, default is false 是否启用默认地面，默认为 false */
+            enabled?: boolean;
+            /** Whether default ground is visible, default is false 默认地面是否可见，默认为 false */
+            visible?: boolean;
+            /** Ground color, default is "rgb(45,52,60)" 地面颜色，默认为 "rgb(45,52,60)" */
+            color?: string | number;
+            /** Ground opacity, default is 1 地面透明度，默认为 1 */
+            opacity?: number;
+        };
     };
 
     /**

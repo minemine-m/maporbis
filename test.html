@@ -194,8 +194,7 @@
                   projection: maporbis.ProjectionFactory.create("3857"),
                   opacity: 1.0,
                   visible: true,
-                  altitude:1
-                  
+                  altitude: 1,
                 }),
               ],
             },
@@ -209,6 +208,12 @@
               },
               minDistance: 20,
               maxDistance: 80000,
+              defaultGround: {
+                enabled: false,
+                visible: true,
+                color: "#ff0000",
+                opacity: 1,
+              },
             },
             camera: {
               pitch: 75,
@@ -305,15 +310,15 @@
           marker = new maporbis.Marker({
             geometry: {
               type: "Point",
-              coordinates: [116.4, 39.9]
+              coordinates: [116.4, 39.9],
             },
             paint: {
               type: "icon",
               url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
               size: 32,
               sizeAttenuation: false,
-              anchor: [0, 0]
-            }
+              anchor: [0, 0],
+            },
           });
 
           marker.addTo(layer);
@@ -336,7 +341,7 @@
             url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
             size: 48,
             sizeAttenuation: false,
-            color: "#00ff00"
+            color: "#00ff00",
           });
 
           showNotification("标记样式已更新", "success");
@@ -438,11 +443,11 @@
         }
 
         notification.innerHTML = `
-        <div class="orbis-notification-content">
-          <i class="fas ${icon}"></i>
-          <span>${message}</span>
-        </div>
-      `;
+            <div class="orbis-notification-content">
+              <i class="fas ${icon}"></i>
+              <span>${message}</span>
+            </div>
+          `;
 
         document.body.appendChild(notification);
 

@@ -1,6 +1,6 @@
 {
 	"name": "maporbis",
-	"version": "0.0.1",
+	"version": "0.1.0-beta",
 	"type": "module",
 	"files": [
 		"dist"
