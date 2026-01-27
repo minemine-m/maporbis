@@ -45,6 +45,7 @@ describe('CollisionEngine', () => {
         const feature = {
             _id: 'test-feature',
             collidable: true,
+            _renderObject: new PerspectiveCamera(), // Add a valid Object3D with getWorldPosition
             setCollisionVisibility: vi.fn()
         } as unknown as Feature;
         Object.setPrototypeOf(feature, Feature.prototype);
@@ -72,6 +73,7 @@ describe('CollisionEngine', () => {
         const feature = {
             _id: 'test-feature',
             collidable: true,
+            _renderObject: new PerspectiveCamera(), // Add a valid Object3D with getWorldPosition
             setCollisionVisibility: vi.fn()
         } as unknown as Feature;
         Object.setPrototypeOf(feature, Feature.prototype);

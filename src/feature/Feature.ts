@@ -617,6 +617,7 @@ export abstract class Feature extends Handlerable(
      */
     getScreenBoundingBox(camera: Camera, renderer: WebGLRenderer): IBoundingBox | null {
         if (!this.collidable) return null;
+        if (!this._renderObject) return null;
 
         try {
             // 计算世界坐标和屏幕投影
