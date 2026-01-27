@@ -139,7 +139,7 @@ export class InfoWindow extends UIComponent {
         const titleEl = document.createElement("div");
         titleEl.className = "maporbis-infowindow-title";
         if (this.options.title) {
-            titleEl.innerText = this.options.title;
+            titleEl.textContent = this.options.title;
         }
 
         const closeEl = document.createElement("span");
@@ -357,7 +357,7 @@ export class InfoWindow extends UIComponent {
     setTitle(title?: string): this {
         this.options.title = title;
         if (this._titleEl) {
-            this._titleEl.innerText = title ?? "";
+            this._titleEl.textContent = title ?? "";
         }
         return this;
     }

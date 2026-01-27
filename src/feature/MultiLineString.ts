@@ -83,7 +83,6 @@ export class MultiLineString extends Line {
      * 为每条线段创建单独的几何体，并添加到容器中
      */
     async _buildRenderObject(): Promise<void> {
-        debugger
         const { _worldCoordinates } = this._coordsTransform();
         const map = this.getMap();
 

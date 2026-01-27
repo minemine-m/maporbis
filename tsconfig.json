@@ -32,9 +32,13 @@
 		"noEmit": true,
 		// 不生成声明文件
 		"declaration": false,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"]
+		}
 	},
 	// 需要编译的文件
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "tests/**/*.ts"],
 	// 排除的文件
 	"exclude": ["src/**/back/**"]
 }

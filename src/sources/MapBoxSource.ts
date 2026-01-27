@@ -65,7 +65,7 @@ export class MapBoxSource extends TileSource {
      * - {token}: 访问令牌
      * - {format}: 图像格式
      */
-    public url = "https://api.mapbox.com/styles/v1/criska/cm2myr6qx001t01pi0sf7estf/tiles/256/{z}/{x}/{y}?access_token={token}&format={format}";
+    public url = "https://api.mapbox.com/styles/v1/criska/{style}/tiles/256/{z}/{x}/{y}?access_token={token}&format={format}";
 
     /**
      * 构造函数

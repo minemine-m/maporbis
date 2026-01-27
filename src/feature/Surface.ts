@@ -119,7 +119,7 @@ export abstract class Surface extends Feature {
                 const ringPositions = ring.map(coord => {
                     const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
                     const worldPos = map ? map.lngLatToWorld(vec) : vec;
-                    return worldPos.sub(center);
+                    return center ? worldPos.sub(center) : worldPos;
                 });
                 _worldLngLatLikes.push(ringPositions);
                 _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));
@@ -139,7 +139,7 @@ export abstract class Surface extends Feature {
                     const ringPositions = ring.map(coord => {
                         const vec = new Vector3(coord[0], coord[1], coord[2] || 0);
                         const worldPos = map ? map.lngLatToWorld(vec) : vec;
-                        return worldPos.sub(center);
+                        return center ? worldPos.sub(center) : worldPos;
                     });
                     polygonPositions.push(ringPositions);
                     _vertexPoints.push(...ringPositions.flatMap(v => [v.x, v.y, v.z]));

@@ -161,6 +161,32 @@ export abstract class Feature extends Handlerable(
     private _isGeometryInitializing = false;
 
     /**
+     * Internal collision configuration.
+     * 内部碰撞配置
+     */
+    private _collisionConfig = {
+        enabled: false,
+        priority: 50,
+        padding: 4
+    };
+
+    /**
+     * Collision state.
+     * 碰撞状态
+     */
+    private _collisionState = {
+        visible: true,
+        reason: CollisionReason.NO_COLLISION,
+        collidedWith: [] as string[],
+        timestamp: Date.now()
+    };
+
+    /**
+     * Animation reference ID.
+     */
+    private _animationRef: any = null;
+
+    /**
      * Create a feature instance.
      * 创建要素实例
      * 
@@ -471,6 +497,14 @@ export abstract class Feature extends Handlerable(
     }
 
     /**
+     * Try to process paint queue. (Internal)
+     * 尝试处理样式队列
+     */
+    protected _tryProcessQueue(): void {
+        this._paintManager._tryProcessPaintQueue();
+    }
+
+    /**
      * Remove self from layer
      * 从图层中移除自身
      * 
@@ -615,8 +649,8 @@ export abstract class Feature extends Handlerable(
                 id: this._id,  // 包围盒ID
                 x: pixelX + bbox.offsetX,  // 屏幕X坐标 + 偏移量
                 y: pixelY + bbox.offsetY,  // 屏幕Y坐标 + 偏移量  
-                width: 20 + this._collisionConfig.padding * 2,  // 宽度 + 边距
-                height: 20 + this._collisionConfig.padding * 2, // 高度 + 边距
+                width: bbox.width + this._collisionConfig.padding * 2,  // 宽度 + 边距
+                height: bbox.height + this._collisionConfig.padding * 2, // 高度 + 边距
                 priority: this.getCollisionPriority(),  // 动态优先级
                 featureId: this._id,      // 关联的要素ID
                 layerId: this._layer?.getId() || 'unknown',  // 图层ID
