@@ -114,30 +114,42 @@ export class Polygon extends Surface {
      * 对于复杂类型（extrude/water），仍然调用完整重建。
      */
     protected _refreshCoordinates(): void {
-        // For all polygon types, avoid full rebuild during coordinate refresh
-        // Instead, only update the existing render object's position
-        if (this._renderObject) {
+        // When coordinates change, we must rebuild the geometry
+        // because the shape itself has changed, not just the position
+        if (this._renderObject && this._paint) {
             // Recalculate world coordinates
             let { _vertexPoints } = this._coordsTransform();
             this._vertexPoints = _vertexPoints;
             
             const map = this.getMap();
             
-            // Clear existing children
-            this.clear();
+            // Synchronously recreate the geometry (for basic polygon)
+            // _createBasePolygon is synchronous, so we can use it directly
+            const newRenderObject = this._createObjectSync(this._paint);
             
-            // Re-add with updated position
-            if (map && map.prjcenter) {
-                this._renderObject.position.set(0, 0, 0);
-                this._renderObject.position.add(map.prjcenter as any);
-                this._renderObject.updateMatrix();
+            if (newRenderObject) {
+                // Clear and remove old
+                this.clear();
+                this.remove(this._renderObject);
+                
+                // Update reference
+                this._renderObject = newRenderObject;
+                
+                // Position the new render object
+                if (map && map.prjcenter) {
+                    this._renderObject.position.add(map.prjcenter as any);
+                    this._renderObject.updateMatrix();
+                }
+                
+                this.add(this._renderObject);
+                
+                // Apply paint to the new render object
+                this._paint.applyTo(this._renderObject);
+                
+                // Force update matrix
+                this.updateMatrixWorld(true);
+                this._renderObject.updateMatrixWorld(true);
             }
-            
-            this.add(this._renderObject);
-            
-            // Force update matrix
-            this.updateMatrixWorld(true);
-            this._renderObject.updateMatrixWorld(true);
             
             return;
         }
@@ -145,6 +157,22 @@ export class Polygon extends Surface {
         // If no render object exists, perform full rebuild
         console.warn('[Polygon] _refreshCoordinates: No render object, calling full rebuild');
         this._buildRenderObject();
+    }
+
+    /**
+     * Create polygon object synchronously (for editing performance)
+     * 同步创建多边形对象（用于编辑性能优化）
+     * 
+     * @param paint Style configuration
+     * @returns Created polygon object or null
+     */
+    private _createObjectSync(paint: Paint): Object3D | null {
+        // Only handle synchronous types for real-time editing
+        if (paint.config.type === 'fill') {
+            return _createBasePolygon(paint.config, this._vertexPoints);
+        }
+        // For async types, return null and let the async path handle it
+        return null;
     }
 
     /**

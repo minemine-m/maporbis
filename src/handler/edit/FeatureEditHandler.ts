@@ -563,6 +563,16 @@ export class FeatureEditHandler extends Handler {
         // 快速更新要素几何（不重建）
         (this.target as any)._refreshCoordinates();
         
+        // 更新手柄位置（当前拖拽的手柄由EditHandle自己管理）
+        if (this.target instanceof LineString) {
+            this._updateHandlePositions();
+            
+            // 更新中点手柄位置
+            if (this.options.showMiddleHandles) {
+                this._updateMiddleHandlePositions();
+            }
+        }
+        
         // 触发编辑事件
         this.target.fire('handledragging', {
             index: index,
@@ -748,10 +758,28 @@ export class FeatureEditHandler extends Handler {
         
         // 更新要素坐标
         if (rings[ringIndex] && rings[ringIndex][index]) {
+            // 如果是首点，且多边形是闭合的（首尾点重复），先检查是否需要更新尾点
+            // If this is the first vertex and the polygon is closed (first = last), check if we need to update the last vertex
+            let shouldUpdateLast = false;
+            if (index === 0 && rings[ringIndex].length > 1) {
+                const lastIndex = rings[ringIndex].length - 1;
+                const firstCoord = rings[ringIndex][0];
+                const lastCoord = rings[ringIndex][lastIndex];
+                
+                // 检查是否真的是闭合的（首尾坐标相同）
+                // Check if polygon is truly closed (first and last coordinates are the same)
+                shouldUpdateLast = 
+                    firstCoord[0] === lastCoord[0] && 
+                    firstCoord[1] === lastCoord[1] && 
+                    (firstCoord[2] || 0) === (lastCoord[2] || 0);
+            }
+            
+            // 更新当前顶点
             rings[ringIndex][index] = [geoPos.x, geoPos.y, geoPos.z];
             
-            // 如果是首点，强制更新尾点以保持闭合
-            if (index === 0 && rings[ringIndex].length > 1) {
+            // 如果多边形是闭合的，同时更新尾点以保持闭合
+            // If polygon is closed, also update the last vertex to maintain closure
+            if (shouldUpdateLast) {
                 const lastIndex = rings[ringIndex].length - 1;
                 rings[ringIndex][lastIndex] = [geoPos.x, geoPos.y, geoPos.z];
             }
@@ -759,6 +787,15 @@ export class FeatureEditHandler extends Handler {
         
         // 快速更新要素几何（不重建）
         (this.target as any)._refreshCoordinates();
+        
+        // 更新其他手柄位置（不包括当前正在拖拽的手柄）
+        // 注意：当前拖拽的手柄由EditHandle自己管理位置
+        this._updateHandlePositions();
+        
+        // 更新中点手柄位置
+        if (this.options.showMiddleHandles) {
+            this._updateMiddleHandlePositions();
+        }
         
         // 触发编辑事件
         this.target.fire('handledragging', {
