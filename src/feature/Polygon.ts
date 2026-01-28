@@ -87,7 +87,15 @@ export class Polygon extends Surface {
 
             this._renderObject = await this._createObject(this._paint);
 
-            this._refreshCoordinates();
+            // Position the render object in the scene
+            // Don't call _refreshCoordinates() here to avoid infinite recursion
+            const map = this.getMap();
+            if (map && this._renderObject) {
+                this._renderObject.position.add(map.prjcenter as any);
+                this._renderObject.updateMatrix();
+                this.add(this._renderObject);
+            }
+            
             await this._paint.applyTo(this._renderObject);
         }
     }
@@ -106,56 +114,36 @@ export class Polygon extends Surface {
      * 对于复杂类型（extrude/water），仍然调用完整重建。
      */
     protected _refreshCoordinates(): void {
-        const styletype = this._paint?.config.type;
-        
-        // Temporarily disable quick update because:
-        // 1. _createBasePolygon rotates and translates the mesh, direct vertex update causes coordinate disorder (vertical surface appears)
-        // 2. Quick update does not sync border update (borderLine)
-        // 3. Full rebuild (_buildRenderObject) ensures correctness, and performance loss is acceptable for single Polygon
-        
-        /*
-        // For basic-polygon, implement quick update
-        if (styletype === 'basic-polygon' && this._renderObject) {
-            // Recalculate coordinates
+        // For all polygon types, avoid full rebuild during coordinate refresh
+        // Instead, only update the existing render object's position
+        if (this._renderObject) {
+            // Recalculate world coordinates
             let { _vertexPoints } = this._coordsTransform();
             this._vertexPoints = _vertexPoints;
             
-            const mesh = this._renderObject as Mesh;
-            const geometry = mesh.geometry as BufferGeometry;
+            const map = this.getMap();
             
-            if (geometry) {
-                // Update vertex positions
-                const positionAttribute = geometry.getAttribute('position');
-                if (positionAttribute && positionAttribute.count * 3 === this._vertexPoints.length) {
-                    // If vertex count matches, update directly
-                    for (let i = 0; i < this._vertexPoints.length; i++) {
-                        positionAttribute.array[i] = this._vertexPoints[i];
-                    }
-                    positionAttribute.needsUpdate = true;
-                    
-                    // Recalculate bounding
-                    geometry.computeBoundingSphere();
-                    geometry.computeBoundingBox();
-                    
-                    // Ensure geometry is in scene
-                    if (!this.children.includes(this._renderObject as Object3D)) {
-                        this.add(this._renderObject);
-                    }
-                    
-                    // Force update matrix
-                    this.updateMatrixWorld(true);
-                    this._renderObject.updateMatrixWorld(true);
-                    return; // Quick update success, return directly
-                }
+            // Clear existing children
+            this.clear();
+            
+            // Re-add with updated position
+            if (map && map.prjcenter) {
+                this._renderObject.position.set(0, 0, 0);
+                this._renderObject.position.add(map.prjcenter as any);
+                this._renderObject.updateMatrix();
             }
+            
+            this.add(this._renderObject);
+            
+            // Force update matrix
+            this.updateMatrixWorld(true);
+            this._renderObject.updateMatrixWorld(true);
+            
+            return;
         }
-        */
         
-        // Other cases: complex types or vertex count mismatch, call full rebuild
-        console.warn('[Polygon] _refreshCoordinates: Fallback to full rebuild', {
-            styleType: styletype,
-            hasGeometry: !!this._renderObject
-        });
+        // If no render object exists, perform full rebuild
+        console.warn('[Polygon] _refreshCoordinates: No render object, calling full rebuild');
         this._buildRenderObject();
     }
 

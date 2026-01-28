@@ -242,30 +242,31 @@
         },
         paint: {
           type: "line",
-          color: "#000000",
+          color: "#ff0000",
           width: 5,
-          opacity: 0.5,
+          opacity: 1,
         },
       });
 
       // 创建面覆盖物
-      // var polygon = new maporbis.Polygon({
-      //   geometry: {
-      //     type: "Polygon",
-      //     coordinates: [
-      //       [
-      //         [116.46, 39.93],
-      //         [116.44, 39.91],
-      //         [116.49, 39.91],
-      //       ],
-      //     ],
-      //   },
-      //   paint: {
-      //     type: "fill",
-      //     color: "#000000",
-      //     opacity: 0.5,
-      //   },
-      // });
+      var polygon = new maporbis.Polygon({
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [116.46, 39.93],
+              [116.44, 39.91],
+              [116.49, 39.91],
+               [116.46, 39.93],
+            ],
+          ],
+        },
+        paint: {
+          type: "fill",
+          color: "#ff0000",
+          opacity: 0.5,
+        },
+      });
 
       var markerlayer = new maporbis.PointLayer("markers", { altitude: 1 });
       var polylinelayer = new maporbis.LineLayer("polylines", {
@@ -320,14 +321,16 @@
       // 绑定添加多个覆盖物事件
       addSeveralOverlayButton.onclick = function () {
         try {
-          map.add([polyline, polygon]);
+          polyline.addTo(polylinelayer);
+          polygon.addTo(polygonlayer);
           overlayCount += 2;
           document.getElementById("lastOperation").textContent =
             "添加线和面覆盖物";
           updateStatus();
-          showNotification("线和面覆盖物添加成功", "success");
+          // showNotification("线和面覆盖物添加成功", "success");
         } catch (error) {
-          showNotification("添加失败: " + error.message, "error");
+          console.error(error);
+          // showNotification("添加失败: " + error.message, "error");
         }
       };
 
