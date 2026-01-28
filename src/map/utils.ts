@@ -35,13 +35,12 @@ export function getLocalInfoFromRay(map: Map, ray: Raycaster) {
     
     for (const intersect of intersects) {
         if (intersect.object instanceof Tile) {
-            // Map 位于世界坐标原点，worldToLocal 为恒等变换
-            // 但为了兼容性，如果 Map 以后有了变换，这里应该用 map.worldToLocal(intersect.point.clone())
-            // 目前假设 Map 没有变换，直接使用 intersect.point
-            // const point = map.worldToLocal(intersect.point.clone());
-            const point = intersect.point.clone(); 
+            // intersect.point is in world space, convert to local map space
+            // intersect.point 在世界坐标系中，需要转换到地图局部坐标系
+            const worldPoint = intersect.point.clone();
+            const localPoint = (map as any)._rootGroup.worldToLocal(worldPoint);
             
-            const lonlat = map.pointToLngLat(point);
+            const lonlat = map.pointToLngLat(localPoint);
             return Object.assign(intersect, {
                 location: lonlat,
             }) as LocationInfo;

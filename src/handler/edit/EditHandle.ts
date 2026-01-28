@@ -311,29 +311,39 @@ export class EditHandle extends EventMixin(Object) {
         }
         
         const currentCoord = e.coordinate;
+        if (!currentCoord) {
+            return;
+        }
         
-        // 计算偏移量
+        // Get the current handle's geographic position (with original altitude)
+        // 获取手柄当前的地理坐标位置（包含原始高度）
+        const currentWorldPos = this.options.position.clone();
+        const currentGeo = this.map.worldToLngLat(currentWorldPos);
+        
+        // Calculate offset in geographic coordinates
+        // 计算地理坐标偏移量
         const dx = currentCoord[0] - this._lastCoordinate[0];
         const dy = currentCoord[1] - this._lastCoordinate[1];
         
-        // 获取当前高度（海拔）
-        const currentGeo = this.map.worldToLngLat(this.options.position);
-
-        // 更新位置（地理坐标转世界坐标）
-        const worldPos = this.map.lngLatToWorld(new Vector3(
-            currentCoord[0],
-            currentCoord[1],
-            currentGeo.z
-        ));
+        // Apply offset to current position, preserving altitude
+        // 将偏移量应用到当前位置，保持高度不变
+        const newGeo = new Vector3(
+            currentGeo.x + dx,
+            currentGeo.y + dy,
+            currentGeo.z  // Preserve original altitude 保持原始高度
+        );
         
-        this.updatePosition(worldPos as Vector3);
+        // Convert back to world coordinates and update handle position
+        // 转换回世界坐标并更新手柄位置
+        const newWorldPos = this.map.lngLatToWorld(newGeo);
+        this.updatePosition(newWorldPos);
         this._lastCoordinate = currentCoord;
         
         // Fire dragging event
         // 触发 dragging 事件
         this.fire('dragging', {
             target: this,
-            coordinate: currentCoord,
+            coordinate: [newGeo.x, newGeo.y, newGeo.z],
             position: this.options.position.clone(),
             offset: { dx, dy }
         });

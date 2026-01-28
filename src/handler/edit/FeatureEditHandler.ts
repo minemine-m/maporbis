@@ -519,20 +519,41 @@ export class FeatureEditHandler extends Handler {
     private _onHandleDragging(event: any, index: number): void {
         this._updating = true;
         
-        const handle = event.target as EditHandle;
-        const worldPos = handle.getPosition();
         const map = this._getMap();
         
         if (!map) {
             return;
         }
         
-        // 世界坐标转地理坐标（使用海拔补偿）
-        const geoPos = this._fixHandlePointCoordinates(worldPos, index);
+        // 直接使用事件中的地理坐标，避免重复转换
+        // Use geographic coordinate directly from event, avoiding redundant conversion
+        const coordinate = event.coordinate;
+        if (!coordinate || coordinate.length < 2) {
+            this._updating = false;
+            return;
+        }
+        
+        // 获取原始顶点的高度，保持一致
+        // Get original vertex altitude to maintain consistency
+        const geo = this.target._geometry;
+        let originalAlt = 0;
+        
+        if (this.target instanceof Point) {
+            originalAlt = (geo.coordinates as number[])[2] || 0;
+        } else if (this.target instanceof LineString) {
+            const coords = geo.coordinates as number[][];
+            originalAlt = coords[index]?.[2] || 0;
+        }
+        
+        // 使用原始高度或事件中的高度
+        // Use original altitude or altitude from event
+        const geoPos = {
+            x: coordinate[0],
+            y: coordinate[1],
+            z: originalAlt
+        };
         
         // 更新要素坐标
-        const geo = this.target._geometry;
-        
         if (this.target instanceof Point) {
             geo.coordinates = [geoPos.x, geoPos.y, geoPos.z];
         } else if (this.target instanceof LineString) {
@@ -694,21 +715,38 @@ export class FeatureEditHandler extends Handler {
      * @private
      */
     private _onPolygonHandleDragging(event: any, index: number, ringIndex: number): void {
-        const handle = event.target as EditHandle;
-        const worldPos = handle.getPosition();
         const map = this._getMap();
         
         if (!map) {
             return;
         }
         
-        // 世界坐标转地理坐标（使用海拔补偿）
-        const geoPos = this._fixHandlePointCoordinates(worldPos, index, ringIndex);
+        // 直接使用事件中的地理坐标，避免重复转换
+        // Use geographic coordinate directly from event, avoiding redundant conversion
+        const coordinate = event.coordinate;
+        if (!coordinate || coordinate.length < 2) {
+            return;
+        }
         
-        // 更新要素坐标
+        // 获取原始顶点的高度，保持一致
+        // Get original vertex altitude to maintain consistency
         const geo = this.target._geometry;
         const rings = geo.coordinates as number[][][]; // Polygon coordinates
+        let originalAlt = 0;
         
+        if (rings[ringIndex] && rings[ringIndex][index]) {
+            originalAlt = rings[ringIndex][index][2] || 0;
+        }
+        
+        // 使用原始高度
+        // Use original altitude
+        const geoPos = {
+            x: coordinate[0],
+            y: coordinate[1],
+            z: originalAlt
+        };
+        
+        // 更新要素坐标
         if (rings[ringIndex] && rings[ringIndex][index]) {
             rings[ringIndex][index] = [geoPos.x, geoPos.y, geoPos.z];
             
@@ -1061,14 +1099,14 @@ export class FeatureEditHandler extends Handler {
                             if (!mat.userData._originalOpacity) {
                                 mat.userData._originalOpacity = mat.opacity;
                             }
-                            mat.opacity = Math.min(mat.opacity * 0.6, 0.6);
+                            mat.opacity = Math.min(mat.opacity * 0.8, 0.8);
                             mat.transparent = true;
                         });
                     } else {
                         if (!obj.material.userData._originalOpacity) {
                             obj.material.userData._originalOpacity = obj.material.opacity;
                         }
-                        obj.material.opacity = Math.min(obj.material.opacity * 0.6, 0.6);
+                        obj.material.opacity = Math.min(obj.material.opacity * 0.8, 0.8);
                         obj.material.transparent = true;
                     }
                 } else {

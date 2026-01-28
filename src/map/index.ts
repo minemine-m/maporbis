@@ -475,7 +475,7 @@ export class Map extends Handlerable(
         const cameraOpts = this.options.camera ?? {};
 
         this.sceneRenderer.easeTo({
-            center: this.center,
+            center: [this.center[0], this.center[1]],
             distance: typeof this.center[2] === 'number' ? this.center[2] : undefined,
             // Use pitch/bearing in degrees from camera options
             pitch: typeof cameraOpts.pitch === 'number' ? cameraOpts.pitch : undefined,

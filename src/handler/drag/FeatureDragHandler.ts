@@ -112,9 +112,9 @@ export class FeatureDragHandler extends Handler {
             if (Array.isArray(c[0])) {
                 return c.map(translateCoord);
             }
-            // Reach the bottom level [lng, lat], apply offset
-            // 到达最底层的 [lng, lat]，应用偏移
-            return [c[0] + dx, c[1] + dy];
+            // Reach the bottom level [lng, lat, alt?], apply offset while preserving altitude
+            // 到达最底层的 [lng, lat, alt?]，应用偏移同时保持高度
+            return [c[0] + dx, c[1] + dy, c[2] !== undefined ? c[2] : 0];
         };
 
         const newCoords = translateCoord(geo.coordinates);
