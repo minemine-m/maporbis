@@ -25,15 +25,15 @@ export type LngLatLike = [number, number] | [number, number, number];
  * @description Defines named positions for anchoring UI elements and markers
  * 
  * Anchor positioning system:
- * - 'top-left': [0, 1] - Top-left corner
- * - 'top': [0.5, 1] - Top center
- * - 'top-right': [1, 1] - Top-right corner
- * - 'left': [0, 0.5] - Middle left
- * - 'center': [0.5, 0.5] - Center
- * - 'right': [1, 0.5] - Middle right
- * - 'bottom-left': [0, 0] - Bottom-left corner
- * - 'bottom': [0.5, 0] - Bottom center
- * - 'bottom-right': [1, 0] - Bottom-right corner
+ * - 'top-left': [0, 1] - Top-left corner  图标左上角
+ * - 'top': [0.5, 1] - Top center 图标正上方中心
+ * - 'top-right': [1, 1] - Top-right corner 图标右上角
+ * - 'left': [0, 0.5] - Middle left 图标正左侧中心
+ * - 'center': [0.5, 0.5] - Center 图标中心
+ * - 'right': [1, 0.5] - Middle right 图标正右侧中心
+ * - 'bottom-left': [0, 0] - Bottom-left corner 图标左下角
+ * - 'bottom': [0.5, 0] - Bottom center 图标正下方中心
+ * - 'bottom-right': [1, 0] - Bottom-right corner 图标右下角
  * 
  * @category Types
  */

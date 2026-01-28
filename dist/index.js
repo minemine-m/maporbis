@@ -8305,7 +8305,7 @@ async function xT(s, e) {
     const f = Hr(s.anchor);
     i.center.set(f[0], f[1]);
   }
-  return i.position.copy(e), i;
+  return i.position.copy(e), i.renderOrder = 99, i;
 }
 function Ac(s, e) {
   let t;
@@ -8917,7 +8917,7 @@ async function CT(s, e) {
   return M.center.set(
     R[0] - k.x / c.width,
     R[1] + k.y / c.height
-  ), e && M.position.copy(e), M;
+  ), e && M.position.copy(e), M.renderOrder = 99, M;
 }
 async function ET(s, e, t) {
   const i = { ...{
@@ -8974,7 +8974,7 @@ async function ET(s, e, t) {
   M.center.set(
     A[0] - R.x / G,
     A[1] + R.y / k
-  ), M.position.copy(e), M.userData.isLabel = !0;
+  ), M.position.copy(e), M.renderOrder = 99, M.userData.isLabel = !0;
   const V = () => {
     if (!M.visible) return;
     const $ = t.sceneRenderer.camera.position.distanceTo(M.position);
@@ -9040,7 +9040,7 @@ async function OT(s, e) {
     d.center.set(y[0], y[1]);
   } else
     d.center.set(u[0], u[1]);
-  return e && d.position.copy(e), d;
+  return e && d.position.copy(e), d.renderOrder = 99, d;
 }
 async function RT(s, e) {
   return new Promise((t) => {
@@ -15664,7 +15664,11 @@ class Gn extends eM {
    */
   async _buildRenderObject() {
     let { _vertexPoints: e } = this._coordsTransform();
-    this._vertexPoints = e, this._paint && (this._renderObject && this.remove(this._renderObject), this._renderObject = await this._createObject(this._paint), this._refreshCoordinates(), await this._paint.applyTo(this._renderObject));
+    if (this._vertexPoints = e, this._paint) {
+      this._renderObject && this.remove(this._renderObject), this._renderObject = await this._createObject(this._paint);
+      const t = this.getMap();
+      t && this._renderObject && (this._renderObject.position.add(t.prjcenter), this._renderObject.updateMatrix(), this.add(this._renderObject)), await this._paint.applyTo(this._renderObject);
+    }
   }
   /**
    * Quickly update geometry vertex positions (without rebuilding the entire geometry).
@@ -15680,11 +15684,14 @@ class Gn extends eM {
    * 对于复杂类型（extrude/water），仍然调用完整重建。
    */
   _refreshCoordinates() {
-    const e = this._paint?.config.type;
-    console.warn("[Polygon] _refreshCoordinates: Fallback to full rebuild", {
-      styleType: e,
-      hasGeometry: !!this._renderObject
-    }), this._buildRenderObject();
+    if (this._renderObject) {
+      let { _vertexPoints: e } = this._coordsTransform();
+      this._vertexPoints = e;
+      const t = this.getMap();
+      this.clear(), t && t.prjcenter && (this._renderObject.position.set(0, 0, 0), this._renderObject.position.add(t.prjcenter), this._renderObject.updateMatrix()), this.add(this._renderObject), this.updateMatrixWorld(!0), this._renderObject.updateMatrixWorld(!0);
+      return;
+    }
+    console.warn("[Polygon] _refreshCoordinates: No render object, calling full rebuild"), this._buildRenderObject();
   }
   /**
    * Create polygon object.

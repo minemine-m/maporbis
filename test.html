@@ -220,14 +220,15 @@
       const point = new maporbis.Marker({
         geometry: {
           type: "Point",
-          coordinates: [116.4, 39.9, 50], // Beijing coordinates with altitude
+          coordinates: [116.4, 39.9], // Beijing coordinates with altitude
         },
         paint: {
           type: "icon",
           url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
           size: 32,
           sizeAttenuation: false,
-          anchor: "bottom-center", // Using named anchor instead of [0, 0]
+          transparent: true,
+          anchor:[0.5, 0], // Using named anchor instead of [0, 0]
         },
       });
 
@@ -268,7 +269,7 @@
         },
       });
 
-      var markerlayer = new maporbis.PointLayer("markers", { altitude: 1 });
+      var markerlayer = new maporbis.PointLayer("markers", { altitude: 0});
       var polylinelayer = new maporbis.LineLayer("polylines", {
         altitude: 5,
       });

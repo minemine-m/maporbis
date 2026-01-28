@@ -164,6 +164,9 @@ export async function _createIconPoint(config: IconPaint, position: Vector3): Pr
         sprite.center.set(normalizedAnchor[0], normalizedAnchor[1]);
     }
     sprite.position.copy(position);
+    
+    // Set renderOrder to ensure marker renders above tiles
+    sprite.renderOrder = 99;
 
     return sprite;
 }
@@ -1429,7 +1432,8 @@ export async function _createTextSprite(config: TextPaint, position: Vector3): P
         sprite.position.copy(position);
     }
 
-    // sprite.renderOrder = 9999;
+    // Set renderOrder to ensure text label renders above tiles
+    sprite.renderOrder = 99;
 
     return sprite;
 }
@@ -1599,7 +1603,8 @@ export async function _createFixedSizeTextSprite(
     );
 
     sprite.position.copy(position);
-    // sprite.renderOrder = 9999;
+    // Set renderOrder to ensure text label renders above tiles
+    sprite.renderOrder = 99;
     sprite.userData.isLabel = true;
 
     // 动态更新大小：screenSpaceSize 以“CSS 像素高度”理解
@@ -1730,6 +1735,9 @@ export async function _createIconLabelSprite(options: SymbolPaint, position: Vec
         sprite.center.set(center[0], center[1]);
     }
     if (position) sprite.position.copy(position);
+    
+    // Set renderOrder to ensure icon+label sprite renders above tiles
+    sprite.renderOrder = 99;
 
     return sprite;
 }
