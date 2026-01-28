@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设置点标注的文本标签</title>
+    <link rel="stylesheet" href="/assets/maporbis.css" />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      #map {
+        width: 100vw;
+        height: 100vh;
+        background-color: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as maporbis from "./src/index.ts";
+      // Initialize Map
+      const map = new maporbis.Map("map", {
+        state: {
+          center: [116.4, 39.9, 2000], // Beijing, [lon, lat, height]
+        },
+        source: {
+          minLevel: 2,
+          maxLevel: 19,
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              opacity: 1.0,
+              visible: true,
+              altitude: 1,
+            }),
+          ],
+        },
+        renderer: {
+          stats: true,
+          antialias: true,
+          skybox: {
+            hdr: "/example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+            hdrExposure: 1,
+            defaultColor: "#B9D4FE", // 默认天空颜色
+          },
+          minDistance: 20,
+          maxDistance: 80000,
+          defaultGround: {
+            enabled: false,
+            visible: true,
+            color: "#ff0000",
+            opacity: 1,
+          },
+        },
+        camera: {
+          pitch: 60, // Adjusted pitch for better label visibility
+          bearing: 0,
+        },
+      });
+
+      console.log("Map initialized:", map);
+
+      map.on("load", () => {
+        console.log("Map loaded event fired");
+        
+        // Example 1: ToolTip attached to a marker with named anchor position
+        // 示例 1：附加到标记点的 ToolTip，使用命名锚点位置
+        const point = new maporbis.Marker({
+          geometry: {
+            type: "Point",
+            coordinates: [116.4, 39.9, 50], // Beijing coordinates with altitude
+          },
+          paint: {
+            type: "icon",
+            url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+            size: 32,
+            sizeAttenuation: false,
+            anchor: 'bottom', // Using named anchor instead of [0, 0]
+          },
+        });
+
+        // Add ToolTip to the marker with 'top-right' anchor
+        // 给标记点添加 ToolTip，使用 'top-right' 锚点
+        point.setToolTip({
+          content: "hello maporbis (-0.1, -1.5)",
+          showTimeout: 0,
+          persistent: true,
+          anchor: [-0.1, -1.5], // Position at top-right of the point
+        });
+
+        // Create layer with high altitude to be above tiles
+        const Layer = new maporbis.PointLayer("labels", {
+          altitude: 1,
+        });
+
+        // Add to the map
+        map.addLayer(Layer);
+        point.addTo(Layer);
+        point.openToolTip();
+
+        // Example 2: Standalone ToolTip (not attached to any feature)
+        // 示例 2：独立的 ToolTip（不附加到任何要素）
+        const standaloneToolTip = new maporbis.ToolTip({
+          content: "Standalone ToolTip at Shanghai",
+          coordinate: [121.5, 31.2, 50], // Shanghai coordinates
+          persistent: true,
+          anchor: 'bottom', // Position below the coordinate point
+          containerClass: 'custom-tooltip-style',
+        });
+
+        // Add directly to map (not to a layer or feature)
+        // 直接添加到地图（不是添加到图层或要素）
+        standaloneToolTip.addTo(map);
+
+        // Example 3: Another marker with 'left' anchor and numeric array anchor for paint
+        // 示例 3：另一个标记点，使用 'left' 锚点，paint 使用数值数组锚点
+        const point2 = new maporbis.Marker({
+          geometry: {
+            type: "Point",
+            coordinates: [116.5, 39.95, 50],
+          },
+          paint: {
+            type: "icon",
+            url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+            size: 32,
+            sizeAttenuation: false,
+            anchor: 'center', // Using named anchor 'center' (equivalent to [0.5, 0.5])
+          },
+        });
+
+        point2.setToolTip({
+          content: "Left-anchored ToolTip",
+          showTimeout: 0,
+          persistent: true,
+          anchor: 'left', // Position to the left of the point
+        });
+
+        point2.addTo(Layer);
+        point2.openToolTip();
+
+        // Example 4: Demonstrating numeric array anchor (backward compatibility)
+        // 示例 4：演示数值数组锚点（向后兼容）
+        const point3 = new maporbis.Marker({
+          geometry: {
+            type: "Point",
+            coordinates: [116.35, 39.85, 50],
+          },
+          paint: {
+            type: "icon",
+            url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+            size: 32,
+            sizeAttenuation: false,
+            anchor: [0.25, 0.75], // Custom numeric anchor position
+          },
+        });
+
+        point3.setToolTip({
+          content: "Custom numeric anchor [0.25, 0.75]",
+          showTimeout: 0,
+          persistent: true,
+          anchor: [0.8, 0.2], // Custom ToolTip anchor position
+        });
+
+        point3.addTo(Layer);
+        point3.openToolTip();
+
+        // Example 5: Update standalone ToolTip position dynamically
+        // 示例 5：动态更新独立 ToolTip 的位置
+        setTimeout(() => {
+          standaloneToolTip.setCoordinate([121.6, 31.3, 50]);
+          standaloneToolTip.setContent("ToolTip moved to new position!");
+        }, 3000);
+      });
+    </script>
+  </body>
+</html>
