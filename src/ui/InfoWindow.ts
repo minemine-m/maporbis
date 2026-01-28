@@ -1,5 +1,6 @@
 import { UIComponent, type UIComponentOptions } from "./UIComponent";
 import type { LngLatLike } from "../types";
+import { normalizeAnchor } from "../types";
 import { Vector3, Sprite, SpriteMaterial } from "three";
 
 /**
@@ -214,8 +215,10 @@ export class InfoWindow extends UIComponent {
             if (cfg && (type === "icon-point" || type === "icon-label-point")) {
                 // anchor [x, y], y=0 means bottom, y=1 means top
                 // anchor [x, y]，y=0 表示底部，y=1 表示顶部
-                const anchor = Array.isArray(cfg.anchor) ? cfg.anchor : [0.5, 0.5];
-                const anchorY = typeof anchor[1] === "number" ? anchor[1] : 0.5;
+                // Use normalizeAnchor to support both named and numeric formats
+                // 使用 normalizeAnchor 支持命名和数值格式
+                const anchor = normalizeAnchor(cfg.anchor);
+                const anchorY = anchor[1];
 
                 // Try to get actual screen height of sprite
                 // 尝试获取 sprite 的实际屏幕高度

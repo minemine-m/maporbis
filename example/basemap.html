@@ -43,51 +43,48 @@
     </script>
 
     <script type="module">
-      import {
-        Map,
-        TileLayer,
-        TileSource,
-        ProjectionFactory,
-        Marker,
-        PointLayer
-      } from "./src/index.ts";
-
+     import * as maporbis from "./dist/index.js";
       // Initialize Map
-      const map = new Map("map", {
-        center: [116.4, 39.9, 20000], // Beijing, [lon, lat, height]
-        basemap: {
+      const map = new maporbis.Map("map", {
+        state: {
+          center: [116.4, 39.9, 2000], // Beijing, [lon, lat, height]
+        },
+        source: {
           minLevel: 2,
           maxLevel: 19,
-          Baselayers: [
-            // Create OSM TileLayer
-            new TileLayer("esri_imagery", {
-              source: new TileSource({
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
                 url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
                 projectionID: "3857",
               }),
-              projection: ProjectionFactory.create("3857"),
+              projection: maporbis.ProjectionFactory.create("3857"),
               opacity: 1.0,
               visible: true,
+              altitude: 1,
             }),
           ],
         },
-        viewer: {
+        renderer: {
           stats: true,
           antialias: true,
           skybox: {
-            // path: "./example/public/image/skyboxall/onemap/",
-            // files: [
-            //   "posx.jpg",
-            //   "negx.jpg",
-            //   "posy.jpg",
-            //   "negy.jpg",
-            //   "posz.jpg",
-            //   "negz.jpg",
-            // ],
-            hdr: "./example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+            hdr: "/example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
             hdrExposure: 1,
             defaultColor: "#B9D4FE", // 默认天空颜色
           },
+          minDistance: 20,
+          maxDistance: 80000,
+          defaultGround: {
+            enabled: false,
+            visible: true,
+            color: "#ff0000",
+            opacity: 1,
+          },
+        },
+        camera: {
+          pitch: 75,
+          bearing: 0,
         },
       });
 
@@ -98,35 +95,6 @@
         document.querySelector("#info p").innerText =
           "Map loaded. Pan/Zoom to explore.";
       });
-
-      const markersLayer = new PointLayer("markers", { altitude: 1 });
-      map.addLayer(markersLayer);
-
-      const marker = new Marker({
-        geometry: {
-          type: "Point",
-          coordinates: [116.4, 39.9],
-        },
-        style: {
-          type: "icon",
-          url: "/example/public/image/cloud.png",
-          size: 18,
-          rotation: Math.PI / 4,
-          anchor: 'bottom', // Using named anchor instead of [0.5, 0]
-          sizeAttenuation: false,
-          transparent: true,
-          color: "#fff",
-        },
-        userData: {
-          id: Date.now(),
-          title:`标记点`,
-          description:  "点击标记点查看详细信息",
-          color:  "#007aff",
-        },
-      });
-
-      marker.addTo(markersLayer);
-
     </script>
   </body>
 </html>

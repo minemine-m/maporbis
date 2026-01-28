@@ -7,6 +7,7 @@ import { ExternalModelLoader } from '../loaders/ExternalModelLoader';
 import { Map } from '../map';
 import { CirclePaint, LinePaint, IconPaint, ModelPaint, FillPaint, ExtrusionPaint, WaterPaint, CloudPaint, TextPaint, SymbolPaint, LightPaint, Paint, FlowTubePaint, ArrowPaint, FlowTexturePaint, WaterPaintUnion } from '../style';
 import { Cloud as vanillaCloud } from "@pmndrs/vanilla";
+import { normalizeAnchor } from '../types';
 
 /**
  * Canvas绘制结果接口
@@ -157,7 +158,11 @@ export async function _createIconPoint(config: IconPaint, position: Vector3): Pr
 
     sprite.scale.set(width * pixelsToUnit, height * pixelsToUnit, 1);
     if (config.rotation) sprite.rotation.z = config.rotation;
-    if (config.anchor) sprite.center.set(config.anchor[0], config.anchor[1]);
+    // Normalize anchor to support both named and numeric formats
+    if (config.anchor) {
+        const normalizedAnchor = normalizeAnchor(config.anchor);
+        sprite.center.set(normalizedAnchor[0], normalizedAnchor[1]);
+    }
     sprite.position.copy(position);
 
     return sprite;
@@ -1394,6 +1399,7 @@ export async function _createTextSprite(config: TextPaint, position: Vector3): P
         transparent: config.transparent ?? true,
         depthTest: config.depthTest ?? true,
         depthWrite: config.depthWrite ?? true,
+        alphaTest: config.alphaTest ?? 0.1,  // Discard transparent pixels to prevent depth artifacts
         fog: false
     });
 
@@ -1408,7 +1414,9 @@ export async function _createTextSprite(config: TextPaint, position: Vector3): P
     );
 
     // 处理 anchor 和 textOffset
-    const anchor = config.anchor || [0.5, 0.5];
+    // Use normalizeAnchor to support both named and numeric anchor formats
+    // 使用 normalizeAnchor 支持命名和数值锚点格式
+    const anchor = normalizeAnchor(config.anchor);
     const textOffset = config.textOffset || { x: 0, y: 0 };
     
     // 计算中心点偏移：textOffset 单位是像素，需要根据 canvas 尺寸转换为 UV 偏移
@@ -1566,13 +1574,16 @@ export async function _createFixedSizeTextSprite(
         transparent: config.transparent ?? true,
         depthTest: config.depthTest ?? true,
         depthWrite: config.depthWrite ?? true,
+        alphaTest: config.alphaTest ?? 0.1,  // Discard transparent pixels to prevent depth artifacts
         fog: false
     });
 
     const sprite = new Sprite(material);
 
     // 处理 anchor 和 textOffset
-    const anchor = config.anchor || [0.5, 0.5];
+    // Use normalizeAnchor to support both named and numeric anchor formats
+    // 使用 normalizeAnchor 支持命名和数值锚点格式
+    const anchor = normalizeAnchor(config.anchor);
     const textOffset = config.textOffset || { x: 0, y: 0 };
     
     // canvas-label-fixed 是屏幕空间大小，textOffset 应被视为 CSS 像素
@@ -1711,8 +1722,10 @@ export async function _createIconLabelSprite(options: SymbolPaint, position: Vec
     sprite.scale.set(width * pixelToWorldScale, height * pixelToWorldScale, 1);
     // sprite.center.set(center[0], center[1]);
     // 如果调用方传了 anchor，则覆盖默认锚点；否则用图标中心
+    // Normalize anchor to support both named and numeric formats
     if (options.anchor) {
-        sprite.center.set(options.anchor[0], options.anchor[1]);
+        const normalizedAnchor = normalizeAnchor(options.anchor);
+        sprite.center.set(normalizedAnchor[0], normalizedAnchor[1]);
     } else {
         sprite.center.set(center[0], center[1]);
     }

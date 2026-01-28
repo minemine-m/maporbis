@@ -25,6 +25,7 @@ import './map/Map.DomEvent';
 import './map/handler/Map.FeatureEvents';
 
 import "./feature/ext/Feature.InfoWindow";
+import "./feature/ext/Feature.ToolTip";
 // import "./feature/ext/Feature.Edit";
 
 /**

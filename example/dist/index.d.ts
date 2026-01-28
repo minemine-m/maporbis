@@ -119,43 +119,6 @@ export declare abstract class AbstractMaterialLoader implements IMaterialLoader<
 }
 
 /**
- * Anchor type: supports both named positions and numeric array format.
- * 锚点类型：支持命名位置和数值数组格式
- * @description Can be either a named position or [x, y] coordinates where x and y are in range [0, 1]
- *
- * @example
- * // Named anchor
- * const anchor1: Anchor = 'top-right';
- *
- * @example
- * // Numeric anchor
- * const anchor2: Anchor = [0.5, 0.5]; // center
- *
- * @category Types
- */
-declare type Anchor = AnchorPosition | [number, number];
-
-/**
- * Named anchor position type.
- * 命名锚点位置类型
- * @description Defines named positions for anchoring UI elements and markers
- *
- * Anchor positioning system:
- * - 'top-left': [0, 1] - Top-left corner
- * - 'top': [0.5, 1] - Top center
- * - 'top-right': [1, 1] - Top-right corner
- * - 'left': [0, 0.5] - Middle left
- * - 'center': [0.5, 0.5] - Center
- * - 'right': [1, 0.5] - Middle right
- * - 'bottom-left': [0, 0] - Bottom-left corner
- * - 'bottom': [0.5, 0] - Bottom center
- * - 'bottom-right': [1, 0] - Bottom-right corner
- *
- * @category Types
- */
-declare type AnchorPosition = 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right';
-
-/**
  * Animation pause parameters.
  * 动画暂停参数
  */
@@ -2540,12 +2503,8 @@ export declare interface IconPaint extends BasePaint {
     size: number | [number, number];
     /** 旋转角度 */
     rotation?: number;
-    /**
-     * Anchor position: named position or [x, y] coordinates.
-     * 锚点位置：命名位置或 [x, y] 坐标
-     * @example 'center' | 'top-right' | [0.5, 0.5]
-     */
-    anchor?: Anchor;
+    /** 锚点位置 [x, y] */
+    anchor?: [number, number];
     /** 是否随距离衰减 */
     sizeAttenuation?: boolean;
     sizeUnit?: 'pixels' | 'meters';
@@ -6606,12 +6565,8 @@ export declare class LoaderUtils {
             x: number;
             y: number;
         };
-        /**
-         * Anchor position: named position or [x, y] coordinates.
-         * 整体锚点：命名位置或 [x, y] 坐标，等同于 Sprite.center / IconPointStyle.anchor
-         * @example 'center' | 'top-right' | [0.5, 0.5]
-         */
-        anchor?: Anchor;
+        /** 整体锚点，等同于 Sprite.center / IconPointStyle.anchor */
+        anchor?: [number, number];
     }
 
     /**
@@ -6840,12 +6795,8 @@ export declare class LoaderUtils {
             x: number;
             y: number;
         };
-        /**
-         * Anchor position: named position or [x, y] coordinates.
-         * 整体锚点：命名位置或 [x, y] 坐标
-         * @example 'center' | 'top-right' | [0.5, 0.5]
-         */
-        anchor?: Anchor;
+        /** 整体锚点 */
+        anchor?: [number, number];
     }
 
     /**
@@ -7202,11 +7153,6 @@ export declare class LoaderUtils {
         private _boundOnOwnerOut;
         private _boundOnOwnerRemoved;
         /**
-         * Coordinate for standalone mode
-         * 独立模式坐标
-         */
-        private _standaloneCoord?;
-        /**
          * @param options ToolTip options ToolTip 配置
          */
         constructor(options?: ToolTipOptions);
@@ -7217,8 +7163,8 @@ export declare class LoaderUtils {
          */
         protected buildOn(): HTMLElement;
         /**
-         * Calculate offset based on DOM size and anchor position.
-         * 根据 DOM 尺寸和锚点位置计算偏移量
+         * Calculate offset based on DOM size to make tooltip appear slightly above and to the right of the point.
+         * 根据 DOM 尺寸，做一个简单的偏移，让 tooltip 出现在点的上方偏右一点
          */
         protected getOffset(): {
             x: number;
@@ -7244,26 +7190,6 @@ export declare class LoaderUtils {
          * 内部：处理 owner 移除事件
          */
         private _onOwnerRemoved;
-        /**
-         * Set coordinate for standalone mode.
-         * 设置独立模式坐标
-         */
-        setCoordinate(coordinate: LngLatLike): this;
-        /**
-         * Get current coordinate (standalone mode).
-         * 获取当前坐标（独立模式）
-         */
-        getCoordinate(): LngLatLike | undefined;
-        /**
-         * Set content.
-         * 设置内容
-         */
-        setContent(content: ToolTipContent): this;
-        /**
-         * Show ToolTip at specific coordinate (for standalone mode).
-         * 在指定坐标显示 ToolTip（用于独立模式）
-         */
-        show(coordinate?: LngLatLike): this;
         protected onRemove(): void;
     }
 
@@ -7300,26 +7226,6 @@ export declare class LoaderUtils {
          * 提示内容
          */
         content?: ToolTipContent;
-        /**
-         * Persistent mode: always visible, not affected by mouse events.
-         * 持久模式：始终可见，不受鼠标事件影响
-         */
-        persistent?: boolean;
-        /**
-         * Anchor position: determines where ToolTip appears relative to the coordinate point.
-         * Default is 'top' (appears above the point).
-         * 锚点位置：决定 ToolTip 相对于坐标点的显示位置。
-         * 默认为 'top'（显示在点的上方）
-         * @example 'top-right' | 'center' | [0.5, 0.5]
-         */
-        anchor?: Anchor;
-        /**
-         * Coordinate for standalone mode: allows ToolTip to be added directly to map without a feature.
-         * When provided, ToolTip will be positioned at this coordinate.
-         * 独立模式坐标：允许 ToolTip 直接添加到地图上而不依赖要素。
-         * 提供时，ToolTip 将定位在此坐标处。
-         */
-        coordinate?: LngLatLike;
     };
 
     /**

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta
+      name="viewport"
+      content="initial-scale=1.0, user-scalable=no, width=device-width"
+    />
+    <title>CircleMarker</title>
+    <style type="text/css">
+      html,
+      body,
+      #map {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+    </style>
+    <script
+      type="text/javascript"
+      src="//a.amap.com/jsapi_demos/static/resource/capitals.js"
+    ></script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script type="module">
+      import * as maporbis from "./src/index.ts";
+      const map = new maporbis.Map("map", {
+        state: {
+          center: [116.473195, 39.973253, 2000], // Beijing, [lon, lat, height]
+        },
+        source: {
+          minLevel: 2,
+          maxLevel: 19,
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              opacity: 1.0,
+              visible: true,
+              altitude: 1,
+            }),
+          ],
+        },
+        renderer: {
+          stats: true,
+          antialias: true,
+          skybox: {
+            hdr: "/example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+            hdrExposure: 1,
+            defaultColor: "#B9D4FE", // 默认天空颜色
+          },
+          minDistance: 20,
+          maxDistance: 80000,
+          defaultGround: {
+            enabled: false,
+            visible: true,
+            color: "#ff0000",
+            opacity: 1,
+          },
+        },
+        camera: {
+          pitch: 75,
+          bearing: 0,
+        },
+      });
+
+      const positions = [
+        [116.493195, 39.993253],
+        [116.473195, 39.993253],
+        [116.453195, 39.993253],
+        [116.493195, 39.973253],
+        [116.473195, 39.973253],
+        [116.453195, 39.973253],
+        [116.493195, 39.953253],
+        [116.473195, 39.953253],
+        [116.453195, 39.953253],
+      ];
+      let layer;
+      initLayer();
+      function createMarkers() {
+        // Create center dot markers (small red dots at actual position)
+        for (let i = 0; i < positions.length; i++) {
+          const centerMarker = new maporbis.Marker({
+            geometry: {
+              type: "Point",
+              coordinates: positions[i],
+            },
+            paint: {
+              type: "circle",
+              /** 点颜色 */
+              color: "rgba(0,0,255,1)",
+              /** 点大小 */
+              size: 100 + Math.random() * 10,
+              opacity: 0.5,
+              /** 是否随距离衰减 */
+              sizeAttenuation: false,
+              anchor: 'left', // Using named anchor instead of [0, 0.5]
+            },
+          });
+          centerMarker.addTo(layer);
+        }
+      }
+
+      function initLayer() {
+        layer = new maporbis.PointLayer("markers", { altitude: 80 });
+        map.addLayer(layer);
+        createMarkers();
+      }
+    </script>
+  </body>
+</html>

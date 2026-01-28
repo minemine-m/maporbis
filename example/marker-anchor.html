@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="initial-scale=1.0, user-scalable=no, width=device-width"
+    />
+    <title>MapOrbis Marker Anchor Demo</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+
+      #container {
+        height: 100%;
+        width: 100%;
+      }
+
+      .map-control-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 280px;
+        z-index: var(--orbis-z-index-fixed);
+      }
+
+      .map-control-panel .orbis-panel-header {
+        position: relative;
+        padding-right: 60px;
+      }
+
+      .map-control-panel .orbis-toggle {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+      }
+
+      /* Custom marker styles */
+      .custom-marker-icon {
+        width: 46px;
+        height: 28px;
+        background: linear-gradient(
+          135deg,
+          var(--orbis-blue) 0%,
+          var(--orbis-indigo) 100%
+        );
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        position: relative;
+      }
+
+      .custom-marker-label {
+        position: absolute;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        color: var(--orbis-text-primary);
+      }
+
+      .orbis-dark .custom-marker-label {
+        background: rgba(28, 28, 30, 0.95);
+        color: var(--orbis-dark-text-primary);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .center-dot {
+        width: 12px;
+        height: 12px;
+        background: var(--orbis-red);
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .anchor-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .anchor-item {
+        padding: 8px;
+        background: var(--orbis-bg-secondary);
+        border-radius: var(--orbis-radius-sm);
+        text-align: center;
+        font-size: 11px;
+        color: var(--orbis-text-secondary);
+        cursor: pointer;
+        transition: all var(--orbis-transition-fast);
+      }
+
+      .orbis-dark .anchor-item {
+        background: rgba(44, 44, 46, 0.6);
+      }
+
+      .anchor-item:hover {
+        background: var(--orbis-blue);
+        color: white;
+        transform: scale(1.05);
+      }
+
+      .anchor-item.active {
+        background: var(--orbis-green);
+        color: white;
+      }
+    </style>
+  </head>
+  <body class="orbis-body">
+    <div id="container"></div>
+
+    <div class="map-control-panel">
+      <div class="orbis-panel">
+        <div class="orbis-panel-header">
+          <h3 style="font-size: 15px; margin: 0 0 3px 0">
+            <i class="fas fa-anchor" style="color: var(--orbis-blue)"></i>
+            Marker Anchors
+          </h3>
+          <p style="font-size: 12px; color: var(--orbis-gray-6); margin: 0">
+            9 Anchor Positions Demo
+          </p>
+          <button
+            class="orbis-toggle"
+            id="themeToggle"
+            title="Toggle Dark Mode"
+          >
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="orbis-loading" id="loading">
+      <div class="orbis-spinner"></div>
+      <p>Loading Map...</p>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as maporbis from "./dist/index.js";
+
+      let map, layer;
+      let markers = [];
+      let centerMarkers = [];
+      let isDarkMode = false;
+      let allVisible = true;
+
+      const positions = [
+        [116.493195, 39.993253],
+        [116.473195, 39.993253],
+        [116.453195, 39.993253],
+        [116.493195, 39.973253],
+        [116.473195, 39.973253],
+        [116.453195, 39.973253],
+        [116.493195, 39.953253],
+        [116.473195, 39.953253],
+        [116.453195, 39.953253],
+      ];
+
+      const anchors = [
+        'top-left',
+        'top',
+        'top-right',
+        'left',
+        'center',
+        'right',
+        'bottom-left',
+        'bottom',
+        'bottom-right',
+      ];
+
+      const anchorNames = [
+        "top-left",
+        "top",
+        "top-right",
+        "left",
+        "center",
+        "right",
+        "bottom-left",
+        "bottom",
+        "bottom-right",
+      ];
+
+      function initMap() {
+        const loading = document.getElementById("loading");
+        loading.style.display = "block";
+
+        try {
+          map = new maporbis.Map("container", {
+            state: {
+              center: [116.473195, 39.973253, 5000],
+            },
+            source: {
+              minLevel: 2,
+              maxLevel: 19,
+              baseLayers: [
+                // new maporbis.WMTSTileLayer("esri_imagery", {
+                //   source: new maporbis.TileSource({
+                //     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                //     projectionID: "3857",
+                //   }),
+                //   projection: maporbis.ProjectionFactory.create("3857"),
+                //   opacity: 1.0,
+                //   visible: true,
+                //   altitude: 1,
+                // }),
+              ],
+            },
+            renderer: {
+              stats: true,
+              antialias: true,
+              skybox: {
+                hdr: "/example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+                hdrExposure: 1,
+                defaultColor: "#B9D4FE",
+              },
+              minDistance: 20,
+              maxDistance: 80000,
+              defaultGround: {
+                enabled: false,
+                visible: true,
+                color: "#ff0000",
+                opacity: 1,
+              },
+            },
+            camera: {
+              pitch: 85,
+              bearing: 0,
+            },
+          });
+
+          map.on("load", () => {
+            loading.style.display = "none";
+            initLayer();
+            showNotification("Map loaded successfully", "success");
+          });
+        } catch (error) {
+          console.error("Map initialization failed:", error);
+          showNotification(
+            "Map initialization failed: " + error.message,
+            "error"
+          );
+          loading.style.display = "none";
+        }
+      }
+
+      function initLayer() {
+        layer = new maporbis.PointLayer("markers", { altitude: 5 });
+        map.addLayer(layer);
+        createMarkers();
+      }
+
+      function createMarkers() {
+        // Create center dot markers (small red dots at actual position)
+        for (let i = 0; i < positions.length; i++) {
+          const centerMarker = new maporbis.Marker({
+            geometry: {
+              type: "Point",
+              coordinates: positions[i],
+            },
+            paint: {
+              type: "icon",
+              url: createCenterDotDataURL(),
+              size: 12,
+              sizeAttenuation: false,
+              anchor: 'center', // Using named anchor instead of [0.5, 0.5]
+            },
+          });
+          centerMarker.addTo(layer);
+          centerMarkers.push(centerMarker);
+        }
+
+        // Create main markers with different anchors
+        for (let i = 0; i < positions.length; i++) {
+          const anchor = anchors[i];
+          const anchorText = anchor; // Display the named anchor
+          const marker = new maporbis.Marker({
+            geometry: {
+              type: "Point",
+              coordinates: positions[i],
+            },
+            paint: {
+              type: "icon",
+              url: createMarkerIconDataURL(anchorText),
+              size: 16,
+              sizeAttenuation: false,
+              anchor: anchor, // Using named anchor
+            },
+          });
+
+          marker.addTo(layer);
+          markers.push(marker);
+        }
+
+        updateMarkerCount();
+      }
+
+      function createCenterDotDataURL() {
+        const scale = 4; // Increase resolution for sharpness
+        const size = 12 * scale;
+        const center = size / 2;
+        const outerRadius = 6 * scale;
+        const innerRadius = 4 * scale;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Draw outer circle (white border)
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(center, center, outerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw inner circle (red dot)
+        ctx.fillStyle = "#FF3B30";
+        ctx.beginPath();
+        ctx.arc(center, center, innerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        return canvas.toDataURL();
+      }
+
+      function createMarkerIconDataURL(anchorName) {
+        const scale = 4; // Increase resolution
+        const baseWidth = 80; // Increased width for coordinates
+        const baseHeight = 28;
+        const width = baseWidth * scale;
+        const height = baseHeight * scale;
+        const radius = 4 * scale;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+
+        // Scale everything
+        ctx.scale(scale, scale);
+
+        // Draw rounded rectangle
+        const gradient = ctx.createLinearGradient(0, 0, baseWidth, baseHeight);
+        gradient.addColorStop(0, "#007AFF");
+        gradient.addColorStop(1, "#5856D6");
+        ctx.fillStyle = gradient;
+        roundRect(ctx, 0, 0, baseWidth, baseHeight, 4);
+        ctx.fill();
+
+        // Add shadow effect (scaled down effectively by context scale)
+        ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        // Draw text
+        ctx.fillStyle = "white";
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowBlur = 0;
+        ctx.fillText(anchorName, baseWidth / 2, baseHeight / 2);
+
+        return canvas.toDataURL();
+      }
+
+      function roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(
+          x + width,
+          y + height,
+          x + width - radius,
+          y + height
+        );
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+
+      window.toggleAllMarkers = function () {
+        allVisible = !allVisible;
+        const toggleBtn = document.getElementById("toggleBtn");
+
+        markers.forEach((marker) => {
+          if (allVisible) {
+            marker.show();
+          } else {
+            marker.hide();
+          }
+        });
+
+        centerMarkers.forEach((marker) => {
+          if (allVisible) {
+            marker.show();
+          } else {
+            marker.hide();
+          }
+        });
+
+        toggleBtn.innerHTML = allVisible
+          ? '<i class="fas fa-eye-slash"></i> Hide All'
+          : '<i class="fas fa-eye"></i> Show All';
+
+        updateMarkerCount();
+        showNotification(
+          allVisible ? "All markers shown" : "All markers hidden",
+          "info"
+        );
+      };
+
+      window.resetView = function () {
+        map.easeTo({
+          center: [116.473195, 39.973253, 5000],
+          pitch: 85,
+          bearing: 0,
+          duration: 1000,
+        });
+        showNotification("View reset", "info");
+      };
+
+      function updateMarkerCount() {
+        document.getElementById("markerCount").textContent = markers.length;
+        document.getElementById("visibleCount").textContent = allVisible
+          ? markers.length
+          : 0;
+      }
+
+      // Anchor item click handlers
+      document.querySelectorAll(".anchor-item").forEach((item) => {
+        item.addEventListener("click", function () {
+          const anchor = this.dataset.anchor;
+          const index = anchorNames.indexOf(anchor);
+
+          if (index !== -1 && markers[index]) {
+            // Fly to marker position
+            map.easeTo({
+              center: [...positions[index], 2000],
+              duration: 800,
+            });
+
+            showNotification(`Focused on ${anchor} marker`, "info");
+          }
+        });
+      });
+
+      function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        const body = document.body;
+        const themeToggle = document.getElementById("themeToggle");
+        const icon = themeToggle.querySelector("i");
+
+        if (isDarkMode) {
+          body.classList.add("orbis-dark");
+          icon.className = "fas fa-sun";
+          themeToggle.title = "Toggle Light Mode";
+          showNotification("Dark mode enabled", "info");
+        } else {
+          body.classList.remove("orbis-dark");
+          icon.className = "fas fa-moon";
+          themeToggle.title = "Toggle Dark Mode";
+          showNotification("Light mode enabled", "info");
+        }
+
+        localStorage.setItem("mapDarkMode", isDarkMode);
+      }
+
+      function showNotification(message, type = "info") {
+        const existingNotification = document.querySelector(
+          ".orbis-notification"
+        );
+        if (existingNotification) {
+          existingNotification.remove();
+        }
+
+        const notification = document.createElement("div");
+        notification.className = `orbis-notification orbis-notification-${type}`;
+
+        let icon = "fa-info-circle";
+        switch (type) {
+          case "success":
+            icon = "fa-check-circle";
+            break;
+          case "warning":
+            icon = "fa-exclamation-triangle";
+            break;
+          case "error":
+            icon = "fa-exclamation-triangle";
+            break;
+          case "info":
+            icon = "fa-info-circle";
+            break;
+        }
+
+        notification.innerHTML = `
+          <div class="orbis-notification-content">
+            <i class="fas ${icon}"></i>
+            <span>${message}</span>
+          </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+          notification.classList.add("orbis-notification-show");
+        }, 10);
+
+        setTimeout(() => {
+          notification.classList.remove("orbis-notification-show");
+          setTimeout(() => {
+            notification.remove();
+          }, 400);
+        }, 3000);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const savedDarkMode = localStorage.getItem("mapDarkMode");
+        if (savedDarkMode === "true") {
+          isDarkMode = true;
+          document.body.classList.add("orbis-dark");
+          document.getElementById("themeToggle").querySelector("i").className =
+            "fas fa-sun";
+        }
+
+        setTimeout(initMap, 100);
+
+        document
+          .getElementById("themeToggle")
+          .addEventListener("click", toggleDarkMode);
+      });
+    </script>
+  </body>
+</html>

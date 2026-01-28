@@ -10,6 +10,7 @@ import {
 import { Line2 } from 'three-stdlib';
 import { _createBasicPoint, _createIconPoint, _createBasicLine } from '../utils/createobject';
 import { Feature } from '../feature/Feature';
+import type { Anchor } from '../types';
 
 /**
  * Base paint interface.
@@ -74,8 +75,12 @@ export interface IconPaint extends BasePaint {
     size: number | [number, number]; // 像素值或单个数值
     /** 旋转角度 */
     rotation?: number;
-    /** 锚点位置 [x, y] */
-    anchor?: [number, number];
+    /** 
+     * Anchor position: named position or [x, y] coordinates.
+     * 锚点位置：命名位置或 [x, y] 坐标
+     * @example 'center' | 'top-right' | [0.5, 0.5]
+     */
+    anchor?: Anchor;
     /** 是否随距离衰减 */
     sizeAttenuation?: boolean;
     sizeUnit?: 'pixels' | 'meters'; //单位标识
@@ -150,8 +155,12 @@ export interface TextPaint extends BasePaint {
     /** 文本偏移 */
     textOffset?: { x: number; y: number };
 
-    /** 整体锚点 */
-    anchor?: [number, number];
+    /** 
+     * Anchor position: named position or [x, y] coordinates.
+     * 整体锚点：命名位置或 [x, y] 坐标
+     * @example 'center' | 'top-right' | [0.5, 0.5]
+     */
+    anchor?: Anchor;
 }
 
 /**
@@ -208,8 +217,12 @@ export interface SymbolPaint extends BasePaint {
     /** 文本偏移 */
     textOffset?: { x: number; y: number };
 
-    /** 整体锚点，等同于 Sprite.center / IconPointStyle.anchor */
-    anchor?: [number, number];
+    /** 
+     * Anchor position: named position or [x, y] coordinates.
+     * 整体锚点：命名位置或 [x, y] 坐标，等同于 Sprite.center / IconPointStyle.anchor
+     * @example 'center' | 'top-right' | [0.5, 0.5]
+     */
+    anchor?: Anchor;
 
 }
 

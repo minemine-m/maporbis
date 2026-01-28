@@ -18,3 +18,94 @@
  * @category Types
  */
 export type LngLatLike = [number, number] | [number, number, number];
+
+/**
+ * Named anchor position type.
+ * 命名锚点位置类型
+ * @description Defines named positions for anchoring UI elements and markers
+ * 
+ * Anchor positioning system:
+ * - 'top-left': [0, 1] - Top-left corner
+ * - 'top': [0.5, 1] - Top center
+ * - 'top-right': [1, 1] - Top-right corner
+ * - 'left': [0, 0.5] - Middle left
+ * - 'center': [0.5, 0.5] - Center
+ * - 'right': [1, 0.5] - Middle right
+ * - 'bottom-left': [0, 0] - Bottom-left corner
+ * - 'bottom': [0.5, 0] - Bottom center
+ * - 'bottom-right': [1, 0] - Bottom-right corner
+ * 
+ * @category Types
+ */
+export type AnchorPosition =
+    | 'top-left'
+    | 'top'
+    | 'top-right'
+    | 'left'
+    | 'center'
+    | 'right'
+    | 'bottom-left'
+    | 'bottom'
+    | 'bottom-right';
+
+/**
+ * Anchor type: supports both named positions and numeric array format.
+ * 锚点类型：支持命名位置和数值数组格式
+ * @description Can be either a named position or [x, y] coordinates where x and y are in range [0, 1]
+ * 
+ * @example
+ * // Named anchor
+ * const anchor1: Anchor = 'top-right';
+ * 
+ * @example
+ * // Numeric anchor
+ * const anchor2: Anchor = [0.5, 0.5]; // center
+ * 
+ * @category Types
+ */
+export type Anchor = AnchorPosition | [number, number];
+
+/**
+ * Convert named anchor position to numeric [x, y] array.
+ * 将命名锚点位置转换为数值 [x, y] 数组
+ * @param anchor - Named anchor position or numeric array
+ * @returns Numeric [x, y] array where x and y are in range [0, 1]
+ * 
+ * @example
+ * normalizeAnchor('top-right') // returns [1, 1]
+ * normalizeAnchor([0.3, 0.7]) // returns [0.3, 0.7]
+ * normalizeAnchor('center') // returns [0.5, 0.5]
+ * 
+ * @category Types
+ */
+export function normalizeAnchor(anchor?: Anchor): [number, number] {
+    if (!anchor) return [0.5, 0.5]; // default center
+    
+    if (Array.isArray(anchor)) {
+        return anchor as [number, number];
+    }
+    
+    // Convert named position to numeric coordinates
+    switch (anchor) {
+        case 'top-left':
+            return [0, 1];
+        case 'top':
+            return [0.5, 1];
+        case 'top-right':
+            return [1, 1];
+        case 'left':
+            return [0, 0.5];
+        case 'center':
+            return [0.5, 0.5];
+        case 'right':
+            return [1, 0.5];
+        case 'bottom-left':
+            return [0, 0];
+        case 'bottom':
+            return [0.5, 0];
+        case 'bottom-right':
+            return [1, 0];
+        default:
+            return [0.5, 0.5];
+    }
+}
