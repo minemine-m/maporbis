@@ -228,6 +228,31 @@ export class Map extends Handlerable(
      */
     public maxLevel = 19;
     
+    /**
+     * Get map projection.
+     * 获取地图投影
+     * 
+     * @returns Current map projection instance
+     *          当前地图投影实例
+     */
+    public getProjection(): IProjection {
+        return this._mapProjection;
+    }
+
+    /**
+     * Set map projection.
+     * 设置地图投影
+     * 
+     * @param projection New map projection instance
+     *                   新的地图投影实例
+     * @returns Map instance
+     *          地图实例
+     */
+    public setProjection(projection: IProjection): this {
+        this._mapProjection = projection;
+        return this;
+    }
+
     public get projection() { return this._mapProjection; }
     public get lon0() { return this.projection.centralMeridian; }
 
@@ -885,6 +910,144 @@ export class Map extends Handlerable(
     }
 
     /**
+     * Get current camera pitch angle in degrees.
+     * 获取当前相机俯仰角（度）
+     * 
+     * @returns Pitch angle in degrees (0 = looking straight down, 90 = horizontal)
+     *          俯仰角（度，0为垂直向下看，90为水平）
+     */
+    public getPitch(): number {
+        const controls = this.sceneRenderer.controls as any;
+        if (controls && typeof controls.getPolarAngle === 'function') {
+            const polarAngleRad = controls.getPolarAngle();
+            return (polarAngleRad * 180) / Math.PI;
+        }
+        return 0;
+    }
+
+    /**
+     * Set camera pitch angle in degrees.
+     * 设置相机俯仰角（度）
+     * 
+     * @param pitch Pitch angle in degrees (0 = looking straight down, 90 = horizontal)
+     *              俯仰角（度，0为垂直向下看，90为水平）
+     * @returns Map instance
+     *          地图实例
+     */
+    public setPitch(pitch: number): this {
+        this.sceneRenderer.easeTo({
+            center: this.getCenter(),
+            distance: this._getCameraDistance(),
+            pitch: pitch,
+            bearing: this.getBearing(),
+            duration: 0,
+            curvePath: false
+        });
+        return this;
+    }
+
+    /**
+     * Get current camera bearing angle in degrees.
+     * 获取当前相机方位角（度）
+     * 
+     * @returns Bearing angle in degrees (0 = north, 90 = east)
+     *          方位角（度，0为正北，90为正东）
+     */
+    public getBearing(): number {
+        const controls = this.sceneRenderer.controls as any;
+        if (controls && typeof controls.getAzimuthalAngle === 'function') {
+            const azimuthalAngleRad = controls.getAzimuthalAngle();
+            return (azimuthalAngleRad * 180) / Math.PI;
+        }
+        return 0;
+    }
+
+    /**
+     * Set camera bearing angle in degrees.
+     * 设置相机方位角（度）
+     * 
+     * @param bearing Bearing angle in degrees (0 = north, 90 = east)
+     *                方位角（度，0为正北，90为正东）
+     * @returns Map instance
+     *          地图实例
+     */
+    public setBearing(bearing: number): this {
+        this.sceneRenderer.easeTo({
+            center: this.getCenter(),
+            distance: this._getCameraDistance(),
+            pitch: this.getPitch(),
+            bearing: bearing,
+            duration: 0,
+            curvePath: false
+        });
+        return this;
+    }
+
+    /**
+     * Get minimum camera distance.
+     * 获取最小相机距离
+     * 
+     * @returns Minimum camera distance
+     *          最小相机距离
+     */
+    public getMinDistance(): number {
+        const controls = this.sceneRenderer.controls as any;
+        return typeof controls?.minDistance === 'number' 
+            ? controls.minDistance 
+            : this._minZoomDistance;
+    }
+
+    /**
+     * Set minimum camera distance.
+     * 设置最小相机距离
+     * 
+     * @param minDistance Minimum camera distance
+     *                    最小相机距离
+     * @returns Map instance
+     *          地图实例
+     */
+    public setMinDistance(minDistance: number): this {
+        const controls = this.sceneRenderer.controls as any;
+        if (controls) {
+            controls.minDistance = minDistance;
+            this._minZoomDistance = minDistance;
+        }
+        return this;
+    }
+
+    /**
+     * Get maximum camera distance.
+     * 获取最大相机距离
+     * 
+     * @returns Maximum camera distance
+     *          最大相机距离
+     */
+    public getMaxDistance(): number {
+        const controls = this.sceneRenderer.controls as any;
+        return typeof controls?.maxDistance === 'number' 
+            ? controls.maxDistance 
+            : this._maxZoomDistance;
+    }
+
+    /**
+     * Set maximum camera distance.
+     * 设置最大相机距离
+     * 
+     * @param maxDistance Maximum camera distance
+     *                    最大相机距离
+     * @returns Map instance
+     *          地图实例
+     */
+    public setMaxDistance(maxDistance: number): this {
+        const controls = this.sceneRenderer.controls as any;
+        if (controls) {
+            controls.maxDistance = maxDistance;
+            this._maxZoomDistance = maxDistance;
+        }
+        return this;
+    }
+
+    /**
      * Inverse calculate camera distance to target from view zoom level.
      * 根据视图缩放级别反推相机到目标点的距离
      */
@@ -1481,8 +1644,12 @@ export class Map extends Handlerable(
      * Fly to specified position.
      * 飞行到指定位置
      * 
-     * @param flyConfig Flight parameters object
-     *                飞行参数对象
+     * @param flyConfig Flight parameters object. Can specify either:
+     *                  1. center + cameraCoord: Directly specify target and camera positions
+     *                  2. center + distance/pitch/bearing: Specify target and viewing angle
+     *                飞行参数对象。可以指定：
+     *                  1. center + cameraCoord：直接指定目标点和相机位置
+     *                  2. center + distance/pitch/bearing：指定目标点和视角参数
      */
     public flyTo(flyConfig: FlyToOptions) {
         this.sceneRenderer.flyToAdvanced(flyConfig);
@@ -1496,7 +1663,7 @@ export class Map extends Handlerable(
      *                飞行参数对象
      */
     public easeTo(flyConfig: EaseToOptions) {
-        this.sceneRenderer.flyToPoint(flyConfig);
+        this.sceneRenderer.easeTo(flyConfig);
     }
 
     /**
@@ -1597,7 +1764,6 @@ export class Map extends Handlerable(
             console.error('Error destroying map 销毁地图时出错:', error);
         }
     }
-
 }
 
 Map.mergeOptions(options);

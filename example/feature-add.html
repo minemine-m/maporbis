@@ -3,13 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      name="viewport"
-      content="initial-scale=1.0, user-scalable=no, width=device-width"
-    />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
     <title>添加覆盖物 - MapOrbis</title>
-    <!-- 引入 MapOrbisStyle CSS -->
-    <link rel="stylesheet" href="./example/css/orbisstyle.css" />
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="./js/demo-common.js"></script>
     <style>
       html,
       body,
@@ -159,11 +157,6 @@
         </div>
       </div>
     </div>
-    <!-- 引入 Font Awesome -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
     <script type="importmap">
       {
         "imports": {
@@ -313,9 +306,10 @@
           overlayCount++;
           document.getElementById("lastOperation").textContent = "添加点覆盖物";
           updateStatus();
-    
+          notify("点覆盖物添加成功", "success");
         } catch (error) {
-  
+          console.error(error);
+          notify("添加失败: " + error.message, "error");
         }
       };
 
@@ -325,13 +319,12 @@
           polyline.addTo(polylinelayer);
           polygon.addTo(polygonlayer);
           overlayCount += 2;
-          document.getElementById("lastOperation").textContent =
-            "添加线和面覆盖物";
+          document.getElementById("lastOperation").textContent = "添加线和面覆盖物";
           updateStatus();
-          // showNotification("线和面覆盖物添加成功", "success");
+          notify("线和面覆盖物添加成功", "success");
         } catch (error) {
           console.error(error);
-          // showNotification("添加失败: " + error.message, "error");
+          notify("添加失败: " + error.message, "error");
         }
       };
 

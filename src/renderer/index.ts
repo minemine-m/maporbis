@@ -151,7 +151,32 @@ export interface FlyToOptions {
   /** Longitude and latitude 经纬度 */
   center: LngLatLike;
   /** Camera coordinates 相机 */
-  cameraCoord: LngLatLike;
+  cameraCoord?: LngLatLike;
+  
+  /**
+   * Distance from camera to target point (consistent with OrbitControls.getDistance)
+   * 相机到目标点的距离（与 OrbitControls.getDistance 一致）
+   * Unit consistent with world coordinates.
+   * 单位与世界坐标一致。
+   */
+  distance?: number;
+  
+  /**
+   * Camera pitch angle (in degrees)
+   * 相机俯仰角（角度制）
+   * 0 = top-down view, 90 = horizontal
+   * 0 = 正上方俯视，90 = 水平
+   */
+  pitch?: number;
+  
+  /**
+   * Camera bearing angle (in degrees)
+   * 相机方位角（角度制）
+   * 0 = looking North, 90 = looking East
+   * 0 = 朝北，90 = 朝东
+   */
+  bearing?: number;
+  
   duration?: number;
   delay?: number;
   complete?: () => void;
@@ -954,139 +979,188 @@ export class SceneRenderer extends SceneRendererBase {
     const camera = this.camera;
     const controls = this.controls;
     const centerGeo = options.center;
-    const cameraGeo = options.cameraCoord;
     const duration = options.duration ?? 2000;
     const delay = options.delay ?? 0;
     const complete = options.complete;
     const useCurvePath = !!options.curvePath;
 
-    if (!centerGeo || !cameraGeo) return;
+    if (!centerGeo) return;
 
     const centerWorldPos = this.map.lngLatToWorld(
       new Vector3(centerGeo[0], centerGeo[1], 0),
     );
-    const cameraWorldPos = this.map.lngLatToWorld(
-      new Vector3(cameraGeo[0], cameraGeo[1], cameraGeo[2]),
-    );
 
-    if (!camera || !controls || !centerWorldPos || !cameraWorldPos) return;
+    if (!camera || !controls || !centerWorldPos) return;
 
-    // 克隆目标和相机位置
-    const targetStart = controls.target.clone();
-    const positionStart = camera.position.clone();
+    // 如果提供了 cameraCoord，使用原有逻辑
+    if (options.cameraCoord) {
+      const cameraGeo = options.cameraCoord;
+      const cameraWorldPos = this.map.lngLatToWorld(
+        new Vector3(cameraGeo[0], cameraGeo[1], cameraGeo[2]),
+      );
 
-    const targetEnd = new Vector3(
-      centerWorldPos.x,
-      centerWorldPos.y,
-      centerWorldPos.z,
-    );
-    const positionEnd = new Vector3(
-      cameraWorldPos.x,
-      cameraWorldPos.y,
-      cameraWorldPos.z,
-    );
+      if (!cameraWorldPos) return;
 
-    // 停止之前的动画
-    if (this.flyTween) {
-      this.flyTween.stop();
-      this.flyTween = null;
-    }
+      // 克隆目标和相机位置
+      const targetStart = controls.target.clone();
+      const positionStart = camera.position.clone();
 
-    // 直线 / 曲线由 curvePath 控制，默认直线
-    if (!useCurvePath) {
-      const tweenObj = {
-        tx: targetStart.x,
-        ty: targetStart.y,
-        tz: targetStart.z,
-        px: positionStart.x,
-        py: positionStart.y,
-        pz: positionStart.z,
-      };
+      const targetEnd = new Vector3(
+        centerWorldPos.x,
+        centerWorldPos.y,
+        centerWorldPos.z,
+      );
+      const positionEnd = new Vector3(
+        cameraWorldPos.x,
+        cameraWorldPos.y,
+        cameraWorldPos.z,
+      );
 
-      this.flyTween = new Tween(tweenObj)
-        .to(
-          {
-            tx: targetEnd.x,
-            ty: targetEnd.y,
-            tz: targetEnd.z,
-            px: positionEnd.x,
-            py: positionEnd.y,
-            pz: positionEnd.z,
-          },
-          duration,
-        )
-        .easing(Easing.Quadratic.InOut)
-        .onUpdate(() => {
-          const newTarget = new Vector3(tweenObj.tx, tweenObj.ty, tweenObj.tz);
-          const newPosition = new Vector3(
-            tweenObj.px,
-            tweenObj.py,
-            tweenObj.pz,
-          );
-          camera.position.copy(newPosition);
-          camera.lookAt(newTarget);
-          controls.target.copy(newTarget);
-          controls.update();
-          // 渲染交给全局 animate 中的 renderer.render
-        });
-    } else {
-      // 曲线路径版本
-      const points = [
-        positionStart,
-        positionStart.clone().lerp(positionEnd, 0.33),
-        positionStart.clone().lerp(positionEnd, 0.67),
-        positionEnd,
-      ];
-
-      const curve = new CubicBezierCurve3(...points);
-
-      const tweenObj = {
-        t: 0,
-        x: targetStart.x,
-        y: targetStart.y,
-        z: targetStart.z,
-      };
-
-      this.flyTween = new Tween(tweenObj)
-        .to(
-          {
-            t: 1,
-            x: targetEnd.x,
-            y: targetEnd.y,
-            z: targetEnd.z,
-          },
-          duration,
-        )
-        .easing(Easing.Quadratic.InOut)
-        .onUpdate(() => {
-          const newPosition = curve.getPoint(tweenObj.t);
-          const newTarget = new Vector3(tweenObj.x, tweenObj.y, tweenObj.z);
-          camera.position.copy(newPosition);
-          camera.lookAt(newTarget);
-          camera.updateProjectionMatrix();
-          controls.target.copy(newTarget);
-          controls.update();
-        });
-    }
-
-    if (!this.flyTween) return;
-
-    this.flyTween.onComplete(() => {
+      // 停止之前的动画
       if (this.flyTween) {
         this.flyTween.stop();
         this.flyTween = null;
       }
-      if (complete) complete();
-    });
 
-    if (delay > 0) {
-      setTimeout(() => {
+      // 直线 / 曲线由 curvePath 控制，默认直线
+      if (!useCurvePath) {
+        const tweenObj = {
+          tx: targetStart.x,
+          ty: targetStart.y,
+          tz: targetStart.z,
+          px: positionStart.x,
+          py: positionStart.y,
+          pz: positionStart.z,
+        };
+
+        this.flyTween = new Tween(tweenObj)
+          .to(
+            {
+              tx: targetEnd.x,
+              ty: targetEnd.y,
+              tz: targetEnd.z,
+              px: positionEnd.x,
+              py: positionEnd.y,
+              pz: positionEnd.z,
+            },
+            duration,
+          )
+          .easing(Easing.Quadratic.InOut)
+          .onUpdate(() => {
+            const newTarget = new Vector3(tweenObj.tx, tweenObj.ty, tweenObj.tz);
+            const newPosition = new Vector3(
+              tweenObj.px,
+              tweenObj.py,
+              tweenObj.pz,
+            );
+            camera.position.copy(newPosition);
+            camera.lookAt(newTarget);
+            controls.target.copy(newTarget);
+            controls.update();
+            // 渲染交给全局 animate 中的 renderer.render
+          });
+      } else {
+        // 曲线路径版本
+        const points = [
+          positionStart,
+          positionStart.clone().lerp(positionEnd, 0.33),
+          positionStart.clone().lerp(positionEnd, 0.67),
+          positionEnd,
+        ];
+
+        const curve = new CubicBezierCurve3(...points);
+
+        const tweenObj = {
+          t: 0,
+          x: targetStart.x,
+          y: targetStart.y,
+          z: targetStart.z,
+        };
+
+        this.flyTween = new Tween(tweenObj)
+          .to(
+            {
+              t: 1,
+              x: targetEnd.x,
+              y: targetEnd.y,
+              z: targetEnd.z,
+            },
+            duration,
+          )
+          .easing(Easing.Quadratic.InOut)
+          .onUpdate(() => {
+            const newPosition = curve.getPoint(tweenObj.t);
+            const newTarget = new Vector3(tweenObj.x, tweenObj.y, tweenObj.z);
+            camera.position.copy(newPosition);
+            camera.lookAt(newTarget);
+            camera.updateProjectionMatrix();
+            controls.target.copy(newTarget);
+            controls.update();
+          });
+      }
+
+      if (!this.flyTween) return;
+
+      this.flyTween.onComplete(() => {
         if (this.flyTween) {
-          this.flyTween.start();
+          this.flyTween.stop();
+          this.flyTween = null;
         }
-      }, delay);
+        if (complete) complete();
+      });
+
+      if (delay > 0) {
+        setTimeout(() => {
+          if (this.flyTween) {
+            this.flyTween.start();
+          }
+        }, delay);
+      } else {
+        this.flyTween.start();
+      }
     } else {
-      this.flyTween.start();
+      // 使用 distance/pitch/bearing 参数
+      const distance =
+        typeof options.distance === "number"
+          ? options.distance
+          : controls.getDistance();
+
+      // === Convert degrees to radians ===
+      const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+      // Avoid polar singularity: when pitch <= 0, use a small angle
+      let pitchRad: number;
+      if (typeof options.pitch === "number") {
+        const safePitch = options.pitch <= 0 ? 0.1 : options.pitch;
+        pitchRad = toRad(safePitch);
+      } else {
+        pitchRad = controls.getPolarAngle();
+      }
+
+      const bearingRad =
+        typeof options.bearing === "number"
+          ? toRad(options.bearing)
+          : controls.getAzimuthalAngle();
+
+      const targetWorld = centerWorldPos;
+      const newCameraPosition = this.calculateCameraPosition(
+        targetWorld,
+        distance,
+        pitchRad,
+        bearingRad,
+      );
+
+      const newCameraGeo = this.map.worldToLngLat(newCameraPosition);
+
+      // 递归调用自己，但这次使用 cameraCoord 参数
+      this.flyToAdvanced({
+        center: [centerGeo[0], centerGeo[1], 0],
+        cameraCoord: [newCameraGeo.x, newCameraGeo.y, newCameraGeo.z || 0],
+        duration,
+        delay,
+        complete,
+        curvePath: useCurvePath,
+      });
     }
   }
 

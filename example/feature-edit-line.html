@@ -3,12 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      name="viewport"
-      content="initial-scale=1.0, user-scalable=no, width=device-width"
-    />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
     <title>折线的编辑 - MapOrbis</title>
-    <link rel="stylesheet" href="./example/css/orbisstyle.css" />
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="./js/demo-common.js"></script>
     <style>
       html,
       body,
@@ -291,10 +290,16 @@
       }
 
       // 绑定按钮事件
-      document.getElementById("editLine1").onclick = () => startEditing(line1);
-      document.getElementById("editLine2").onclick = () => startEditing(line2);
+      document.getElementById("editLine1").onclick = () => {
+        startEditing(line1);
+        notify("开始编辑折线1", "info");
+      };
+      document.getElementById("editLine2").onclick = () => {
+        startEditing(line2);
+        notify("开始编辑折线2", "info");
+      };
 
-      // 结束编辑逻辑 (修复点：统一使用 id 绑定)
+      // 结束编辑逻辑
       document.getElementById("endEditBtn").onclick = function () {
         if (currentEditingLine) {
           console.log("Ending edit...");
@@ -302,18 +307,15 @@
           isEditing = false;
           currentEditingLine = null;
           updateStatus();
+          notify("已结束编辑", "success");
+        } else {
+          notify("当前没有正在编辑的折线", "warning");
         }
-      };
-
-      // 主题切换
-      document.getElementById("themeToggle").onclick = function () {
-        document.body.classList.toggle("orbis-dark");
-        const icon = this.querySelector("i");
-        icon.className = document.body.classList.contains("orbis-dark") ? "fas fa-sun" : "fas fa-moon";
       };
 
       // 初始化
       updateStatus();
+      notify("折线编辑示例已加载", "success");
     </script>
   </body>
 </html>

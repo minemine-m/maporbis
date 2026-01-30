@@ -5,62 +5,58 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
     <title>点位标记的编辑 - MapOrbis</title>
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="./js/demo-common.js"></script>
     <style>
       html, body, #container { width: 100%; height: 100%; margin: 0; padding: 0; }
       
-      .input-card {
+      .demo-panel {
         position: absolute;
         top: 20px;
         right: 20px;
-        width: 160px;
+        width: 300px;
         z-index: 1000;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .btn {
-        padding: 10px;
-        background: #1890ff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 13px;
-        transition: all 0.3s;
-      }
-
-      .btn:hover:not(:disabled) { background: #40a9ff; }
-      .btn:disabled { background: #d9d9d9; cursor: not-allowed; }
-      .btn-secondary { background: #ff4d4f; }
-      .btn-secondary:hover:not(:disabled) { background: #ff7875; }
-      
-      .status-tag {
-        font-size: 11px;
-        color: #666;
-        text-align: center;
-        line-height: 1.4;
-      }
-
-      .coords-display {
-        font-family: monospace;
-        color: #1890ff;
-        font-weight: bold;
       }
     </style>
   </head>
-  <body>
+  <body class="orbis-body">
     <div id="container"></div>
-    <div class="input-card">
-      <button class="btn" id="btnEdit1">移动点 A</button>
-      <button class="btn" id="btnEdit2">移动点 B</button>
-      <button class="btn btn-secondary" id="btnEnd" disabled>锁定位置</button>
-      <div class="status-tag" id="statusLabel">状态：预览模式</div>
-      <div class="status-tag" id="coordsLabel"></div>
+    <div class="demo-panel">
+      <div class="orbis-panel orbis-shadow-lg">
+        <div class="orbis-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 600;">
+            <i class="fas fa-edit" style="color: var(--orbis-blue)"></i>
+            点位编辑
+          </h3>
+          <button class="orbis-toggle" id="themeToggle" title="切换暗黑模式">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+        <div class="orbis-panel-body">
+          <div class="orbis-btn-group orbis-mb-3">
+            <button class="orbis-btn orbis-btn-primary orbis-btn-block" id="btnEdit1">
+              <i class="fas fa-arrows-alt"></i>
+              移动点 A
+            </button>
+            <button class="orbis-btn orbis-btn-primary orbis-btn-block" id="btnEdit2">
+              <i class="fas fa-arrows-alt"></i>
+              移动点 B
+            </button>
+            <button class="orbis-btn orbis-btn-secondary orbis-btn-block" id="btnEnd" disabled>
+              <i class="fas fa-lock"></i>
+              锁定位置
+            </button>
+          </div>
+          <div class="orbis-status-card">
+            <div class="orbis-status-title">当前状态</div>
+            <div class="orbis-status-indicator">
+              <span class="orbis-indicator" id="statusIndicator"></span>
+              <div class="orbis-status-content" id="statusLabel">预览模式</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script type="importmap">
@@ -121,26 +117,27 @@
       const btnEdit2 = document.getElementById("btnEdit2");
       const btnEnd = document.getElementById("btnEnd");
       const statusLabel = document.getElementById("statusLabel");
-      const coordsLabel = document.getElementById("coordsLabel");
+      const statusIndicator = document.getElementById("statusIndicator");
 
-      // 监听拖拽事件显示实时坐标
+      // 监听拖拽事件
       const handleDrag = (e) => {
         const coords = e.target.getGeometry().coordinates;
-        coordsLabel.innerHTML = `当前坐标:<br><span class="coords-display">${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}</span>`;
+        notify(`坐标: ${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`, "info", 1000);
       };
 
       const updateUI = (isEditing, name = "") => {
         btnEdit1.disabled = isEditing;
         btnEdit2.disabled = isEditing;
         btnEnd.disabled = !isEditing;
-        statusLabel.textContent = isEditing ? `正在移动：${name}` : "状态：预览模式";
-        if (!isEditing) coordsLabel.innerHTML = "";
+        statusLabel.textContent = isEditing ? `正在移动：${name}` : "预览模式";
+        statusIndicator.className = isEditing ? "orbis-indicator orbis-indicator-active" : "orbis-indicator";
       };
 
       const startEdit = (marker, name) => {
         if (currentEditingMarker) currentEditingMarker.endEdit();
 
         currentEditingMarker = marker;
+        notify(`开始编辑 ${name}`, "info");
         // 开启编辑（开启拖拽手柄）
         marker.startEdit();
         
@@ -153,9 +150,10 @@
 
       const endEdit = () => {
         if (currentEditingMarker) {
-          currentEditingMarker.off('drag', handleDrag); // 移除监听
+          currentEditingMarker.off('drag', handleDrag);
           currentEditingMarker.endEdit();
           currentEditingMarker = null;
+          notify("已锁定位置", "success");
         }
         updateUI(false);
       };
@@ -165,6 +163,9 @@
       btnEdit2.addEventListener("click", () => startEdit(pointB, "点 B"));
       btnEnd.addEventListener("click", endEdit);
 
+      // 初始化提示
+      notify("点位编辑示例已加载", "success");
     </script>
   </body>
+</html>
 </html>

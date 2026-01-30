@@ -8,11 +8,12 @@
       content="initial-scale=1.0, user-scalable=no, width=device-width"
     />
     <title>MapOrbis Marker Anchor Demo</title>
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <script src="./js/demo-common.js"></script>
     <style>
       html,
       body {
@@ -174,7 +175,6 @@
       let map, layer;
       let markers = [];
       let centerMarkers = [];
-      let isDarkMode = false;
       let allVisible = true;
 
       const positions = [
@@ -264,14 +264,11 @@
           map.on("load", () => {
             loading.style.display = "none";
             initLayer();
-            showNotification("Map loaded successfully", "success");
+            notify("地图加载成功", "success");
           });
         } catch (error) {
           console.error("Map initialization failed:", error);
-          showNotification(
-            "Map initialization failed: " + error.message,
-            "error"
-          );
+          notify("地图初始化失败: " + error.message, "error");
           loading.style.display = "none";
         }
       }
@@ -438,10 +435,7 @@
           : '<i class="fas fa-eye"></i> Show All';
 
         updateMarkerCount();
-        showNotification(
-          allVisible ? "All markers shown" : "All markers hidden",
-          "info"
-        );
+        notify(allVisible ? "已显示所有标记" : "已隐藏所有标记", "info");
       };
 
       window.resetView = function () {
@@ -451,7 +445,7 @@
           bearing: 0,
           duration: 1000,
         });
-        showNotification("View reset", "info");
+        notify("视图已重置", "info");
       };
 
       function updateMarkerCount() {
@@ -474,94 +468,13 @@
               duration: 800,
             });
 
-            showNotification(`Focused on ${anchor} marker`, "info");
+            notify(`已聚焦到 ${anchor} 标记`, "info");
           }
         });
       });
 
-      function toggleDarkMode() {
-        isDarkMode = !isDarkMode;
-        const body = document.body;
-        const themeToggle = document.getElementById("themeToggle");
-        const icon = themeToggle.querySelector("i");
-
-        if (isDarkMode) {
-          body.classList.add("orbis-dark");
-          icon.className = "fas fa-sun";
-          themeToggle.title = "Toggle Light Mode";
-          showNotification("Dark mode enabled", "info");
-        } else {
-          body.classList.remove("orbis-dark");
-          icon.className = "fas fa-moon";
-          themeToggle.title = "Toggle Dark Mode";
-          showNotification("Light mode enabled", "info");
-        }
-
-        localStorage.setItem("mapDarkMode", isDarkMode);
-      }
-
-      function showNotification(message, type = "info") {
-        const existingNotification = document.querySelector(
-          ".orbis-notification"
-        );
-        if (existingNotification) {
-          existingNotification.remove();
-        }
-
-        const notification = document.createElement("div");
-        notification.className = `orbis-notification orbis-notification-${type}`;
-
-        let icon = "fa-info-circle";
-        switch (type) {
-          case "success":
-            icon = "fa-check-circle";
-            break;
-          case "warning":
-            icon = "fa-exclamation-triangle";
-            break;
-          case "error":
-            icon = "fa-exclamation-triangle";
-            break;
-          case "info":
-            icon = "fa-info-circle";
-            break;
-        }
-
-        notification.innerHTML = `
-          <div class="orbis-notification-content">
-            <i class="fas ${icon}"></i>
-            <span>${message}</span>
-          </div>
-        `;
-
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-          notification.classList.add("orbis-notification-show");
-        }, 10);
-
-        setTimeout(() => {
-          notification.classList.remove("orbis-notification-show");
-          setTimeout(() => {
-            notification.remove();
-          }, 400);
-        }, 3000);
-      }
-
       document.addEventListener("DOMContentLoaded", function () {
-        const savedDarkMode = localStorage.getItem("mapDarkMode");
-        if (savedDarkMode === "true") {
-          isDarkMode = true;
-          document.body.classList.add("orbis-dark");
-          document.getElementById("themeToggle").querySelector("i").className =
-            "fas fa-sun";
-        }
-
         setTimeout(initMap, 100);
-
-        document
-          .getElementById("themeToggle")
-          .addEventListener("click", toggleDarkMode);
       });
     </script>
   </body>

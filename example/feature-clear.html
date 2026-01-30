@@ -3,13 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      name="viewport"
-      content="initial-scale=1.0, user-scalable=no, width=device-width"
-    />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
     <title>清除所有覆盖物 - MapOrbis</title>
-    <!-- 引入 MapOrbisStyle CSS -->
-    <link rel="stylesheet" href="./example/css/orbisstyle.css" />
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="./js/demo-common.js"></script>
     <style>
       html,
       body,
@@ -152,11 +150,6 @@
         </div>
       </div>
     </div>
-    <!-- 引入 Font Awesome -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
     <script type="importmap">
       {
         "imports": {
@@ -311,8 +304,13 @@
           polylinelayer.clear();
           polygonlayer.clear();
           overlayCount = 0;
+          document.getElementById("lastOperation").textContent = "清除所有";
           updateStatus();
-        } catch (error) {}
+          notify("所有覆盖物已清除", "success");
+        } catch (error) {
+          console.error(error);
+          notify("清除失败: " + error.message, "error");
+        }
       };
 
 

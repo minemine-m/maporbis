@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+    <title>示例模板 - MapOrbis</title>
+    <!-- 引入 MapOrbisStyle CSS -->
+    <link rel="stylesheet" href="./css/orbisstyle.css" />
+    <!-- 引入 Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      html, body, #container {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* 控制面板定位 */
+      .demo-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        z-index: 1000;
+      }
+
+      .demo-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .orbis-dark .demo-panel-header {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+        background: rgba(44, 44, 46, 0.7);
+      }
+
+      .demo-panel-title {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0;
+        color: var(--orbis-text-primary);
+      }
+
+      .orbis-dark .demo-panel-title {
+        color: var(--orbis-dark-text-primary);
+      }
+    </style>
+  </head>
+  <body class="orbis-body">
+    <div id="container"></div>
+
+    <!-- 可选：控制面板 -->
+    <div class="demo-panel">
+      <div class="orbis-panel orbis-shadow-lg">
+        <div class="demo-panel-header">
+          <h3 class="demo-panel-title">
+            <i class="fas fa-map" style="color: var(--orbis-blue)"></i>
+            示例标题
+          </h3>
+          <button class="orbis-toggle" id="themeToggle" title="切换暗黑模式">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+        <div class="orbis-panel-body">
+          <!-- 你的控制按钮 -->
+          <button class="orbis-btn orbis-btn-primary orbis-btn-block" id="testBtn">
+            <i class="fas fa-play"></i>
+            测试按钮
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as maporbis from "../src/index.ts";
+
+      // ========================================
+      // 通用工具函数 - 可直接复制到其他 demo 中使用
+      // ========================================
+
+      // 初始化通知容器
+      function createNotificationContainer() {
+        if (document.getElementById('notif-container')) return;
+        const div = document.createElement('div');
+        div.id = 'notif-container';
+        div.className = 'orbis-notification';
+        document.body.appendChild(div);
+      }
+
+      // 初始化加载指示器
+      function createLoadingContainer() {
+        if (document.getElementById('loading-container')) return;
+        const div = document.createElement('div');
+        div.id = 'loading-container';
+        div.className = 'orbis-loading';
+        div.style.display = 'none';
+        div.innerHTML = '<div class="orbis-spinner"></div><div class="orbis-loading-text">加载中...</div>';
+        document.body.appendChild(div);
+      }
+
+      // 初始化主题
+      function initTheme() {
+        const saved = localStorage.getItem('orbis-theme');
+        if (saved === 'dark') document.body.classList.add('orbis-dark');
+        
+        const btn = document.getElementById('themeToggle');
+        if (btn) {
+          updateThemeButton();
+          btn.onclick = () => {
+            document.body.classList.toggle('orbis-dark');
+            localStorage.setItem('orbis-theme', document.body.classList.contains('orbis-dark') ? 'dark' : 'light');
+            updateThemeButton();
+          };
+        }
+      }
+
+      function updateThemeButton() {
+        const btn = document.getElementById('themeToggle');
+        const isDark = document.body.classList.contains('orbis-dark');
+        if (btn) {
+          btn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+          btn.title = isDark ? '切换亮色模式' : '切换暗黑模式';
+        }
+      }
+
+      // 显示通知
+      function notify(msg, type = 'info', duration = 3000) {
+        const c = document.getElementById('notif-container');
+        if (!c) return;
+        
+        const icons = {
+          success: '<i class="fas fa-check-circle"></i>',
+          info: '<i class="fas fa-info-circle"></i>',
+          warning: '<i class="fas fa-exclamation-triangle"></i>',
+          error: '<i class="fas fa-times-circle"></i>'
+        };
+        
+        c.className = `orbis-notification orbis-notification-${type}`;
+        c.innerHTML = `<div class="orbis-notification-content">${icons[type]}<span>${msg}</span></div>`;
+        setTimeout(() => c.classList.add('orbis-notification-show'), 10);
+        setTimeout(() => c.classList.remove('orbis-notification-show'), duration);
+      }
+
+      // 显示/隐藏加载
+      function showLoading(text = '加载中...') {
+        const c = document.getElementById('loading-container');
+        if (c) {
+          c.querySelector('.orbis-loading-text').textContent = text;
+          c.style.display = 'block';
+        }
+      }
+
+      function hideLoading() {
+        const c = document.getElementById('loading-container');
+        if (c) c.style.display = 'none';
+      }
+
+      // 初始化
+      createNotificationContainer();
+      createLoadingContainer();
+      initTheme();
+
+      // ========================================
+      // 你的地图代码从这里开始
+      // ========================================
+
+      // 创建地图
+      const map = new maporbis.Map("container", {
+        state: {
+          center: [116.4, 39.9, 2000],
+        },
+        source: {
+          minLevel: 2,
+          maxLevel: 19,
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              opacity: 1.0,
+              visible: true,
+              altitude: 1,
+            }),
+          ],
+        },
+        renderer: {
+          stats: true,
+          antialias: true,
+          skybox: {
+            hdr: "/example/public/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+            hdrExposure: 1,
+            defaultColor: "#B9D4FE",
+          },
+          minDistance: 20,
+          maxDistance: 80000,
+          defaultGround: {
+            enabled: false,
+            visible: true,
+            color: "#ff0000",
+            opacity: 1,
+          },
+        },
+        camera: {
+          pitch: 75,
+          bearing: 0,
+        },
+      });
+
+      // 地图加载完成
+      map.on("loaded", () => {
+        notify("地图加载完成", "success", 2000);
+      });
+
+      // 测试按钮
+      document.getElementById('testBtn').onclick = () => {
+        showLoading("正在处理...");
+        setTimeout(() => {
+          hideLoading();
+          notify("操作成功！", "success");
+        }, 1500);
+      };
+    </script>
+  </body>
+</html>
