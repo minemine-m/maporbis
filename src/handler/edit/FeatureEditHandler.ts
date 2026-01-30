@@ -1454,50 +1454,50 @@ export class FeatureEditHandler extends Handler {
         }
     }
     
-    /**Fix handle point coordinates (altitude compensation)
-     * 
-     * 修正手柄点坐标（tion Convert world coordinates 海o geograph拔c c补ordi偿ates with altitude）compensation
-     * @description  - Worldcoordinates 
-     * @param index - Vertex worldPos 世界坐标
-     * @param index 顶点索 - Ring index (optional)引
-     * @param ringIndex 环索引（可选）
-     * @private
-     */
-    private _fixHandlePointCoordinates(worldPos: Vector3, index: number, ringIndex: number = 0): Vector3 {
-        const map = this._getMap();
-        if (!map) {
-            // 如果没有地图，直接返回原始坐标
-            return worldPos;
-        }
+    // /**Fix handle point coordinates (altitude compensation)
+    //  * 
+    //  * 修正手柄点坐标（tion Convert world coordinates 海o geograph拔c c补ordi偿ates with altitude）compensation
+    //  * @description  - Worldcoordinates 
+    //  * @param index - Vertex worldPos 世界坐标
+    //  * @param index 顶点索 - Ring index (optional)引
+    //  * @param ringIndex 环索引（可选）
+    //  * @private
+    //  */
+    // private _fixHandlePointCoordinates(worldPos: Vector3, index: number, ringIndex: number = 0): Vector3 {
+    //     const map = this._getMap();
+    //     if (!map) {
+    //         // 如果没有地图，直接返回原始坐标
+    //         return worldPos;
+    //     }
         
-        const geo = this.target._geometry;
-        let vertex: number[] | null = null;
+    //     const geo = this.target._geometry;
+    //     let vertex: number[] | null = null;
         
-        // 获取原始顶点坐标
-        if (this.target instanceof Point) {
-            vertex = geo.coordinates as number[];
-        } else if (this.target instanceof LineString) {
-            const coords = geo.coordinates as number[][];
-            vertex = coords[index];
-        } else if (this.target instanceof Polygon) {
-            const rings = geo.coordinates as number[][][];
-            if (rings[ringIndex] && rings[ringIndex][index]) {
-                vertex = rings[ringIndex][index];
-            }
-        }
+    //     // 获取原始顶点坐标
+    //     if (this.target instanceof Point) {
+    //         vertex = geo.coordinates as number[];
+    //     } else if (this.target instanceof LineString) {
+    //         const coords = geo.coordinates as number[][];
+    //         vertex = coords[index];
+    //     } else if (this.target instanceof Polygon) {
+    //         const rings = geo.coordinates as number[][][];
+    //         if (rings[ringIndex] && rings[ringIndex][index]) {
+    //             vertex = rings[ringIndex][index];
+    //         }
+    //     }
         
-        // 如果没有海拔或海拔为0，直接转换
-        if (!vertex || !vertex[2] || vertex[2] === 0) {
-            return map.worldToLngLat(worldPos);
-        }
+    //     // 如果没有海拔或海拔为0，直接转换
+    //     if (!vertex || !vertex[2] || vertex[2] === 0) {
+    //         return map.worldToLngLat(worldPos);
+    //     }
         
-        // TODO: 实现完整的海拔补偿逻辑
+    //     // TODO: 实现完整的海拔补偿逻辑
 
-        const geoPos = map.worldToLngLat(worldPos);
-        geoPos.z = vertex[2]; // 保持原始海拔
+    //     const geoPos = map.worldToLngLat(worldPos);
+    //     geoPos.z = vertex[2]; // 保持原始海拔
         
-        return geoPos;
-    }
+    //     return geoPos;
+    // }
     
     /**
      * Get map instance

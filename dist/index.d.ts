@@ -141,15 +141,15 @@ declare type Anchor = AnchorPosition | [number, number];
  * @description Defines named positions for anchoring UI elements and markers
  *
  * Anchor positioning system:
- * - 'top-left': [0, 1] - Top-left corner
- * - 'top': [0.5, 1] - Top center
- * - 'top-right': [1, 1] - Top-right corner
- * - 'left': [0, 0.5] - Middle left
- * - 'center': [0.5, 0.5] - Center
- * - 'right': [1, 0.5] - Middle right
- * - 'bottom-left': [0, 0] - Bottom-left corner
- * - 'bottom': [0.5, 0] - Bottom center
- * - 'bottom-right': [1, 0] - Bottom-right corner
+ * - 'top-left': [0, 1] - Top-left corner  图标左上角
+ * - 'top': [0.5, 1] - Top center 图标正上方中心
+ * - 'top-right': [1, 1] - Top-right corner 图标右上角
+ * - 'left': [0, 0.5] - Middle left 图标正左侧中心
+ * - 'center': [0.5, 0.5] - Center 图标中心
+ * - 'right': [1, 0.5] - Middle right 图标正右侧中心
+ * - 'bottom-left': [0, 0] - Bottom-left corner 图标左下角
+ * - 'bottom': [0.5, 0] - Bottom center 图标正下方中心
+ * - 'bottom-right': [1, 0] - Bottom-right corner 图标右下角
  *
  * @category Types
  */
@@ -1928,7 +1928,7 @@ declare const Feature_base: {
         _proxyOptions(): /*elided*/ any;
         _callInitHooks(): /*elided*/ any;
         setOptions(options: ClassOptions): /*elided*/ any;
-        configure(conf?: string | ClassOptions, value?: any): ClassOptions | /*elided*/ any;
+        configure(conf?: string | ClassOptions, value?: any): /*elided*/ any | ClassOptions;
         onOptionsChange(_conf: ClassOptions): void;
         _visitInitHooks(proto: {
             _initHooks: any;
@@ -5697,6 +5697,14 @@ export declare class LoaderUtils {
          */
         protected _refreshCoordinates(): void;
         /**
+         * Create polygon object synchronously (for editing performance)
+         * 同步创建多边形对象（用于编辑性能优化）
+         *
+         * @param paint Style configuration
+         * @returns Created polygon object or null
+         */
+        private _createObjectSync;
+        /**
          * Create polygon object.
          * 创建多边形对象
          *
@@ -7599,10 +7607,7 @@ export declare class LoaderUtils {
     declare const UIComponent_base: {
         new (...args: any[]): {
             eventClass: EventClass;
-            on: (type: string, listener: (data? /**
-            * DOM zIndex.
-            * DOM zIndex
-            */: any) => void) => EventClass;
+            on: (type: string, listener: (data?: any) => void) => EventClass;
             fire: (type: string, data?: any) => EventClass;
             off: (type: string, listener: (...args: any[]) => void) => EventClass;
         };
