@@ -1,0 +1,203 @@
+GNU LESSER GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+This version of the GNU Lesser General Public License incorporates
+the terms and conditions of version 3 of the GNU General Public
+License, supplemented by the additional permissions listed below.
+
+0. Additional Definitions.
+
+As used herein, "this License" refers to version 3 of the GNU Lesser
+General Public License, and the "GNU GPL" refers to version 3 of the GNU
+General Public License.
+
+"The Library" refers to a work governed by this License, other than an
+Application or a Combined Work as defined below.
+
+An "Application" is any work that makes use of an interface provided
+by the Library, but which is not otherwise based on the Library.
+Defining a subclass of a class defined by the Library is deemed a mode
+of using an interface provided by the Library.
+
+A "Combined Work" is a work produced by combining or linking an
+Application with the Library.  The particular version of the Library
+with which the Combined Work was made is also called the "Linked
+Version".
+
+The "Minimal Corresponding Source" for a Combined Work means the
+Corresponding Source for the Combined Work, excluding any source code
+for portions of the Combined Work that, viewed in isolation, are based
+on the Application, and not on the Library.
+
+Corresponding Source for a combined work means the source code for the
+Library, including any source code for portions of the Combined Work
+that, viewed in isolation, are based on the Application, and not on the
+Library.
+
+"Proprietary Software" means software whose source code is controlled
+by an entity other than the Free Software Foundation.
+
+"User" means any person or entity exercising rights under this License
+that has not previously been in violation of this License.  For
+purposes of this definition, "entity" means any entity that is a
+related party to the copyright holder.
+
+"Source Code" means the preferred form of the work for making
+modifications to it.  "Object Code" means any form of the work other
+than Source Code.
+
+"Standard Interface" means an interface that either is an official
+standard defined by a recognized standards body, or, in the case of
+interfaces specified for a particular programming language, one that is
+widely used among developers working in that language.
+
+The "Corresponding Source" for a work in Object Code form means all
+the source code needed to generate, install, and (for an executable
+work) run the Object Code and to modify the work, including scripts to
+control those activities.  However, it does not include the work's
+System Libraries, or general-purpose tools or generally available free
+programs which are used unmodified in performing those activities but
+which are not part of the work.  For example, Corresponding Source
+includes interface definition files associated with source files for
+the work, and the source code for shared libraries and dynamically
+linked subprograms that the work is specifically designed to require,
+such as by intimate data communication or control flow between those
+subprograms and other parts of the work.
+
+The Corresponding Source need not include anything that users can
+regenerate automatically from other parts of the Corresponding Source.
+
+The Corresponding Source for a work in source code form means that
+same work in all the forms listed above.
+
+1. Exception to Section 3 of the GNU GPL.
+
+You may convey a covered work under sections 3 and 4 of this License
+without being bound by section 3 of the GNU GPL.
+
+2. Conveying Modified Versions of the Library.
+
+If you modify a copy of the Library, or, in the case of a copy, you
+link a copy of the Library with it, you must, at the same time, provide
+through all the copies of the Library a copy of this License for all
+the Library, as follows:
+
+    a) Each copy of the Library must be accompanied by a copy of this
+    License.
+
+    b) You must ensure that the recipient is informed that this License
+    applies to the Library and how they can obtain a copy of this
+    License.
+
+    c) You must ensure that the recipient receives a copy of this License,
+    or is provided with a copy of this License, and that they are
+    informed that they can obtain the Corresponding Source for the Library
+    by contacting the copyright holder or by other reasonable means.
+
+    d) If the recipient conveys a copy of the Library with the work, the
+    recipient must also convey a copy of this License for the Library.
+
+3. Conveying Non-Source Forms of the Library.
+
+You may convey a work in object code form under the terms of sections 3
+and 4, provided that you also convey the machine-readable Corresponding
+Source under the terms of this License, in one of these ways:
+
+    a) Convey the work accompanied by the Corresponding Source.  This
+    Corresponding Source must be conveyed in the form described in this
+    License.
+
+    b) Convey the work accompanied by a written offer, valid for at
+    least three years and valid for as long as you offer spare parts or
+    customer support for that model of product, to give anyone who
+    possesses the work either (1) a copy of the Corresponding Source for
+    all the software in the work that is covered by this License, and
+    (2) access to copy the Corresponding Source from a network server at
+    no charge.
+
+    c) Convey the work accompanied by the information received as a
+    result of providing a copy of the Corresponding Source.
+
+4. Combined Works.
+
+You may convey a Combined Work under the terms of your choice,
+provided that you comply with the terms of this License for each of the
+components of the Combined Work.
+
+When you convey a Combined Work, you must also:
+
+    a) Provide a copy of this License for the Library.
+
+    b) Provide a copy of the Corresponding Source for the Library, and
+    retain all notices that refer to this License and the absence of any
+    warranty.
+
+    c) If the work provides access to a user interface, you must provide
+    a user interface that does not require a user to take any action
+    beyond what is necessary to obtain the Corresponding Source.
+
+    d) Include with the work a written offer, valid for at least three
+    years and valid for as long as you offer spare parts or customer
+    support for that model of product, to give anyone who possesses the
+    work (1) a copy of the Corresponding Source for all the software in
+    the work that is covered by this License, and (2) access to copy the
+    Corresponding Source from a network server at no charge.
+
+    e) If the work provides access to a user interface, you must provide
+    a user interface that does not require a user to take any action
+    beyond what is necessary to obtain the Corresponding Source.
+
+5. Your License Obligations for the Library.
+
+If you convey a copy of the Library, you must retain all notices that
+refer to this License and the absence of any warranty.
+
+If you convey a copy of the Library with a work, you must also:
+
+    a) Include a copy of this License for the Library.
+
+    b) Provide a copy of the Corresponding Source for the Library, and
+    retain all notices that refer to this License and the absence of any
+    warranty.
+
+6. No Warranty.
+
+THE LIBRARY IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+LIBRARY OR THE USE OR OTHER DEALINGS IN THE LIBRARY.
+
+7. General Provisions.
+
+If you cannot satisfy the terms of this License, then you may not
+convey the Library.
+
+The GNU Affero General Public License is designed to permit
+incorporation of the Library into proprietary programs.  If your license
+permits such linking, then the provisions of this License do not apply
+to the Library, and you may incorporate it into proprietary programs.
+
+For the full license text, see: https://www.gnu.org/licenses/lgpl-3.0.txt
+
+---
+
+maporbis is licensed under the GNU Lesser General Public License v3.0.
+
+Copyright (C) 2026 maporbis contributors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Lesser General Public License for more details.
