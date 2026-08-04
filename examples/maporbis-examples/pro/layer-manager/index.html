@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>图层管理演示 - MapOrbis</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="/utils/inline-utils.js"></script>
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .orbis-control-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      z-index: 1000;
+    }
+
+    .control-section {
+      margin-bottom: 15px;
+    }
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--orbis-text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .mode-btn-group {
+      display: flex;
+      gap: 5px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 6px 0;
+      font-size: 12px;
+      border: 1px solid var(--orbis-gray-3);
+      background: var(--orbis-bg-primary);
+      color: var(--orbis-text-primary);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-btn:hover {
+      background: var(--orbis-bg-secondary);
+    }
+
+    .mode-btn.active {
+      background: var(--orbis-blue);
+      color: white;
+      border-color: var(--orbis-blue);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slider-container input {
+      flex: 1;
+    }
+
+    .value-display {
+      font-family: monospace;
+      font-size: 12px;
+      width: 40px;
+      text-align: right;
+    }
+
+    /* New styles for layer list */
+    #layerList {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--orbis-gray-3);
+      border-radius: 4px;
+      background: var(--orbis-bg-primary);
+    }
+
+    .layer-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--orbis-gray-3);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .layer-item:last-child {
+      border-bottom: none;
+    }
+
+    .layer-item.active {
+      background: var(--orbis-blue);
+      color: white;
+    }
+
+    .layer-item:not(.active):hover {
+      background: var(--orbis-bg-secondary);
+    }
+
+    .layer-type-tag {
+      font-size: 10px;
+      padding: 2px 4px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+
+<body class="orbis-body">
+  <div id="map"></div>
+
+  <div class="orbis-control-panel">
+    <div class="orbis-panel orbis-shadow-lg">
+      <div class="orbis-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 600;">
+          <i class="fas fa-layer-group" style="color: var(--orbis-blue)"></i>
+          图层管理演示
+        </h3>
+        <button class="orbis-toggle" id="themeToggle"></button>
+      </div>
+
+      <div class="orbis-panel-body">
+        <!-- 图层列表 -->
+        <div class="control-section">
+          <div class="control-label">
+            图层列表
+            <button class="mode-btn" style="padding: 2px 8px; font-size: 10px; flex: none;" onclick="refreshLayerList()">刷新</button>
+          </div>
+          <div id="layerList">
+             <!-- Items will be injected here -->
+          </div>
+        </div>
+
+        <!-- 添加/删除/查找 -->
+        <div class="control-section">
+           <div class="mode-btn-group">
+              <button class="mode-btn" onclick="addRandomLayer()">+ 随机图层</button>
+              <button class="mode-btn" onclick="removeSelectedLayer()" style="color: #ff3b30">删除选中</button>
+           </div>
+        </div>
+
+        <div class="control-section" style="display: flex; gap: 5px;">
+            <input type="text" id="findInput" placeholder="输入图层ID" style="flex:1; border: 1px solid var(--orbis-gray-3); border-radius: 4px; padding: 4px; font-size: 12px;">
+            <button class="mode-btn" style="width: 60px;" onclick="findLayer()">查找</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--orbis-gray-3); margin: 15px 0;">
+
+        <!-- 选中图层属性 -->
+        <div id="layerProps" style="opacity: 0.5; pointer-events: none; transition: opacity 0.2s;">
+            <div class="control-label">选中图层: <span id="currentLayerId" style="color: var(--orbis-blue)">-</span></div>
+
+            <!-- 透明度 -->
+            <div class="control-section">
+              <div class="control-label">
+                透明度
+                <span class="value-display" id="opacityVal">1.0</span>
+              </div>
+              <div class="slider-container">
+                <input type="range" id="opacityInput" min="0" max="1" step="0.1" value="1.0" oninput="setOpacity(this.value)">
+              </div>
+            </div>
+
+            <!-- 高度 -->
+            <div class="control-section">
+              <div class="control-label">
+                高度 (Altitude)
+                <span class="value-display" id="altitudeVal">0</span>
+              </div>
+              <div class="slider-container">
+                <input type="range" id="altitudeInput" min="0" max="5000" step="100" value="0" oninput="setAltitude(this.value)">
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as maporbis from "maporbis";
+    import { VectorTileLayer } from "maporbis";
+
+    let map;
+    let selectedLayerId = null;
+
+    // 初始化
+    init();
+
+    function init() {
+      // 初始化地图
+      map = new maporbis.Map("map", {
+        state: {
+          center: [116.3975, 39.915, 8000],
+        },
+        source: {
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              minLevel: 2,
+              maxLevel: 18,
+            }),
+          ],
+        },
+        renderer: {
+            skybox: {
+                hdr: "/assets/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+                hdrExposure: 1,
+                defaultColor: "#B9D4FE",
+            }
+        }
+      });
+
+      map.on("load", () => {
+        // 添加一个初始测试图层
+        addRandomLayer();
+        refreshLayerList();
+        notify("地图加载完成", "success");
+      });
+    }
+
+    // 刷新图层列表
+    window.refreshLayerList = () => {
+        const listEl = document.getElementById('layerList');
+        listEl.innerHTML = '';
+
+        if (!map) return;
+
+        const layers = map.getLayers();
+
+        layers.forEach(layer => {
+            const id = layer.getId();
+            // 简单判断类型
+            let type = 'Unknown';
+            if (layer.isTileLayer) type = 'Tile';
+            else if (layer instanceof maporbis.LineLayer) type = 'Line';
+            else if (layer instanceof maporbis.PointLayer) type = 'Point';
+            else if (layer instanceof maporbis.PolygonLayer) type = 'Polygon';
+
+            const item = document.createElement('div');
+            item.className = `layer-item ${id === selectedLayerId ? 'active' : ''}`;
+            item.onclick = () => selectLayer(id);
+            item.innerHTML = `
+                <span>${id}</span>
+                <span class="layer-type-tag">${type}</span>
+            `;
+            listEl.appendChild(item);
+        });
+    };
+
+    // 选择图层
+    window.selectLayer = (id) => {
+        selectedLayerId = id;
+        document.getElementById('currentLayerId').textContent = id;
+
+        // 更新选中状态样式
+        document.querySelectorAll('.layer-item').forEach(el => {
+            if (el.querySelector('span').textContent === id) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+
+        // 启用属性面板
+        const propsPanel = document.getElementById('layerProps');
+        propsPanel.style.opacity = '1';
+        propsPanel.style.pointerEvents = 'auto';
+
+        // 获取图层当前属性并更新控件
+        // 注意：map.getLayer() 可能需要自己实现或遍历
+        const layers = map.getLayers();
+        const layer = layers.find(l => l.getId() === id);
+
+        if (layer) {
+            // Opacity
+            const opacity = layer.getOpacity();
+            document.getElementById('opacityVal').textContent = opacity.toFixed(1);
+            document.getElementById('opacityInput').value = opacity;
+
+            // Altitude
+            const altitude = layer.getAltitude ? layer.getAltitude() : 0;
+            document.getElementById('altitudeVal').textContent = altitude;
+            document.getElementById('altitudeInput').value = altitude;
+        }
+    };
+
+    // 添加随机图层
+    window.addRandomLayer = () => {
+        const id = 'layer-' + Math.floor(Math.random() * 10000);
+
+        // 随机颜色
+        const colors = ['#82D8F7', '#34C759', '#FF3B30', '#FF9500', '#AF52DE', '#FF00FF', '#00FFFF'];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+
+        // 随机类型：0=Point, 1=Line, 2=Polygon
+        const typeIdx = Math.floor(Math.random() * 3);
+
+        // 基础中心点
+        const baseCenter = [116.3975, 39.915];
+        // 随机偏移
+        const offsetX = (Math.random() - 0.5) * 0.05;
+        const offsetY = (Math.random() - 0.5) * 0.05;
+        const center = [baseCenter[0] + offsetX, baseCenter[1] + offsetY];
+
+        let layer;
+
+        try {
+            if (typeIdx === 0) {
+                // Point Layer
+                layer = new maporbis.PointLayer(id, {
+                    altitude: Math.random() * 500
+                });
+                map.addLayer(layer);
+
+                // 添加 5 个随机点
+                for (let i = 0; i < 5; i++) {
+                    const ptOffset = [(Math.random() - 0.5) * 0.01, (Math.random() - 0.5) * 0.01];
+                    const point = new maporbis.Marker({
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [center[0] + ptOffset[0], center[1] + ptOffset[1]]
+                        },
+                        paint: {
+                            color: color,
+                            size: 20 + Math.random() * 20, // 大一点可见
+                            opacity: 0.9,
+                            outlineColor: '#ffffff',
+                            outlineWidth: 2
+                        }
+                    });
+                    point.addTo(layer);
+                }
+
+            } else if (typeIdx === 1) {
+                // Line Layer
+                layer = new maporbis.LineLayer(id, {
+                    altitude: Math.random() * 500
+                });
+                map.addLayer(layer);
+
+                // 创建一个闭合线框
+                const size = 0.005 + Math.random() * 0.005;
+                const coords = [
+                    [center[0] - size, center[1] - size],
+                    [center[0] + size, center[1] - size],
+                    [center[0] + size, center[1] + size],
+                    [center[0] - size, center[1] + size],
+                    [center[0] - size, center[1] - size]
+                ];
+
+                const line = new maporbis.LineString({
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: coords
+                    },
+                    paint: {
+                        type: 'line',
+                        color: color,
+                        width: 5 + Math.random() * 5,
+                        opacity: 0.8
+                    }
+                });
+                line.addTo(layer);
+
+            } else {
+                // Polygon Layer
+                layer = new maporbis.PolygonLayer(id, {
+                    altitude: Math.random() * 500
+                });
+                map.addLayer(layer);
+
+                // 创建一个多边形
+                const size = 0.005 + Math.random() * 0.005;
+                const coords = [[
+                    [center[0] - size, center[1] - size],
+                    [center[0] + size, center[1] - size],
+                    [center[0] + size, center[1] + size],
+                    [center[0] - size, center[1] + size],
+                    [center[0] - size, center[1] - size]
+                ]];
+
+                const polygon = new maporbis.Polygon({
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: coords
+                    },
+                    paint: {
+                        type: 'fill',
+                        color: color,
+                        opacity: 0.6,
+                        outlineColor: '#ffffff',
+                        outlineWidth: 2
+                    }
+                });
+                polygon.addTo(layer);
+            }
+
+            // map.addLayer(layer);
+            refreshLayerList();
+            selectLayer(id);
+
+            // 提示用户添加了什么
+            const typeNames = ['点', '线', '面'];
+            notify(`已添加${typeNames[typeIdx]}图层: ${id}`, "success");
+
+        } catch (e) {
+            console.error(e);
+            notify("添加图层失败: " + e.message, "error");
+        }
+    };
+
+    // 删除选中图层
+    window.removeSelectedLayer = () => {
+        if (!selectedLayerId) {
+            notify("请先选择图层", "warning");
+            return;
+        }
+
+        // 保护底图 (假设 id 为 esri_imagery)
+        if (selectedLayerId === 'esri_imagery') {
+             notify("底图不可删除", "warning");
+             return;
+        }
+
+        if (map.removeLayer(selectedLayerId)) {
+            notify("已删除图层: " + selectedLayerId, "success");
+            selectedLayerId = null;
+            document.getElementById('currentLayerId').textContent = '-';
+            document.getElementById('layerProps').style.opacity = '0.5';
+            document.getElementById('layerProps').style.pointerEvents = 'none';
+            refreshLayerList();
+        } else {
+            notify("删除失败", "error");
+        }
+    };
+
+    // 查找图层
+    window.findLayer = () => {
+        const id = document.getElementById('findInput').value.trim();
+        if (!id) return;
+
+        const layers = map.getLayers();
+        const layer = layers.find(l => l.getId() === id);
+
+        if (layer) {
+            selectLayer(id);
+            // 滚动到列表中该项的位置
+            // (简化处理，不做滚动了)
+        } else {
+            notify("未找到图层: " + id, "error");
+        }
+    };
+
+    // 设置透明度
+    window.setOpacity = (val) => {
+        if (!selectedLayerId) return;
+
+        const v = parseFloat(val);
+        document.getElementById('opacityVal').textContent = v.toFixed(1);
+
+        const layers = map.getLayers();
+        const layer = layers.find(l => l.getId() === selectedLayerId);
+        if (layer) {
+            layer.setOpacity(v);
+        }
+    };
+
+    // 设置高度
+    window.setAltitude = (val) => {
+        if (!selectedLayerId) return;
+
+        const v = parseFloat(val);
+        document.getElementById('altitudeVal').textContent = v;
+
+        const layers = map.getLayers();
+        const layer = layers.find(l => l.getId() === selectedLayerId);
+        if (layer && layer.setAltitude) {
+            layer.setAltitude(v);
+        }
+    };
+  </script>
+</body>
+</html>

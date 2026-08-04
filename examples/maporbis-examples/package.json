@@ -1,0 +1,26 @@
+{
+  "name": "maporbis-examples",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maporbis": "workspace:*",
+    "three": "^0.182.0",
+    "three-stdlib": "^2.36.0",
+    "@pmndrs/vanilla": "^1.20.4",
+    "uuid": "^13.0.0",
+    "lodash": "^4.17.21",
+    "d3-quadtree": "^3.0.1",
+    "earcut": "^3.0.1",
+    "fflate": "^0.8.2",
+    "potpack": "^1.0.2"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
+  }
+}

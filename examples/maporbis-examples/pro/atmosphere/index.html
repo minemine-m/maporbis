@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+    <title>大气环境图层 - MapOrbis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="/utils/inline-utils.js"></script>
+    <style>
+      html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; }
+      #container { height: 100%; width: 100%; }
+
+      .control-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 320px;
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      .panel-header {
+        padding: 16px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .panel-header h3 { margin: 0; font-size: 15px; color: #333; }
+      .panel-header p { margin: 2px 0 0 0; font-size: 12px; color: #666; }
+
+      .section { padding: 12px 16px; border-bottom: 1px solid #eee; }
+      .section:last-child { border-bottom: none; }
+      .section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .section-title i { color: #3b82f6; font-size: 14px; }
+
+      .weather-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+      .weather-btn {
+        padding: 6px 4px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: #f5f5f5;
+        color: #555;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .weather-btn:hover { border-color: #3b82f6; background: #e3f2fd; }
+      .weather-btn.active { border-color: #3b82f6; background: #3b82f6; color: white; }
+
+      .slider-group { margin-bottom: 10px; }
+      .slider-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        margin-bottom: 3px;
+        color: #555;
+      }
+      .slider-label span:last-child { font-weight: 500; color: #333; }
+
+      input[type="range"] {
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: #e0e0e0;
+        outline: none;
+        -webkit-appearance: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+      }
+
+      .remove-btn {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ef4444;
+        border-radius: 6px;
+        background: white;
+        color: #ef4444;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .remove-btn:hover { background: #ef4444; color: white; }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+      <!-- 标题 -->
+      <div class="panel-header">
+        <div>
+          <h3><i class="fas fa-cloud-sun" style="color: #3b82f6"></i> 大气环境图层</h3>
+          <p>动态天空与云层效果</p>
+        </div>
+      </div>
+
+      <!-- 天气预设 -->
+      <div class="section">
+        <div class="section-title"><i class="fas fa-cloud"></i> 天气预设</div>
+        <div class="weather-grid">
+          <button class="weather-btn" onclick="setPreset('sunny')">晴天</button>
+          <button class="weather-btn active" onclick="setPreset('cloudy')">多云</button>
+          <button class="weather-btn" onclick="setPreset('overcast')">阴天</button>
+          <button class="weather-btn" onclick="setPreset('fog')">雾霾</button>
+          <button class="weather-btn" onclick="setPreset('sunrise')">日出</button>
+          <button class="weather-btn" onclick="setPreset('morning')">早晨</button>
+          <button class="weather-btn" onclick="setPreset('sunset')">傍晚</button>
+          <button class="weather-btn" onclick="setPreset('nightsky')">夜空</button>
+          <button class="weather-btn" onclick="setPreset('night')">夜晚</button>
+        </div>
+      </div>
+
+      <!-- 天空参数 -->
+      <div class="section">
+        <div class="section-title"><i class="fas fa-sun"></i> 天空</div>
+        <div class="slider-group">
+          <div class="slider-label"><span>太阳仰角</span><span id="val-elevation">15</span></div>
+          <input type="range" id="slider-elevation" min="0" max="90" step="0.5" value="15" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>浑浊度</span><span id="val-turbidity">10</span></div>
+          <input type="range" id="slider-turbidity" min="0" max="20" step="0.5" value="10" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>瑞利散射</span><span id="val-rayleigh">0.3</span></div>
+          <input type="range" id="slider-rayleigh" min="0" max="4" step="0.05" value="0.3" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>米氏散射系数</span><span id="val-mieCoefficient">0.002</span></div>
+          <input type="range" id="slider-mieCoefficient" min="0" max="0.1" step="0.001" value="0.002" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>米氏方向因子</span><span id="val-mieDirectionalG">1</span></div>
+          <input type="range" id="slider-mieDirectionalG" min="0" max="1" step="0.01" value="1" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>天空亮度</span><span id="val-skyIntensity">0.8</span></div>
+          <input type="range" id="slider-skyIntensity" min="0" max="1" step="0.05" value="0.8" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>太阳方位角</span><span id="val-azimuth">180</span></div>
+          <input type="range" id="slider-azimuth" min="-180" max="180" step="1" value="180" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>太阳大小</span><span id="val-sunSize">1</span></div>
+          <input type="range" id="slider-sunSize" min="0" max="10" step="0.5" value="1" oninput="updateParam()">
+        </div>
+      </div>
+
+      <!-- 星星与月亮 -->
+      <div class="section">
+        <div class="section-title"><i class="fas fa-star"></i> 星星与月亮</div>
+        <div class="slider-group">
+          <div class="slider-label"><span>星星亮度</span><span id="val-starIntensity">0</span></div>
+          <input type="range" id="slider-starIntensity" min="0" max="1" step="0.05" value="0" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>月亮亮度</span><span id="val-moonIntensity">0</span></div>
+          <input type="range" id="slider-moonIntensity" min="0" max="1" step="0.05" value="0" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>月亮仰角</span><span id="val-moonElevation">45</span></div>
+          <input type="range" id="slider-moonElevation" min="0" max="90" step="1" value="45" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>月亮方位角</span><span id="val-moonAzimuth">30</span></div>
+          <input type="range" id="slider-moonAzimuth" min="-180" max="180" step="1" value="30" oninput="updateParam()">
+        </div>
+      </div>
+
+      <!-- 云层参数 -->
+      <div class="section">
+        <div class="section-title"><i class="fas fa-cloud"></i> 云层</div>
+        <div class="slider-group">
+          <div class="slider-label"><span>覆盖率</span><span id="val-coverage">0.6</span></div>
+          <input type="range" id="slider-coverage" min="0" max="1" step="0.05" value="0.6" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>云量（衰减）</span><span id="val-weaken">0.5</span></div>
+          <input type="range" id="slider-weaken" min="0" max="1" step="0.05" value="0.5" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>厚度</span><span id="val-THICKNESS">80</span></div>
+          <input type="range" id="slider-THICKNESS" min="0" max="100" step="1" value="80" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>频率</span><span id="val-mult">2</span></div>
+          <input type="range" id="slider-mult" min="0" max="3" step="0.1" value="2" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>吸光率</span><span id="val-ABSORPTION">0.2</span></div>
+          <input type="range" id="slider-ABSORPTION" min="0" max="1" step="0.05" value="0.2" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>采样次数</span><span id="val-N_MARCH_STEPS">3</span></div>
+          <input type="range" id="slider-N_MARCH_STEPS" min="1" max="5" step="1" value="3" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>阴影采样</span><span id="val-N_LIGHT_STEPS">3</span></div>
+          <input type="range" id="slider-N_LIGHT_STEPS" min="0" max="10" step="1" value="3" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>风速</span><span id="val-speed">2</span></div>
+          <input type="range" id="slider-speed" min="0" max="10" step="0.5" value="2" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>风向 X</span><span id="val-windX">0.3</span></div>
+          <input type="range" id="slider-windX" min="-1" max="1" step="0.05" value="0.3" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>风向 Y</span><span id="val-windY">0.3</span></div>
+          <input type="range" id="slider-windY" min="-1" max="1" step="0.05" value="0.3" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>风向 Z</span><span id="val-windZ">0.1</span></div>
+          <input type="range" id="slider-windZ" min="-1" max="1" step="0.05" value="0.1" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>天际线</span><span id="val-skylineF">0.2</span></div>
+          <input type="range" id="slider-skylineF" min="0" max="1" step="0.05" value="0.2" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>高度曲率</span><span id="val-curve">0.3</span></div>
+          <input type="range" id="slider-curve" min="0.1" max="0.6" step="0.05" value="0.3" oninput="updateParam()">
+        </div>
+      </div>
+
+      <!-- 场景参数 -->
+      <div class="section">
+        <div class="section-title"><i class="fas fa-cog"></i> 场景</div>
+        <div class="slider-group">
+          <div class="slider-label"><span>视场角 FOV</span><span id="val-fov">60</span></div>
+          <input type="range" id="slider-fov" min="10" max="120" step="1" value="60" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>环境光强度</span><span id="val-ambLight">1</span></div>
+          <input type="range" id="slider-ambLight" min="0" max="5" step="0.05" value="1" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>平行光强度</span><span id="val-dirLight">1</span></div>
+          <input type="range" id="slider-dirLight" min="0" max="5" step="0.05" value="1" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>雾浓度</span><span id="val-fogDensity">0.2</span></div>
+          <input type="range" id="slider-fogDensity" min="0" max="5" step="0.1" value="0.2" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>雾颜色</span>
+            <input type="color" id="color-fogColor" value="#b4deff" onchange="updateParam()" style="width: 30px; height: 20px; border: none; cursor: pointer;">
+          </div>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>色调映射曝光</span><span id="val-exposure">0.5</span></div>
+          <input type="range" id="slider-exposure" min="0" max="2" step="0.05" value="0.5" oninput="updateParam()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>自动旋转</span>
+            <input type="checkbox" id="check-autoRotate" onchange="updateParam()" style="cursor: pointer;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="section">
+        <button class="remove-btn" onclick="removeAtmosphere()">
+          <i class="fas fa-trash"></i> 移除图层
+        </button>
+      </div>
+    </div>
+
+    <script type="importmap">
+      { "imports": { "three": "https://unpkg.com/three@0.171.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+      import * as maporbis from "maporbis";
+      import { AtmosphereLayer, ATMOSPHERE_PRESETS } from "maporbis";
+
+      let map, atmosphereLayer;
+
+      // =====================================================================
+      // 默认参数 - 与 three-tile-doc 完全一致
+      // =====================================================================
+      const DEFAULTS = {
+        // 天空
+        elevation: 15,
+        azimuth: 180,
+        turbidity: 10,
+        rayleigh: 0.3,
+        mieCoefficient: 0.002,
+        mieDirectionalG: 1,
+        skyIntensity: 0.8,
+        sunSize: 1,
+
+        // 云层
+        coverage: 0.6,
+        weaken: 0.5,
+        THICKNESS: 80,
+        mult: 2,
+        ABSORPTION: 0.2,
+        N_MARCH_STEPS: 3,
+        N_LIGHT_STEPS: 3,
+        speed: 2,
+        windX: 0.3,
+        windY: 0.3,
+        windZ: 0.1,
+        skylineF: 0.2,
+        curve: 0.3,
+
+        // 场景
+        fogDensity: 0.2,
+        fogColor: '#b4deff',
+        exposure: 0.5,
+        fov: 60,
+        autoRotate: false,
+        ambLight: 2,        // 环境光强度（匹配 SceneRenderer 默认值）
+        dirLight: 1,        // 平行光强度
+
+        // 星星与月亮
+        starIntensity: 0,
+        moonIntensity: 0,
+        moonElevation: 45,
+        moonAzimuth: 30,
+      };
+
+      let params = { ...DEFAULTS };
+
+      // 预设来自 maporbis 的 ATMOSPHERE_PRESETS
+
+      // =====================================================================
+      // 初始化地图
+      // =====================================================================
+      function initMap() {
+        map = new maporbis.Map("container", {
+          state: { center: [109.5, 34.5, 500] },
+          source: {
+            minLevel: 2, maxLevel: 19,
+            baseLayers: [
+              new maporbis.WMTSTileLayer("esri_imagery", {
+                source: new maporbis.TileSource({
+                  url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                  projectionID: "3857",
+                }),
+                projection: maporbis.ProjectionFactory.create("3857"),
+                opacity: 1.0, visible: true, altitude: 1,
+              }),
+            ],
+          },
+          renderer: { stats: true, antialias: true, minDistance: 10, maxDistance: 80000 },
+          camera: { pitch: 60, bearing: 0 },
+        });
+
+        map.on("load", () => {
+          map.sceneRenderer.renderer.toneMapping = 4; // ACESFilmicToneMapping
+          map.sceneRenderer.renderer.toneMappingExposure = params.exposure;
+          addAtmosphere();
+        });
+      }
+
+      // =====================================================================
+      // 添加大气图层
+      // =====================================================================
+      function addAtmosphere() {
+        if (atmosphereLayer) map.removeLayer('atmosphere');
+
+        atmosphereLayer = new AtmosphereLayer('atmosphere', {
+          url: '/pro/src/atmosphere/perlin256.png',
+          elevation: params.elevation,
+          azimuth: params.azimuth,
+          turbidity: params.turbidity,
+          rayleigh: params.rayleigh,
+          mieCoefficient: params.mieCoefficient,
+          mieDirectionalG: params.mieDirectionalG,
+          skyIntensity: params.skyIntensity,
+          sunSize: params.sunSize,
+          coverage: params.coverage,
+          weaken: params.weaken,
+          THICKNESS: params.THICKNESS,
+          mult: params.mult,
+          ABSORPTION: params.ABSORPTION,
+          N_MARCH_STEPS: params.N_MARCH_STEPS,
+          N_LIGHT_STEPS: params.N_LIGHT_STEPS,
+          speed: params.speed,
+          wind: { x: params.windX, y: params.windY, z: params.windZ },
+          skylineF: params.skylineF,
+          curve: params.curve,
+          fogDensity: params.fogDensity,
+          fogColor: params.fogColor,
+          ambLight: params.ambLight,    // 环境光
+          dirLight: params.dirLight,    // 平行光
+        });
+
+        map.addLayer(atmosphereLayer);
+      }
+
+      // =====================================================================
+      // 更新参数 - 从滑块读取并更新
+      // =====================================================================
+      window.updateParam = function() {
+        // 读取所有滑块值
+        params.elevation = parseFloat(document.getElementById("slider-elevation").value);
+        params.turbidity = parseFloat(document.getElementById("slider-turbidity").value);
+        params.rayleigh = parseFloat(document.getElementById("slider-rayleigh").value);
+        params.mieCoefficient = parseFloat(document.getElementById("slider-mieCoefficient").value);
+        params.mieDirectionalG = parseFloat(document.getElementById("slider-mieDirectionalG").value);
+        params.skyIntensity = parseFloat(document.getElementById("slider-skyIntensity").value);
+        params.azimuth = parseFloat(document.getElementById("slider-azimuth").value);
+        params.sunSize = parseFloat(document.getElementById("slider-sunSize").value);
+        params.coverage = parseFloat(document.getElementById("slider-coverage").value);
+        params.weaken = parseFloat(document.getElementById("slider-weaken").value);
+        params.THICKNESS = parseFloat(document.getElementById("slider-THICKNESS").value);
+        params.mult = parseFloat(document.getElementById("slider-mult").value);
+        params.ABSORPTION = parseFloat(document.getElementById("slider-ABSORPTION").value);
+        params.N_MARCH_STEPS = parseInt(document.getElementById("slider-N_MARCH_STEPS").value);
+        params.N_LIGHT_STEPS = parseInt(document.getElementById("slider-N_LIGHT_STEPS").value);
+        params.speed = parseFloat(document.getElementById("slider-speed").value);
+        params.windX = parseFloat(document.getElementById("slider-windX").value);
+        params.windY = parseFloat(document.getElementById("slider-windY").value);
+        params.windZ = parseFloat(document.getElementById("slider-windZ").value);
+        params.skylineF = parseFloat(document.getElementById("slider-skylineF").value);
+        params.curve = parseFloat(document.getElementById("slider-curve").value);
+        params.fogDensity = parseFloat(document.getElementById("slider-fogDensity").value);
+        params.fogColor = document.getElementById("color-fogColor").value;
+        params.exposure = parseFloat(document.getElementById("slider-exposure").value);
+        params.fov = parseInt(document.getElementById("slider-fov").value);
+        params.autoRotate = document.getElementById("check-autoRotate").checked;
+        params.ambLight = parseFloat(document.getElementById("slider-ambLight").value);
+        params.dirLight = parseFloat(document.getElementById("slider-dirLight").value);
+        params.starIntensity = parseFloat(document.getElementById("slider-starIntensity").value);
+        params.moonIntensity = parseFloat(document.getElementById("slider-moonIntensity").value);
+        params.moonElevation = parseFloat(document.getElementById("slider-moonElevation").value);
+        params.moonAzimuth = parseFloat(document.getElementById("slider-moonAzimuth").value);
+
+        // 更新标签
+        document.getElementById("val-elevation").textContent = params.elevation;
+        document.getElementById("val-turbidity").textContent = params.turbidity;
+        document.getElementById("val-rayleigh").textContent = params.rayleigh;
+        document.getElementById("val-mieCoefficient").textContent = params.mieCoefficient;
+        document.getElementById("val-mieDirectionalG").textContent = params.mieDirectionalG;
+        document.getElementById("val-skyIntensity").textContent = params.skyIntensity;
+        document.getElementById("val-azimuth").textContent = params.azimuth;
+        document.getElementById("val-sunSize").textContent = params.sunSize;
+        document.getElementById("val-coverage").textContent = params.coverage;
+        document.getElementById("val-weaken").textContent = params.weaken;
+        document.getElementById("val-THICKNESS").textContent = params.THICKNESS;
+        document.getElementById("val-mult").textContent = params.mult;
+        document.getElementById("val-ABSORPTION").textContent = params.ABSORPTION;
+        document.getElementById("val-N_MARCH_STEPS").textContent = params.N_MARCH_STEPS;
+        document.getElementById("val-N_LIGHT_STEPS").textContent = params.N_LIGHT_STEPS;
+        document.getElementById("val-speed").textContent = params.speed;
+        document.getElementById("val-windX").textContent = params.windX;
+        document.getElementById("val-windY").textContent = params.windY;
+        document.getElementById("val-windZ").textContent = params.windZ;
+        document.getElementById("val-skylineF").textContent = params.skylineF;
+        document.getElementById("val-curve").textContent = params.curve;
+        document.getElementById("val-fogDensity").textContent = params.fogDensity;
+        document.getElementById("val-exposure").textContent = params.exposure;
+        document.getElementById("val-fov").textContent = params.fov;
+        document.getElementById("val-ambLight").textContent = params.ambLight;
+        document.getElementById("val-dirLight").textContent = params.dirLight;
+        document.getElementById("val-starIntensity").textContent = params.starIntensity;
+        document.getElementById("val-moonIntensity").textContent = params.moonIntensity;
+        document.getElementById("val-moonElevation").textContent = params.moonElevation;
+        document.getElementById("val-moonAzimuth").textContent = params.moonAzimuth;
+
+        // 更新图层（包含环境光和平行光）
+        if (atmosphereLayer) {
+          console.log('Updating atmosphere:', { ambLight: params.ambLight, dirLight: params.dirLight });
+          atmosphereLayer.update({
+            elevation: params.elevation,
+            azimuth: params.azimuth,
+            turbidity: params.turbidity,
+            rayleigh: params.rayleigh,
+            mieCoefficient: params.mieCoefficient,
+            mieDirectionalG: params.mieDirectionalG,
+            skyIntensity: params.skyIntensity,
+            sunSize: params.sunSize,
+            coverage: params.coverage,
+            weaken: params.weaken,
+            THICKNESS: params.THICKNESS,
+            mult: params.mult,
+            ABSORPTION: params.ABSORPTION,
+            N_MARCH_STEPS: params.N_MARCH_STEPS,
+            N_LIGHT_STEPS: params.N_LIGHT_STEPS,
+            speed: params.speed,
+            wind: { x: params.windX, y: params.windY, z: params.windZ },
+            skylineF: params.skylineF,
+            curve: params.curve,
+            fogDensity: params.fogDensity,
+            fogColor: params.fogColor,
+            ambLight: params.ambLight,
+            dirLight: params.dirLight,
+            starIntensity: params.starIntensity,
+            moonIntensity: params.moonIntensity,
+            moonElevation: params.moonElevation,
+            moonAzimuth: params.moonAzimuth,
+          });
+        }
+
+        // 更新场景参数
+        if (map) {
+          map.sceneRenderer.renderer.toneMappingExposure = params.exposure;
+          map.sceneRenderer.camera.fov = params.fov;
+          map.sceneRenderer.camera.updateProjectionMatrix();
+          map.sceneRenderer.controls.autoRotate = params.autoRotate;
+          // 直接设置环境光和平行光
+          map.sceneRenderer.ambLight.intensity = params.ambLight;
+          map.sceneRenderer.dirLight.intensity = params.dirLight;
+
+          // 检查瓦片材质类型
+          if (map.sceneRenderer.scene) {
+            map.sceneRenderer.scene.traverse((child) => {
+              if (child.isMesh) {
+                const mat = child.material;
+                if (Array.isArray(mat)) {
+                  console.log('Mesh material (array):', mat.map(m => m?.type).join(', '));
+                } else {
+                  console.log('Mesh material:', mat?.type || 'null/undefined');
+                }
+              }
+            });
+          }
+        }
+      };
+
+      // =====================================================================
+      // 天气预设
+      // =====================================================================
+      window.setPreset = function(name) {
+        // 重置为默认值
+        params = { ...DEFAULTS };
+
+        // 应用预设参数
+        const preset = ATMOSPHERE_PRESETS[name];
+        if (preset) {
+          Object.assign(params, preset);
+        }
+
+        // 同步滑块
+        syncSliders();
+
+        // 更新图层
+        updateParam();
+
+        // 更新按钮状态
+        document.querySelectorAll(".weather-btn").forEach(btn => btn.classList.remove("active"));
+        event.target.classList.add("active");
+      };
+
+      // 同步滑块到参数值
+      function syncSliders() {
+        document.getElementById("slider-elevation").value = params.elevation;
+        document.getElementById("slider-turbidity").value = params.turbidity;
+        document.getElementById("slider-rayleigh").value = params.rayleigh;
+        document.getElementById("slider-mieCoefficient").value = params.mieCoefficient;
+        document.getElementById("slider-mieDirectionalG").value = params.mieDirectionalG;
+        document.getElementById("slider-skyIntensity").value = params.skyIntensity;
+        document.getElementById("slider-azimuth").value = params.azimuth;
+        document.getElementById("slider-sunSize").value = params.sunSize;
+        document.getElementById("slider-coverage").value = params.coverage;
+        document.getElementById("slider-weaken").value = params.weaken;
+        document.getElementById("slider-THICKNESS").value = params.THICKNESS;
+        document.getElementById("slider-mult").value = params.mult;
+        document.getElementById("slider-ABSORPTION").value = params.ABSORPTION;
+        document.getElementById("slider-N_MARCH_STEPS").value = params.N_MARCH_STEPS;
+        document.getElementById("slider-N_LIGHT_STEPS").value = params.N_LIGHT_STEPS;
+        document.getElementById("slider-speed").value = params.speed;
+        document.getElementById("slider-windX").value = params.windX;
+        document.getElementById("slider-windY").value = params.windY;
+        document.getElementById("slider-windZ").value = params.windZ;
+        document.getElementById("slider-skylineF").value = params.skylineF;
+        document.getElementById("slider-curve").value = params.curve;
+        document.getElementById("slider-fogDensity").value = params.fogDensity;
+        document.getElementById("color-fogColor").value = params.fogColor;
+        document.getElementById("slider-exposure").value = params.exposure;
+        document.getElementById("slider-fov").value = params.fov;
+        document.getElementById("check-autoRotate").checked = params.autoRotate;
+        document.getElementById("slider-ambLight").value = params.ambLight;
+        document.getElementById("slider-dirLight").value = params.dirLight;
+        document.getElementById("slider-starIntensity").value = params.starIntensity;
+        document.getElementById("slider-moonIntensity").value = params.moonIntensity;
+        document.getElementById("slider-moonElevation").value = params.moonElevation;
+        document.getElementById("slider-moonAzimuth").value = params.moonAzimuth;
+      }
+
+      // =====================================================================
+      // 移除图层
+      // =====================================================================
+      window.removeAtmosphere = function() {
+        if (atmosphereLayer) {
+          map.removeLayer('atmosphere');
+          atmosphereLayer = null;
+        }
+      };
+
+      // =====================================================================
+      // 初始化
+      // =====================================================================
+      document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(initMap, 100);
+      });
+    </script>
+  </body>
+</html>

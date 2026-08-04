@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+    <title>3D Model Feature - MapOrbis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="/utils/inline-utils.js"></script>
+    <style>
+      /* Map application styles */
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      #container {
+        height: 100%;
+        width: 100%;
+      }
+
+      /* Control panel positioning */
+      .map-control-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 280px;
+        z-index: var(--orbis-z-index-fixed);
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+      }
+
+      /* Panel header adjustments */
+      .map-control-panel .orbis-panel-header {
+        position: relative;
+        padding-right: 60px;
+      }
+
+      .map-control-panel .orbis-toggle {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+      }
+
+      /* Slider styles */
+      .orbis-slider-group {
+        margin-bottom: 12px;
+      }
+
+      .orbis-slider-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: var(--orbis-gray-7);
+      }
+
+      .orbis-slider {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--orbis-gray-3);
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .orbis-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--orbis-blue);
+        cursor: pointer;
+      }
+
+      /* Animation info */
+      .orbis-animation-list {
+        max-height: 120px;
+        overflow-y: auto;
+        background: var(--orbis-gray-1);
+        border-radius: 6px;
+        padding: 8px;
+        margin-top: 8px;
+      }
+
+      .orbis-animation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .orbis-animation-item:hover {
+        background: var(--orbis-gray-2);
+      }
+
+      .orbis-animation-item.active {
+        background: var(--orbis-blue);
+        color: white;
+      }
+
+      /* Progress bar */
+      .orbis-progress {
+        width: 100%;
+        height: 4px;
+        background: var(--orbis-gray-3);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .orbis-progress-bar {
+        height: 100%;
+        background: var(--orbis-blue);
+        border-radius: 2px;
+        transition: width 0.2s ease;
+      }
+
+      /* Model URL input */
+      .orbis-input-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .orbis-input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid var(--orbis-gray-3);
+        border-radius: 6px;
+        font-size: 12px;
+        background: var(--orbis-gray-1);
+        color: var(--orbis-gray-9);
+      }
+
+      .orbis-input:focus {
+        outline: none;
+        border-color: var(--orbis-blue);
+      }
+
+      /* Section divider */
+      .orbis-section {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--orbis-gray-3);
+      }
+
+      .orbis-section-title {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--orbis-gray-8);
+      }
+    </style>
+  </head>
+  <body class="orbis-body">
+    <div id="container"></div>
+
+    <!-- Control Panel -->
+    <div class="map-control-panel">
+      <div class="orbis-panel">
+        <div class="orbis-panel-header">
+          <h3 style="font-size: 15px; margin: 0 0 3px 0">
+            <i class="fas fa-cube" style="color: var(--orbis-blue)"></i>
+            3D Model Feature
+          </h3>
+          <p style="font-size: 12px; color: var(--orbis-gray-6); margin: 0">
+            Model loading and animation
+          </p>
+          <button class="orbis-toggle" id="themeToggle" title="Toggle dark mode">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+
+        <div class="orbis-panel-body">
+          <!-- Model URL Input -->
+          <div class="orbis-section-title">
+            <i class="fas fa-link"></i> Model Source
+          </div>
+          <select id="modelSelect" class="orbis-input" style="width: 100%; margin-bottom: 8px;">
+            <option value="https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb">Robot (Animated)</option>
+            <option value="https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf">Damaged Helmet</option>
+            <option value="https://threejs.org/examples/models/gltf/Soldier.glb">Soldier (Animated)</option>
+            <option value="https://threejs.org/examples/models/gltf/Horse.glb">Horse (Animated)</option>
+            <option value="custom">Custom URL...</option>
+          </select>
+          <div class="orbis-input-group" id="customUrlGroup" style="display: none;">
+            <input type="text" class="orbis-input" id="modelUrl" placeholder="Enter model URL (.glb/.gltf)" />
+          </div>
+
+          <!-- Load Button -->
+          <div class="orbis-btn-group orbis-mb-3">
+            <button class="orbis-btn orbis-btn-sm orbis-btn-primary" onclick="loadModel()">
+              <i class="fas fa-download"></i> Load Model
+            </button>
+            <button class="orbis-btn orbis-btn-sm orbis-btn-danger" onclick="removeModel()" id="removeBtn" disabled>
+              <i class="fas fa-trash"></i> Remove
+            </button>
+          </div>
+
+          <!-- Loading Progress -->
+          <div id="progressContainer" style="display: none;">
+            <div class="orbis-slider-label">
+              <span>Loading...</span>
+              <span id="progressText">0%</span>
+            </div>
+            <div class="orbis-progress">
+              <div class="orbis-progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Transform Controls -->
+          <div class="orbis-section">
+            <div class="orbis-section-title">
+              <i class="fas fa-arrows-alt"></i> Transform
+            </div>
+
+            <div class="orbis-slider-group">
+              <div class="orbis-slider-label">
+                <span>Scale</span>
+                <span id="scaleValue">1.0</span>
+              </div>
+              <input type="range" class="orbis-slider" id="scaleSlider" min="0.1" max="5" step="0.1" value="1.0" onchange="updateScale(this.value)" />
+            </div>
+
+            <div class="orbis-slider-group">
+              <div class="orbis-slider-label">
+                <span>Rotation Y</span>
+                <span id="rotationValue">0°</span>
+              </div>
+              <input type="range" class="orbis-slider" id="rotationSlider" min="0" max="360" step="1" value="0" onchange="updateRotation(this.value)" />
+            </div>
+
+            <div class="orbis-slider-group">
+              <div class="orbis-slider-label">
+                <span>Height Offset</span>
+                <span id="heightValue">0m</span>
+              </div>
+              <input type="range" class="orbis-slider" id="heightSlider" min="0" max="500" step="10" value="0" onchange="updateHeight(this.value)" />
+            </div>
+          </div>
+
+          <!-- Shadow Controls -->
+          <div class="orbis-section">
+            <div class="orbis-section-title">
+              <i class="fas fa-cloud-sun"></i> Shadow
+            </div>
+            <div style="display: flex; gap: 16px;">
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 12px; color: var(--orbis-gray-7);">
+                <input type="checkbox" id="castShadowCheck" onchange="updateShadows()" style="margin-right: 6px;" />
+                Cast Shadow
+              </label>
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 12px; color: var(--orbis-gray-7);">
+                <input type="checkbox" id="receiveShadowCheck" onchange="updateShadows()" style="margin-right: 6px;" />
+                Receive Shadow
+              </label>
+            </div>
+          </div>
+
+          <!-- Animation Controls -->
+          <div class="orbis-section">
+            <div class="orbis-section-title">
+              <i class="fas fa-film"></i> Animation
+            </div>
+
+            <div class="orbis-btn-group orbis-mb-2">
+              <div class="orbis-btn-row">
+                <button class="orbis-btn orbis-btn-sm orbis-btn-success" onclick="playAnimation()" id="playBtn" disabled>
+                  <i class="fas fa-play"></i> Play
+                </button>
+                <button class="orbis-btn orbis-btn-sm orbis-btn-warning" onclick="pauseAnimation()" id="pauseBtn" disabled>
+                  <i class="fas fa-pause"></i> Pause
+                </button>
+                <button class="orbis-btn orbis-btn-sm orbis-btn-secondary" onclick="stopAnimation()" id="stopBtn" disabled>
+                  <i class="fas fa-stop"></i> Stop
+                </button>
+              </div>
+            </div>
+
+            <div class="orbis-slider-group">
+              <div class="orbis-slider-label">
+                <span>Speed</span>
+                <span id="speedValue">1.0x</span>
+              </div>
+              <input type="range" class="orbis-slider" id="speedSlider" min="0.1" max="3" step="0.1" value="1" onchange="updateSpeed(this.value)" />
+            </div>
+
+            <div class="orbis-animation-list" id="animationList">
+              <div style="color: var(--orbis-gray-5); font-size: 12px; text-align: center;">
+                No animations available
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Card -->
+          <div class="orbis-section">
+            <div class="orbis-status-card">
+              <div class="orbis-status-title">Status</div>
+              <div class="orbis-status-indicator orbis-mb-2">
+                <span class="orbis-indicator" id="statusIndicator"></span>
+                <div class="orbis-status-content" id="statusText">No model loaded</div>
+              </div>
+              <div class="orbis-info-grid">
+                <div class="orbis-info-item">
+                  <div class="orbis-info-label">Format</div>
+                  <div class="orbis-info-value" id="formatInfo">--</div>
+                </div>
+                <div class="orbis-info-item">
+                  <div class="orbis-info-label">Animations</div>
+                  <div class="orbis-info-value" id="animationCount">--</div>
+                </div>
+                <div class="orbis-info-item">
+                  <div class="orbis-info-label">Position</div>
+                  <div class="orbis-info-value" id="positionInfo">--</div>
+                </div>
+                <div class="orbis-info-item">
+                  <div class="orbis-info-label">Scale</div>
+                  <div class="orbis-info-value" id="scaleInfo">--</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="orbis-loading" id="loading">
+      <div class="orbis-spinner"></div>
+      <p>Loading map...</p>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as maporbis from "maporbis";
+      import { ModelFeature } from "maporbis";
+
+      // Global variables
+      let map, layer, modelFeature;
+      let isDarkMode = false;
+      let currentAnimationIndex = 0;
+
+      // Initialize map
+      function initMap() {
+        const loading = document.getElementById("loading");
+        loading.style.display = "block";
+
+        try {
+          map = new maporbis.Map("container", {
+            state: {
+              center: [116.4, 39.9, 500], // Beijing, closer view for model
+            },
+            source: {
+              minLevel: 2,
+              maxLevel: 19,
+              baseLayers: [
+                new maporbis.WMTSTileLayer("esri_imagery", {
+                  source: new maporbis.TileSource({
+                    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    projectionID: "3857",
+                  }),
+                  projection: maporbis.ProjectionFactory.create("3857"),
+                  opacity: 1.0,
+                  visible: true,
+                  altitude: 1,
+                  receiveShadow: true,
+                }),
+              ],
+            },
+            renderer: {
+              stats: true,
+              antialias: true,
+               skybox: {
+                hdr: "/assets/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+                hdrExposure: 1,
+                defaultColor: "#B9D4FE",
+              },
+              minDistance: 10,
+              maxDistance: 80000,
+              defaultGround: {
+                enabled: false,
+                visible: true,
+                color: "#333333",
+                opacity: 1,
+              },
+            },
+            camera: {
+              pitch: 60,
+              bearing: 0,
+            },
+          });
+
+          map.on("load", () => {
+            loading.style.display = "none";
+            initLayer();
+            if (typeof notify !== 'undefined') {
+              notify('Map loaded. Select a model and click "Load Model"', "info");
+            }
+          });
+
+        } catch (error) {
+          console.error("Map initialization failed:", error);
+          if (typeof notify !== 'undefined') {
+            notify("Map initialization failed: " + error.message, "error");
+          }
+          loading.style.display = "none";
+        }
+      }
+
+      // Initialize layer
+      function initLayer() {
+        layer = new maporbis.PointLayer("models", { altitude: 1 });
+        map.addLayer(layer);
+      }
+
+      // Get selected model URL
+      function getModelUrl() {
+        const select = document.getElementById("modelSelect");
+        if (select.value === "custom") {
+          return document.getElementById("modelUrl").value.trim();
+        }
+        return select.value;
+      }
+
+      // Load model
+      window.loadModel = function() {
+        const url = getModelUrl();
+        if (!url) {
+          if (typeof notify !== 'undefined') {
+            notify("Please enter a model URL", "warning");
+          }
+          return;
+        }
+
+        console.log("=== Load Model Debug ===");
+        console.log("Layer:", layer);
+        console.log("Layer has map:", layer?.getMap());
+        console.log("Map:", map);
+
+        // Remove existing model
+        if (modelFeature) {
+          removeModel();
+        }
+
+        // Show progress
+        const progressContainer = document.getElementById("progressContainer");
+        const progressBar = document.getElementById("progressBar");
+        const progressText = document.getElementById("progressText");
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        progressText.textContent = "0%";
+        console.log("Loading model...",url);
+        try {
+          // Create ModelFeature
+          modelFeature = new ModelFeature({
+            geometry: {
+              type: "Point",
+              coordinates: [116.4, 39.9],
+            },
+            url: url,
+            scale: parseFloat(document.getElementById("scaleSlider").value),
+            rotation: { x: 0, y: degToRad(parseFloat(document.getElementById("rotationSlider").value)), z: 0 },
+            translation: { x: 0, y: 0, z: parseFloat(document.getElementById("heightSlider").value) },
+            castShadow: document.getElementById("castShadowCheck").checked,
+            receiveShadow: document.getElementById("receiveShadowCheck").checked,
+            animations: {
+              autoPlay: true,
+              loop: true,
+            },
+            onProgress: (progress) => {
+              const percent = Math.round(progress * 100);
+              progressBar.style.width = `${percent}%`;
+              progressText.textContent = `${percent}%`;
+            },
+            onLoad: (model) => {
+              progressContainer.style.display = "none";
+              if (typeof notify !== 'undefined') {
+                notify("Model loaded successfully!", "success");
+              }
+              updateUI();
+              updateAnimationList();
+            },
+            onError: (error) => {
+              progressContainer.style.display = "none";
+              if (typeof notify !== 'undefined') {
+                notify("Failed to load model: " + error.message, "error");
+              }
+              console.error("Model load error:", error);
+            },
+          });
+          console.log("Model feature created", modelFeature);
+          console.log("Feature added to layer");
+          modelFeature.addTo(layer);
+          console.log("Feature.getMap():", modelFeature.getMap());
+          console.log("Feature.getLayer():", modelFeature.getLayer());
+
+        } catch (error) {
+          progressContainer.style.display = "none";
+          if (typeof notify !== 'undefined') {
+            notify("Error creating model: " + error.message, "error");
+          }
+          console.error("Model creation error:", error);
+        }
+      };
+
+      // Remove model
+      window.removeModel = function() {
+        if (modelFeature) {
+          modelFeature._remove();
+          modelFeature = null;
+          if (typeof notify !== 'undefined') {
+            notify("Model removed", "info");
+          }
+          updateUI();
+          resetAnimationList();
+        }
+      };
+
+      // Update scale
+      window.updateScale = function(value) {
+        document.getElementById("scaleValue").textContent = parseFloat(value).toFixed(1);
+        document.getElementById("scaleInfo").textContent = parseFloat(value).toFixed(1);
+        if (modelFeature) {
+          modelFeature.setScale(parseFloat(value));
+        }
+      };
+
+      // Update rotation
+      window.updateRotation = function(value) {
+        document.getElementById("rotationValue").textContent = `${value}°`;
+        if (modelFeature) {
+          modelFeature.setRotation({ x: 0, y: degToRad(parseFloat(value)), z: 0 });
+        }
+      };
+
+      // Update height
+      window.updateHeight = function(value) {
+        document.getElementById("heightValue").textContent = `${value}m`;
+        if (modelFeature) {
+          modelFeature.setTranslation({ x: 0, y: 0, z: parseFloat(value) });
+        }
+      };
+
+      // Update shadows
+      window.updateShadows = function() {
+        const castShadow = document.getElementById("castShadowCheck").checked;
+        const receiveShadow = document.getElementById("receiveShadowCheck").checked;
+        if (modelFeature) {
+          modelFeature.setShadows(castShadow, receiveShadow);
+          if (typeof notify !== 'undefined') {
+            notify("Shadow settings updated", "info");
+          }
+        }
+      };
+
+      // Play animation
+      window.playAnimation = function() {
+        if (modelFeature) {
+          modelFeature.play(currentAnimationIndex);
+          if (typeof notify !== 'undefined') {
+            notify("Animation playing", "info");
+          }
+        }
+      };
+
+      // Pause animation
+      window.pauseAnimation = function() {
+        if (modelFeature) {
+          modelFeature.pause();
+          if (typeof notify !== 'undefined') {
+            notify("Animation paused", "info");
+          }
+        }
+      };
+
+      // Stop animation
+      window.stopAnimation = function() {
+        if (modelFeature) {
+          modelFeature.stop();
+          if (typeof notify !== 'undefined') {
+            notify("Animation stopped", "info");
+          }
+        }
+      };
+
+      // Update animation speed
+      window.updateSpeed = function(value) {
+        document.getElementById("speedValue").textContent = `${parseFloat(value).toFixed(1)}x`;
+        if (modelFeature) {
+          modelFeature.setTimeScale(parseFloat(value));
+        }
+      };
+
+      // Select animation
+      window.selectAnimation = function(index) {
+        currentAnimationIndex = index;
+        updateAnimationListUI();
+        if (modelFeature) {
+          modelFeature.play(index);
+        }
+      };
+
+      // Helper: degrees to radians
+      function degToRad(degrees) {
+        return degrees * (Math.PI / 180);
+      }
+
+      // Update UI state
+      function updateUI() {
+        const statusIndicator = document.getElementById("statusIndicator");
+        const statusText = document.getElementById("statusText");
+        const formatInfo = document.getElementById("formatInfo");
+        const animationCount = document.getElementById("animationCount");
+        const positionInfo = document.getElementById("positionInfo");
+        const scaleInfo = document.getElementById("scaleInfo");
+        const removeBtn = document.getElementById("removeBtn");
+        const playBtn = document.getElementById("playBtn");
+        const pauseBtn = document.getElementById("pauseBtn");
+        const stopBtn = document.getElementById("stopBtn");
+
+        if (modelFeature && modelFeature.isLoaded()) {
+          statusIndicator.className = "orbis-indicator orbis-indicator-active";
+          statusText.textContent = "Model loaded";
+
+          const url = modelFeature.getUrl();
+          const ext = url.split(".").pop().split("?")[0].toUpperCase();
+          formatInfo.textContent = ext;
+
+          const clips = modelFeature.getClips();
+          animationCount.textContent = clips.length > 0 ? clips.length : "None";
+
+          const center = modelFeature.getCenter();
+          positionInfo.textContent = `${center[0].toFixed(4)}, ${center[1].toFixed(4)}`;
+
+          const scale = modelFeature.getScale();
+          scaleInfo.textContent = scale.x.toFixed(1);
+
+          removeBtn.disabled = false;
+          playBtn.disabled = clips.length === 0;
+          pauseBtn.disabled = clips.length === 0;
+          stopBtn.disabled = clips.length === 0;
+
+        } else {
+          statusIndicator.className = "orbis-indicator";
+          statusText.textContent = "No model loaded";
+          formatInfo.textContent = "--";
+          animationCount.textContent = "--";
+          positionInfo.textContent = "--";
+          scaleInfo.textContent = "--";
+
+          removeBtn.disabled = true;
+          playBtn.disabled = true;
+          pauseBtn.disabled = true;
+          stopBtn.disabled = true;
+        }
+      }
+
+      // Update animation list
+      function updateAnimationList() {
+        const listContainer = document.getElementById("animationList");
+
+        if (!modelFeature) {
+          resetAnimationList();
+          return;
+        }
+
+        const clips = modelFeature.getClips();
+        if (clips.length === 0) {
+          listContainer.innerHTML = `
+            <div style="color: var(--orbis-gray-5); font-size: 12px; text-align: center;">
+              No animations available
+            </div>
+          `;
+          return;
+        }
+
+        listContainer.innerHTML = clips.map((clip, index) => `
+          <div class="orbis-animation-item ${index === currentAnimationIndex ? 'active' : ''}"
+               onclick="selectAnimation(${index})">
+            <span>${clip.name || `Animation ${index + 1}`}</span>
+            <span style="font-size: 10px; opacity: 0.7;">${clip.duration.toFixed(1)}s</span>
+          </div>
+        `).join("");
+      }
+
+      // Update animation list UI (selection only)
+      function updateAnimationListUI() {
+        const items = document.querySelectorAll(".orbis-animation-item");
+        items.forEach((item, index) => {
+          if (index === currentAnimationIndex) {
+            item.classList.add("active");
+          } else {
+            item.classList.remove("active");
+          }
+        });
+      }
+
+      // Reset animation list
+      function resetAnimationList() {
+        const listContainer = document.getElementById("animationList");
+        listContainer.innerHTML = `
+          <div style="color: var(--orbis-gray-5); font-size: 12px; text-align: center;">
+            No animations available
+          </div>
+        `;
+        currentAnimationIndex = 0;
+      }
+
+      // Toggle dark mode
+      function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        const body = document.body;
+        const themeToggle = document.getElementById("themeToggle");
+        const icon = themeToggle.querySelector("i");
+
+        if (isDarkMode) {
+          body.classList.add("orbis-dark");
+          icon.className = "fas fa-sun";
+          themeToggle.title = "Switch to light mode";
+          if (typeof notify !== 'undefined') {
+            notify("Dark mode enabled", "info");
+          }
+        } else {
+          body.classList.remove("orbis-dark");
+          icon.className = "fas fa-moon";
+          themeToggle.title = "Switch to dark mode";
+          if (typeof notify !== 'undefined') {
+            notify("Light mode enabled", "info");
+          }
+        }
+
+        localStorage.setItem("mapDarkMode", isDarkMode);
+      }
+
+      // Handle model select change
+      document.getElementById("modelSelect").addEventListener("change", function() {
+        const customUrlGroup = document.getElementById("customUrlGroup");
+        if (this.value === "custom") {
+          customUrlGroup.style.display = "flex";
+        } else {
+          customUrlGroup.style.display = "none";
+        }
+      });
+
+      // Initialize application
+      document.addEventListener("DOMContentLoaded", function() {
+        // Check saved dark mode preference
+        const savedDarkMode = localStorage.getItem("mapDarkMode");
+        if (savedDarkMode === "true") {
+          isDarkMode = true;
+          document.body.classList.add("orbis-dark");
+          document.getElementById("themeToggle").querySelector("i").className = "fas fa-sun";
+        }
+
+        setTimeout(initMap, 100);
+
+        document.getElementById("themeToggle").addEventListener("click", toggleDarkMode);
+      });
+    </script>
+  </body>
+</html>

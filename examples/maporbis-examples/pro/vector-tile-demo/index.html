@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>矢量瓦片图层演示 - MapOrbis</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="/utils/inline-utils.js"></script>
+  <style>
+    :root {
+      --orbis-blue: #1a73e8;
+      --orbis-bg: #ffffff;
+      --orbis-bg-secondary: #f8f9fa;
+      --orbis-text: #202124;
+      --orbis-text-secondary: #5f6368;
+      --orbis-border: #dadce0;
+      --orbis-shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .orbis-control-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      z-index: 1000;
+    }
+
+    .orbis-panel {
+      background: var(--orbis-bg);
+      border-radius: 12px;
+      border: 1px solid var(--orbis-border);
+      overflow: hidden;
+      box-shadow: 0 4px 20px var(--orbis-shadow);
+    }
+
+    .orbis-panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--orbis-border);
+      background: var(--orbis-bg-secondary);
+    }
+
+    .orbis-panel-body {
+      padding: 14px;
+    }
+
+    .control-section {
+      margin-bottom: 15px;
+    }
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--orbis-text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .color-btn {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .color-btn:hover {
+      transform: scale(1.1);
+    }
+
+    .color-btn.active {
+      border-color: var(--orbis-text);
+    }
+
+    /* Switch toggle */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #d1d5db;
+      transition: .4s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--orbis-blue); }
+    input:checked + .slider:before { transform: translateX(20px); }
+  </style>
+</head>
+
+<body class="orbis-body">
+  <div id="map"></div>
+
+  <div class="orbis-control-panel">
+    <div class="orbis-panel orbis-shadow-lg">
+      <div class="orbis-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 600;">
+          <i class="fas fa-layer-group" style="color: var(--orbis-blue)"></i>
+          矢量瓦片演示 (MVT)
+        </h3>
+        <button class="orbis-toggle" id="themeToggle"></button>
+      </div>
+
+      <div class="orbis-panel-body">
+        <!-- 图层控制 -->
+        <div class="control-section">
+          <div class="control-label">
+            图层可见性
+            <label class="switch">
+                <input type="checkbox" checked onchange="toggleLayer(this.checked)">
+                <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 颜色选择 -->
+        <div class="control-section">
+          <div class="control-label">线条颜色</div>
+          <div class="color-grid" id="colorGroup">
+            <button class="color-btn active" style="background: #FFFFFF" onclick="setColor('#FFFFFF', this)"></button>
+            <button class="color-btn" style="background: #34C759" onclick="setColor('#34C759', this)"></button>
+            <button class="color-btn" style="background: #FF3B30" onclick="setColor('#FF3B30', this)"></button>
+            <button class="color-btn" style="background: #FF9500" onclick="setColor('#FF9500', this)"></button>
+            <button class="color-btn" style="background: #007AFF" onclick="setColor('#007AFF', this)"></button>
+          </div>
+        </div>
+
+        <div class="control-section">
+            <div class="control-label">数据源说明</div>
+            <p style="font-size: 12px; color: var(--orbis-text-tertiary); margin: 0;">
+                使用 MapTiler OpenStreetMap 矢量切片服务 (.pbf)。
+            </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.182.0/build/three.module.js",
+        "three-stdlib": "https://unpkg.com/three-stdlib@2.29.4/index.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as maporbis from "maporbis";
+    import { VectorTileLayer } from "maporbis";
+
+    let map, vectorLayer;
+
+    // MapTiler 免费 Key，用于演示
+    const TILE_URL = "https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=uKYsZQZpm72WlbSgH9B7";
+
+    // 默认样式配置
+    const state = {
+      color: '#FF3B30'
+    };
+
+    init();
+
+    function init() {
+      // 初始化地图
+      map = new maporbis.Map("map", {
+        state: {
+          center: [139.767, 35.681, 15000], // 东京
+        },
+        source: {
+          baseLayers: [
+            // 使用暗色底图以突出矢量线条
+                new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              minLevel: 2,
+              maxLevel: 18,
+
+            }),
+          ],
+        },
+        renderer: {
+            useWebGPU: false,
+            skybox: {
+                hdr: "https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr",
+                hdrExposure: 1,
+                defaultColor: "#B9D4FE",
+            }
+        }
+      });
+
+      map.on("load", () => {
+        addVectorLayer();
+        console.log("地图加载完成");
+        console.log(map,'map -----------');
+      });
+    }
+
+    function addVectorLayer() {
+        if (vectorLayer) {
+            map.removeLayer("mvt-layer");
+        }
+
+        // 创建矢量瓦片图层
+        // 样式配置：渲染所有匹配到的要素为线条
+        vectorLayer = new VectorTileLayer("mvt-layer", {
+            source: new maporbis.TileSource({
+                url: TILE_URL,
+                projectionID: "3857",
+                dataType: "vector-tile"
+            }),
+            projection: maporbis.ProjectionFactory.create("3857"),
+            style: [
+                {
+                    filter: ['all', ['==', ['get', '$type'], 'Polygon'], ['==', ['get', '$layer'], 'water'], ['!=', ['get', 'class'], 'ocean']],
+                    paint: {
+                        type: 'fill',
+                        fillColor: '#FF6B6B',
+                        fillOpacity: 0.5
+                    }
+                },
+                {
+                    filter: ['==', ['get', '$type'], 'LineString'],
+                    paint: {
+                        type: 'line',
+                        color: state.color,
+                        width: 2,
+                        opacity: 0.8,
+                        transparent: true
+                    }
+                },
+                {
+                    filter: ['==', ['get', '$type'], 'Point'],
+                    paint: {
+                        type: "icon",
+                        url: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png",
+                        size: 5,
+                        sizeAttenuation: false,
+                        anchor: 'bottom-left',
+                    }
+                }
+            ],
+            altitude: 5, // 稍微抬高避免 Z-fighting
+            useWorker: true, // 启用 Worker 进行异步处理
+        });
+
+        map.addLayer(vectorLayer);
+    }
+
+    // 暴露给全局的控制函数
+    window.toggleLayer = (checked) => {
+        if (vectorLayer) {
+            // 注意：VectorTileLayer 本身是 TileLayer，可以设置 visible
+            // 但它的 renderer 是独立添加的，Map.addLayer 会处理
+            // Map.ts 目前可能没有自动同步 visible 状态，我们需要手动处理
+            // 或者重新实现 set visible
+
+            // 尝试直接设置 visible
+            vectorLayer.visible = checked;
+
+            // 获取 renderer 并设置 visible
+            const renderer = vectorLayer._getRenderer();
+            if (renderer) {
+                renderer.visible = checked;
+            }
+        }
+    };
+
+    window.setColor = (color, btn) => {
+      state.color = color;
+
+      document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const renderer = vectorLayer?._getRenderer();
+      if (renderer && typeof renderer.setLineColor === 'function') {
+        renderer.setLineColor(color);
+      } else {
+        addVectorLayer();
+      }
+    };
+
+  </script>
+</body>
+</html>

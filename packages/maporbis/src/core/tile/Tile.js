@@ -1,0 +1,549 @@
+import { Box3, Frustum, InstancedBufferGeometry, Matrix4, Mesh, Vector3, } from "three";
+import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate } from "./util";
+const MAX_RETRY_COUNT = 3;
+/**
+ * Tile state machine enumeration
+ * 瓦片状态机枚举
+ */
+export var TileState;
+(function (TileState) {
+    /** Initial state, not yet started loading 初始状态，尚未开始加载 */
+    TileState["Idle"] = "idle";
+    /** Currently loading data 正在加载数据 */
+    TileState["Loading"] = "loading";
+    /** Data loaded successfully 数据加载成功 */
+    TileState["Loaded"] = "loaded";
+    /** Loading failed 加载失败 */
+    TileState["Error"] = "error";
+    /** Tile disposed/unloaded 瓦片已释放/卸载 */
+    TileState["Unloaded"] = "unloaded";
+})(TileState || (TileState = {}));
+// Default geometry of tile
+const defaultGeometry = new InstancedBufferGeometry();
+// const defaultGeometry = new SphereGeometry( 0.3, 32, 16 );
+const tempVec3 = new Vector3();
+const tempMat4 = new Matrix4();
+const tileBox = new Box3(new Vector3(-0.5, -0.5, 0), new Vector3(0.5, 0.5, 1));
+const frustum = new Frustum();
+/**
+ * Class Tile, inherit of Mesh
+ * Tile类，继承自Mesh
+ */
+/**
+ * Represents a tile in a 3D scene.
+ * Extends the Mesh class with BufferGeometry and Material.
+ * 表示3D场景中的一个瓦片。
+ * 继承自带有BufferGeometry和Material的Mesh类。
+ */
+export class Tile extends Mesh {
+    static _activeDownloads = 0;
+    static _maxConcurrentDownloads = 10;
+    // Data mode switch 数据模式开关
+    _dataMode = false;
+    /** Tile state 瓦片状态 */
+    _state = TileState.Idle;
+    /** Retry count for failed loads 加载失败重试计数 */
+    _retryCount = 0;
+    /** Maximum retry count 最大重试次数 */
+    _maxRetries = MAX_RETRY_COUNT;
+    /**
+     * Get current tile state
+     * 获取当前瓦片状态
+     */
+    get state() {
+        return this._state;
+    }
+    /**
+     * Get retry count
+     * 获取重试次数
+     */
+    get retryCount() {
+        return this._retryCount;
+    }
+    /**
+     * Set max retry count
+     * 设置最大重试次数
+     */
+    set maxRetries(value) {
+        this._maxRetries = value;
+    }
+    /**
+     * Transition tile state
+     * 转换瓦片状态
+     * @param newState - Target state 目标状态
+     * @returns true if transition succeeded 状态转换是否成功
+     */
+    _transitionTo(newState) {
+        const oldState = this._state;
+        this._state = newState;
+        // Sync backward-compatible flags 同步向后兼容的标志位
+        if (newState === TileState.Loaded) {
+            this._isLoaded = true;
+        }
+        else if (newState === TileState.Idle || newState === TileState.Loading) {
+            this._isLoaded = false;
+        }
+        return true;
+    }
+    /**
+     * Check if tile can start loading
+     * 检查瓦片是否可以开始加载
+     */
+    _canStartLoading() {
+        return this._state === TileState.Idle || this._state === TileState.Error;
+    }
+    /**
+     * Check if tile needs retry
+     * 检查瓦片是否需要重试
+     */
+    _needsRetry() {
+        return this._state === TileState.Error && this._retryCount < this._maxRetries;
+    }
+    /** Vector Data 矢量数据 */
+    _vectorData = null;
+    /**
+        * Set data only mode (do not create Mesh, only return data)
+        * 设置为数据模式（不创建Mesh，只返回数据）
+        */
+    setDataOnlyMode(isDataOnly) {
+        this._dataMode = isDataOnly;
+        if (isDataOnly) {
+            this.visible = false; // Hide Mesh 隐藏Mesh
+        }
+        return this;
+    }
+    /**
+     * Check if it is data only mode
+     * 检查是否是数据模式
+      */
+    isDataOnlyMode() {
+        return this._dataMode;
+    }
+    /**
+     * Get vector data (only valid in data mode)
+     * 获取矢量数据（仅数据模式有效）
+     */
+    getVectorData() {
+        return this._vectorData;
+    }
+    /**
+     * Number of download threads.
+     * 下载线程数
+     */
+    static get downloadThreads() {
+        return Tile._activeDownloads;
+    }
+    /**
+     * Get max concurrent downloads.
+     * 获取最大并发下载数
+     */
+    static get maxConcurrentDownloads() {
+        return Tile._maxConcurrentDownloads;
+    }
+    /**
+     * Set max concurrent downloads.
+     * 设置最大并发下载数
+     */
+    static set maxConcurrentDownloads(value) {
+        Tile._maxConcurrentDownloads = Math.max(1, value);
+    }
+    /** Coordinate of tile 瓦片坐标 */
+    x;
+    y;
+    z;
+    /** Is a tile? 是否是瓦片？ */
+    isTile = true;
+    /** Tile parent 父瓦片 */
+    parent = null;
+    /** Children of tile 子瓦片 */
+    children = [];
+    _isReady = false;
+    /** return this.minLevel < map.minLevel, True mean do not needs load tile data. True表示不需要加载瓦片数据 */
+    _isVirtualTile = false;
+    get isDummy() {
+        return this._isVirtualTile;
+    }
+    _isVisible = false;
+    // private _wasShowing = false; // Record last showing value 记录上一次 showing 的值
+    /**
+     * Gets the showing state of the tile.
+     * 获取瓦片的显示状态。
+     */
+    get showing() {
+        return this._isVisible;
+    }
+    /**
+     * Sets the showing state of the tile.
+     * 设置瓦片的显示状态。
+     * @param value - The new showing state. 新的显示状态。
+     */
+    set showing(value) {
+        const oldValue = this._isVisible;
+        this._isVisible = value;
+        this.material.forEach(mat => (mat.visible = value));
+        // 🔥 Critical Fix: When tile changes from hidden to shown, if loaded but not rendered, trigger render
+        // 🔥 关键修复：当瓦片从隐藏变为显示时，如果已加载但未渲染，触发渲染
+        if (oldValue === false && this._isVisible === true && this._isLoaded) {
+            // Trigger an event to notify VectorTileLayer to check and render this tile
+            // 触发一个事件，通知 VectorTileLayer 检查并渲染这个瓦片
+            // console.log('Tile shown', this.z, this.x, this.y);
+            this.dispatchEvent({ type: "tile-shown", tile: this });
+        }
+        // 🔥 When tile changes from shown to hidden, trigger tile-hidden event
+        // 🔥 当瓦片从显示变为隐藏时，触发 tile-hidden 事件
+        if (oldValue === true && this._isVisible === false) {
+            // console.log('Tile hidden', this.z, this.x, this.y);
+            this.dispatchEvent({ type: "tile-hidden", tile: this });
+        }
+    }
+    /** Max height of tile 瓦片最大高度 */
+    _maxHeight = 0;
+    /**
+     * Gets the maximum height of the tile.
+     * 获取瓦片的最大高度。
+     */
+    get maxZ() {
+        return this._maxHeight;
+    }
+    /**
+     * Sets the maximum height of the tile.
+     * 设置瓦片的最大高度。
+     * @param value - The new maximum height. 新的最大高度。
+     */
+    set maxZ(value) {
+        this._maxHeight = value;
+    }
+    /** Distance to camera 到相机的距离 */
+    distToCamera = 0;
+    /* Tile size in world 世界空间中的瓦片大小 */
+    sizeInWorld = 0;
+    /**
+     * Gets the index of the tile in its parent's children array.
+     * 获取瓦片在父节点子数组中的索引。
+     * @returns The index of the tile. 瓦片的索引。
+     */
+    get index() {
+        return this.parent ? this.parent.children.indexOf(this) : -1;
+    }
+    _isLoaded = false;
+    /**
+     * Gets the load state of the tile.
+     * 获取瓦片的加载状态。
+     */
+    get loaded() {
+        return this._isLoaded;
+    }
+    _inFrustum = false;
+    /** Is tile in frustum ? 瓦片是否在视锥体中？ */
+    get inFrustum() {
+        return this._inFrustum;
+    }
+    /**
+     * Sets whether the tile is in the frustum.
+     * 设置瓦片是否在视锥体中。
+     * @param value - The new frustum state. 新的视锥体状态。
+     */
+    set inFrustum(value) {
+        this._inFrustum = value;
+    }
+    /** Tile is a leaf ? 瓦片是否是叶子节点？ */
+    get isLeaf() {
+        return this.children.filter(child => child.isTile).length === 0;
+    }
+    /**
+     * Constructor for the Tile class.
+     * Tile类的构造函数。
+     * @param x - Tile X-coordinate, default: 0. 瓦片X坐标，默认0。
+     * @param y - Tile Y-coordinate, default: 0. 瓦片Y坐标，默认0。
+     * @param z - Tile level, default: 0. 瓦片层级，默认0。
+     */
+    constructor(x = 0, y = 0, z = 0) {
+        super(defaultGeometry, []);
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.name = `Tile ${z}-${x}-${y}`;
+        this.up.set(0, 0, 1);
+        this.matrixAutoUpdate = false;
+        // Ensure tiles are rendered before other overlays (like polygons) to avoid transparency sorting issues
+        // 确保瓦片在其他覆盖物（如多边形）之前渲染，以避免透明度排序问题
+        this.renderOrder = -1;
+    }
+    /**
+     * Override Object3D.traverse, change the callback param type to "this".
+     * 重写 Object3D.traverse，将回调参数类型更改为 "this"。
+     * @param callback - The callback function. 回调函数。
+     */
+    traverse(callback) {
+        callback(this);
+        this.children.forEach(tile => {
+            tile.isTile && tile.traverse(callback);
+        });
+    }
+    /**
+     * Override Object3D.traverseVisible, change the callback param type to "this".
+     * 重写 Object3D.traverseVisible，将回调参数类型更改为 "this"。
+     * @param callback - The callback function. 回调函数。
+     */
+    traverseVisible(callback) {
+        if (this.visible) {
+            callback(this);
+            this.children.forEach(tile => {
+                tile.isTile && tile.traverseVisible(callback);
+            });
+        }
+    }
+    /**
+     * Override Object3D.raycast, only test the tile has loaded.
+     * 重写 Object3D.raycast，仅测试已加载的瓦片。
+     * @param raycaster - The raycaster. 射线投射器。
+     * @param intersects - The array of intersections. 交点数组。
+     */
+    raycast(raycaster, intersects) {
+        if (this.showing && this.loaded && this.isTile) {
+            super.raycast(raycaster, intersects);
+        }
+    }
+    /**
+     * LOD (Level of Detail).
+     * LOD（细节层次）。
+     * @param params - The tile loader. 瓦片加载器。
+     * @returns this
+     */
+    _updateLOD(params) {
+        if (Tile.downloadThreads >= Tile._maxConcurrentDownloads) {
+            return { action: LODAction.none };
+        }
+        let newTiles = [];
+        // LOD evaluate
+        const { loader, minLevel, maxLevel, LODThreshold } = params;
+        const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold);
+        if (action === LODAction.create) {
+            newTiles = createChildren(loader, this.x, this.y, this.z);
+            this.add(...newTiles);
+        }
+        return { action, newTiles };
+    }
+    /**
+     * Checks the visibility of the tile.
+     */
+    _checkVisibility() {
+        const parent = this.parent;
+        if (parent && parent.isTile) {
+            const children = parent.children.filter(child => child.isTile);
+            const allLoaded = children.every(child => child.loaded);
+            parent.showing = !allLoaded;
+            children.forEach(child => (child.showing = allLoaded));
+        }
+        return this;
+    }
+    /**
+     * Asynchronously load tile data with state machine and retry support
+     * 异步加载瓦片数据，支持状态机和重试
+     *
+     * @param loader Tile loader
+     * @returns this
+     */
+    async _loadData(loader) {
+        // Check if tile can start loading 检查瓦片是否可以开始加载
+        if (!this._canStartLoading()) {
+            return this;
+        }
+        // Transition to Loading state 转换到 Loading 状态
+        this._transitionTo(TileState.Loading);
+        Tile._activeDownloads++;
+        const { x, y, z } = this;
+        try {
+            // 如果是数据模式，只获取数据不创建Mesh
+            if (this._dataMode) {
+                // 调用加载器获取数据
+                const meshData = await loader.load({
+                    x, y, z,
+                    bounds: [-Infinity, -Infinity, Infinity, Infinity],
+                });
+                this._vectorData = meshData.geometry?.userData || {};
+                // Transition to Loaded state 转换到 Loaded 状态
+                this._transitionTo(TileState.Loaded);
+                this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
+                // 触发数据加载事件
+                this.dispatchEvent({
+                    type: "vector-data-loaded",
+                    data: this._vectorData,
+                    tile: this
+                });
+            }
+            else {
+                const meshData = await loader.load({
+                    x,
+                    y,
+                    z,
+                    bounds: [-Infinity, -Infinity, Infinity, Infinity],
+                });
+                this.material = meshData.materials;
+                this.geometry = meshData.geometry;
+                this.maxZ = this.geometry.boundingBox?.max.z || 0;
+                // Transition to Loaded state 转换到 Loaded 状态
+                this._transitionTo(TileState.Loaded);
+                this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
+            }
+        }
+        catch (error) {
+            console.error(`Tile load failed ${z}/${x}/${y} (attempt ${this._retryCount + 1}/${this._maxRetries}):`, error);
+            // Transition to Error state 转换到 Error 状态
+            this._transitionTo(TileState.Error);
+            this._retryCount++;
+            // Auto retry if within retry limit 如果在重试次数限制内，自动重试
+            if (this._needsRetry()) {
+                Tile._activeDownloads--;
+                // Exponential backoff: 100ms, 200ms, 400ms 指数退避
+                const delay = Math.min(100 * Math.pow(2, this._retryCount - 1), 2000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this._loadData(loader);
+            }
+        }
+        finally {
+            Tile._activeDownloads--;
+        }
+        return this;
+    }
+    /** New tile init */
+    _initTile() {
+        this.updateMatrix();
+        this.updateMatrixWorld();
+        this.sizeInWorld = getTileSize(this);
+        // 添加调试信息
+        // console.log(`瓦片 ${this.z}-${this.x}-${this.y} 变换矩阵:`, {
+        // 	position: this.position.toArray(),
+        // 	scale: this.scale.toArray(),
+        // 	rotation: this.rotation.toArray(),
+        // 	matrix: this.matrix.toArray(),
+        // 	matrixWorld: this.matrixWorld.toArray()
+        // });
+    }
+    /**
+     * Updates the tile.
+     * @param params - The update parameters.
+     * @returns this
+     */
+    update(params) {
+        console.assert(this.z === 0);
+        // console.log(`Tile.update called for root tile ${this.name}, parent exists: ${!!this.parent}`);
+        if (!this.parent) {
+            return this;
+        }
+        // console.log("camera:", camera);
+        // Get camera frustum
+        frustum.setFromProjectionMatrix(tempMat4.multiplyMatrices(params.camera.projectionMatrix, params.camera.matrixWorldInverse));
+        // console.log(params.camera, '此时更新的camera -------------')
+        // Get camera position
+        const cameraWorldPosition = params.camera.getWorldPosition(tempVec3);
+        // LOD for tiles
+        this.traverse(tile => {
+            // shadow
+            tile.receiveShadow = this.receiveShadow;
+            tile.castShadow = this.castShadow;
+            // Tile is in frustum?
+            // const bounds = tileBox.clone().applyMatrix4(tile.matrixWorld);
+            // bounds.max.setY(9000);
+            // 修复视锥体检测
+            const bounds = tileBox.clone().applyMatrix4(tile.matrixWorld);
+            // 根据瓦片的最大高度动态设置包围盒
+            // bounds.max.z = tile.maxZ > 0 ? tile.maxZ : 100; // 默认给一个较小的高度
+            // tile.inFrustum = frustum.intersectsBox(bounds);
+            // const bounds = new Box3(new Vector3(-0.5, -0.5, 0), new Vector3(0.5, 0.5, (this.z + 2) * 500)).applyMatrix4(
+            // 	tile.matrixWorld
+            // );
+            tile.inFrustum = frustum.intersectsBox(bounds);
+            // Get distance to camera
+            tile.distToCamera = getDistance(tile, cameraWorldPosition);
+            // console.log(params, 'params------------')
+            // LOD
+            const { action, newTiles } = tile._updateLOD(params);
+            // console.log(action, 'action------------')
+            this._processLODAction(tile, action, newTiles, params);
+        });
+        this._checkReadyState();
+        // console.log(this, '此时更新的tile -------------')
+        return this;
+    }
+    _processLODAction(currentTile, action, newTiles, params) {
+        // console.log(action, 'action------------')
+        // console.log(LODAction, 'LODAction------------')
+        if (action === LODAction.create) {
+            // Load new tiles data
+            newTiles?.forEach(newTile => {
+                newTile._initTile();
+                newTile._isVirtualTile = newTile.z < params.minLevel;
+                this.dispatchEvent({ type: "tile-created", tile: newTile });
+                if (!newTile.isDummy) {
+                    newTile._loadData(params.loader).then(() => {
+                        // Show tile when all children has loaded
+                        newTile._checkVisibility();
+                        this.dispatchEvent({ type: "tile-loaded", tile: newTile });
+                    });
+                }
+            });
+        }
+        else if (action === LODAction.remove) {
+            currentTile.showing = true;
+            // unload children tiles
+            currentTile._disposeResources(false, params.loader);
+            this.dispatchEvent({ type: "tile-unload", tile: currentTile });
+        }
+        return this;
+    }
+    /**
+     * Reloads the tile data.
+     * @returns this
+     */
+    reload(loader) {
+        this._disposeResources(true, loader);
+        return this;
+    }
+    /**
+     * Checks if the tile is ready to render.
+     * @returns this
+     */
+    _checkReadyState() {
+        if (!this._isReady) {
+            this._isReady = true;
+            this.traverse(child => {
+                if (child.isLeaf && child.loaded && !child.isDummy) {
+                    this._isReady = false;
+                    return;
+                }
+            });
+            if (this._isReady) {
+                this.dispatchEvent({ type: "ready" });
+            }
+        }
+        return this;
+    }
+    /**
+     * UnLoads the tile data.
+     * @param disposeSelf - Whether to unload tile itself.
+     * @returns this.
+     */
+    // private _disposeResources(disposeSelf: boolean, loader: ITileLoader) {
+    // 	if (disposeSelf && this.isTile && !this.isDummy) {
+    // 		this.dispatchEvent({ type: "unload" });
+    // 		loader?.unload?.(this);
+    // 	}
+    // 	// remove all children recursively
+    // 	this.children.forEach(child => child._disposeResources(true, loader));
+    // 	this.clear();
+    // 	return this;
+    // }
+    _disposeResources(disposeSelf, loader) {
+        if (disposeSelf && this.isTile && !this.isDummy) {
+            // Transition to Unloaded state 转换到 Unloaded 状态
+            this._transitionTo(TileState.Unloaded);
+            this.dispatchEvent({ type: "unload" });
+            loader?.unload?.(this);
+        }
+        // remove all children recursively
+        this.children.forEach(child => child._disposeResources(true, loader));
+        this.clear();
+        return this;
+    }
+}

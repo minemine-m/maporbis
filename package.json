@@ -1,0 +1,17 @@
+{
+  "name": "maporbis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter maporbis build",
+    "dev": "pnpm --filter maporbis dev",
+    "test": "pnpm --filter maporbis test",
+    "example": "pnpm --filter maporbis-examples dev",
+    "example:build": "pnpm --filter maporbis-examples build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

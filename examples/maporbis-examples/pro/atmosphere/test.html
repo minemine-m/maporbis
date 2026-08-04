@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Atmosphere Test</title>
+    <style>
+        body { margin: 0; padding: 0; }
+        #container { width: 100vw; height: 100vh; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        <h3>Atmosphere Test</h3>
+        <div id="logs"></div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://unpkg.com/three@0.171.0/examples/jsm/controls/OrbitControls.js';
+
+        const logs = document.getElementById('logs');
+
+        function log(msg) {
+            console.log(msg);
+            logs.innerHTML += msg + '<br>';
+        }
+
+        // =====================================================
+        // 从 three-tile-doc 还原的 Sky 代码（直接内联）
+        // =====================================================
+
+        const vertexShader = `
+uniform float Intensity;
+uniform vec3 sunPosition;
+uniform float rayleigh;
+uniform vec3 up;
+
+varying vec3 vWorldPosition;
+varying vec3 vSunDirection;
+varying float vSunfade;
+varying vec3 vBetaR;
+varying float vSunE;
+
+const float e = 2.71828182845904523536028747135266249775724709369995957;
+const float pi = 3.141592653589793238462643383279502884197169;
+const vec3 totalRayleigh = vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5);
+const float cutoffAngle = 1.6110731556870734;
+const float steepness = 1.5;
+const float EE = 1000.0;
+
+float sunIntensity(float zenithAngleCos) {
+    zenithAngleCos = clamp(zenithAngleCos, -1.0, 1.0);
+    return Intensity * EE * max(0.0, 1.0 - pow(e, -((cutoffAngle - acos(zenithAngleCos)) / steepness)));
+}
+
+void main() {
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPosition.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position.z = gl_Position.w;
+
+    vSunDirection = normalize(sunPosition);
+    float sun_up = dot(vSunDirection, up);
+
+    vSunE = sunIntensity(sun_up);
+    vSunfade = 1.0 - clamp(1.0 - exp((sun_up)), 0.0, 1.0);
+
+    float rayleighCoefficient = rayleigh - (1.0 * (1.0 - vSunfade));
+    vBetaR = totalRayleigh * rayleighCoefficient;
+}
+`;
+
+        const fragmentShader = `
+uniform float sunAngularDiameter;
+uniform float mieDirectionalG;
+uniform float Exposure;
+uniform float turbidity;
+uniform float skylineF;
+uniform float mieCoefficient;
+uniform vec3 up;
+
+uniform sampler2D map;
+uniform float uTime;
+uniform float weaken;
+uniform float THICKNESS;
+uniform int N_LIGHT_STEPS;
+uniform float curve;
+uniform float speed;
+uniform vec3 wind;
+uniform float coverage;
+uniform float ABSORPTION;
+uniform float mult;
+uniform int N_MARCH_STEPS;
+
+uniform float fogDensity;
+uniform vec3 fogColor;
+
+varying vec3 vWorldPosition;
+varying vec3 vSunDirection;
+varying float vSunfade;
+varying vec3 vBetaR;
+varying float vSunE;
+
+const vec3 cameraPos = vec3(0.0, 0.0, 0.0);
+const float pi = 3.141592653589793238462643383279502884197169;
+
+float noise(vec3 p) {
+    return texture(map, p.xz).x;
+}
+
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+float noise3D(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    float a = random(i.xy + i.z * 0.1);
+    float b = random((i + vec3(1.0, 0.0, 0.0)).xy + i.z * 0.1);
+    float c = random((i + vec3(0.0, 1.0, 0.0)).xy + i.z * 0.1);
+    float d = random((i + vec3(1.0, 1.0, 0.0)).xy + i.z * 0.1);
+    float e = random((i + vec3(0.0, 0.0, 1.0)).xy + (i.z + 1.0) * 0.1);
+    float f2 = random((i + vec3(1.0, 0.0, 1.0)).xy + (i.z + 1.0) * 0.1);
+    float g = random((i + vec3(0.0, 1.0, 1.0)).xy + (i.z + 1.0) * 0.1);
+    float h = random((i + vec3(1.0, 1.0, 1.0)).xy + (i.z + 1.0) * 0.1);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+    float x1 = mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    float x2 = mix(mix(e, f2, u.x), mix(g, h, u.x), u.y);
+    return mix(x1, x2, u.z);
+}
+
+const mat3 m = mat3(0.00, 0.80, 0.60, -0.80, 0.36, -0.48, -0.60, -0.48, 0.64);
+
+float fbm(vec3 p) {
+    float value = 0.0;
+    float amplitude = weaken;
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * noise3D(p);
+        amplitude *= 0.6;
+        p = m * p * mult;
+    }
+    return value;
+}
+
+float cloud_density(vec3 pos, float cov) {
+    return smoothstep(cov, 1., fbm(pos));
+}
+
+float cloud_light(vec3 pos, vec3 sundir_step, float cov) {
+    float T = 1.0;
+    for (int i = 0; i < N_LIGHT_STEPS; i++) {
+        float dens = cloud_density(pos, cov);
+        T *= exp(-ABSORPTION * dens);
+        pos += sundir_step;
+    }
+    return clamp(T, 0., 1.);
+}
+
+vec4 render_clouds(vec3 rayOrigin, vec3 rayDirection) {
+    float march_step = (THICKNESS + .0002) / float(N_MARCH_STEPS);
+    vec3 pos = rayOrigin + speed * vec3(uTime * wind.x, uTime * wind.y, uTime * wind.z);
+    vec3 dir_step = rayDirection * march_step;
+    vec3 light_step = normalize(vSunDirection - cameraPos) * march_step;
+
+    float T = 1.0;
+    vec3 C = vec3(0.0);
+    float alpha = 0.0;
+
+    for (int i = 0; i < N_MARCH_STEPS; i++) {
+        float dens = cloud_density(pos, 1. - coverage);
+        float T_i = exp(-ABSORPTION * dens * march_step);
+        T *= T_i;
+        float cloudLight = cloud_light(pos, light_step, 1. - coverage);
+        C += T * cloudLight * dens * march_step;
+        C = mix(C * 0.9, C, clamp(cloudLight, 0.0, 1.0));
+        alpha += (1.0 - T_i) * (1.0 - alpha);
+        if (alpha > .99) break;
+        pos += dir_step;
+    }
+    return vec4(C, alpha);
+}
+
+const float rayleighZenithLength = 8.4E3;
+const float mieZenithLength = 1.25E3;
+const float THREE_OVER_SIXTEENPI = 0.05968310365946075;
+const float ONE_OVER_FOURPI = 0.07957747154594767;
+const vec3 MieConst = vec3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14);
+
+float rayleighPhase(float cosTheta) {
+    return THREE_OVER_SIXTEENPI * (1.0 + pow(cosTheta, 2.0));
+}
+
+float hgPhase(float cosTheta, float g) {
+    float g2 = pow(g, 2.0);
+    return ONE_OVER_FOURPI * ((1.0 - g2) / pow(1.0 - 2.0 * g * cosTheta + g2, 1.5));
+}
+
+vec3 totalMie(float T) {
+    float c = (0.2 * T) * 10E-18;
+    return 0.434 * c * MieConst;
+}
+
+void main() {
+    vec3 pos = normalize(vWorldPosition);
+    if (pos.y < -0.2) { discard; return; }
+
+    vec4 cld = vec4(1., 1., 1., 1.);
+    if (pos.y > 0.) {
+        float df = 1. / (curve * pos.y + .1);
+        vec3 posS = .4 * df * pos;
+        vec3 raydir = normalize(posS - cameraPos);
+        cld = render_clouds(posS, raydir);
+    }
+
+    vec3 direction = normalize(vWorldPosition - cameraPos);
+    float zenithAngle = acos(max(0.0, dot(up, direction)));
+    float inverse = 1.0 / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / pi), -1.253));
+    float sR = rayleighZenithLength * inverse;
+    float sM = mieZenithLength * inverse;
+
+    vec3 vBetaM = totalMie(turbidity) * mieCoefficient;
+    vec3 Fex = exp(-(vBetaR * sR + vBetaM * sM));
+    vec3 Fex_c = exp(-(vBetaR * sR + vBetaM * sM * (10000. * cld.a + 1.)) / 2.);
+
+    float cosTheta = dot(direction, vSunDirection);
+    float sunAngularDiameterCos = cos(sunAngularDiameter * pi / 180.);
+    float sundisk = smoothstep(sunAngularDiameterCos, 1., cosTheta);
+    vec3 suncolor = vSunE * 19000. * Fex * sundisk;
+    suncolor *= 1. - smoothstep(0., 1., cld.a * 2000.);
+
+    float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
+    vec3 betaRTheta = vBetaR * rPhase;
+    vec3 cloudBetaR = vBetaR * rPhase;
+
+    float a = 1. - smoothstep(0., 1., cld.a * 2000.);
+    float mPhase = a * hgPhase(cosTheta, mieDirectionalG);
+    vec3 betaMTheta = vBetaM * mPhase;
+
+    vec3 Lin = pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * (1.0 - Fex), vec3(3.5));
+    Lin *= mix(vec3(1.0), pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * Fex, vec3(1.0 / 2.0)),
+        clamp(pow(1.0 - dot(up, vSunDirection), 5.), 0.0, 1.0));
+
+    vec3 L0 = vec3(0.1) * Fex;
+
+    vec3 cloud = pow(vSunE * ((cloudBetaR + betaMTheta) / (vBetaR + vBetaM)) * (1.0 - Fex_c), vec3(1.5));
+    cloud *= mix(vec3(1.0), pow(vSunE * ((cloudBetaR + betaMTheta) / (vBetaR + vBetaM)) * Fex_c, vec3(1.0 / 2.0)),
+        clamp(pow(1.0 - dot(up, vSunDirection), 5.), 0.0, 1.0));
+    cloud *= 1. + cld.rgb * 2000.;
+
+    vec3 bluecolor = vec3(0.0002, 0.00045, 0.0008);
+    vec3 texColor = (Lin + L0) * 0.04 + bluecolor;
+    vec3 retColor = pow(texColor, vec3(1.0 / (1.2 + (1.2 * vSunfade))));
+
+    float d_factor = 1. - smoothstep(0., skylineF, pos.y);
+    cloud = mix(cloud, retColor, clamp(d_factor, 0., 1.));
+    retColor = mix(retColor + suncolor, cloud, clamp((cld.a) * 2000., 0., 1.));
+
+    gl_FragColor = vec4(retColor, 1.0);
+}
+`;
+
+        // =====================================================
+        // 初始化场景
+        // =====================================================
+
+        log('Initializing...');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000000);
+        camera.position.set(0, 100, 2000);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.5;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableZoom = false;
+        controls.enablePan = false;
+
+        // =====================================================
+        // 创建 Sky
+        // =====================================================
+
+        log('Creating Sky...');
+
+        // uniforms - 与 three-tile-doc 的 w.uniforms 完全一致
+        const uniforms = {
+            sunAngularDiameter: { value: 0.505 },
+            Intensity: { value: 1 },
+            sunPosition: { value: new THREE.Vector3() },
+            mieDirectionalG: { value: 1 },
+            Exposure: { value: 1 },
+            turbidity: { value: 10 },
+            skylineF: { value: 0.2 },
+            rayleigh: { value: 0.4 },
+            mieCoefficient: { value: 0.005 },
+            up: { value: new THREE.Vector3(0, 1, 0) },
+            map: { value: null },
+            uTime: { value: 1 },
+            weaken: { value: 0.5 },
+            THICKNESS: { value: 0.001 },
+            N_LIGHT_STEPS: { value: 3 },
+            curve: { value: 0.3 },
+            speed: { value: 0.5 },
+            wind: { value: new THREE.Vector3(0.3, 0.1, 0.3) },
+            coverage: { value: 0.5 },
+            ABSORPTION: { value: 0.45 },
+            mult: { value: 1 },
+            N_MARCH_STEPS: { value: 3 },
+            fogColor: { value: new THREE.Color(0.7, 0.7, 0.7) },
+            fogDensity: { value: 0.0001 },
+        };
+
+        // 加载纹理
+        log('Loading texture...');
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load(
+            './perlin256.png',
+            (tex) => {
+                log('Texture loaded!');
+                uniforms.map.value = tex;
+            },
+            undefined,
+            (err) => {
+                log('Texture error: ' + err);
+            }
+        );
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.generateMipmaps = false;
+
+        // 创建材质
+        const skyMaterial = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            side: THREE.BackSide,
+            depthWrite: false,
+        });
+
+        // 创建 Sky Mesh
+        const sky = new THREE.Mesh(
+            new THREE.SphereGeometry(),
+            skyMaterial
+        );
+        sky.scale.setScalar(2e7);
+        scene.add(sky);
+
+        log('Sky added to scene');
+
+        // =====================================================
+        // 设置参数 - 与 three-tile-doc 一致
+        // =====================================================
+
+        const params = {
+            elevation: 15,
+            azimuth: 180,
+            turbidity: 10,
+            rayleigh: 0.3,
+            mieCoefficient: 0.002,
+            coverage: 0.6,
+            weaken: 0.5,
+            THICKNESS: 80,
+            ABSORPTION: 0.2,
+            speed: 2,
+            curve: 0.3,
+            skylineF: 0.2,
+        };
+
+        // 更新参数 - 与 three-tile-doc 的 r() 函数一致
+        function updateParams() {
+            const phi = THREE.MathUtils.degToRad(90 - params.elevation);
+            const theta = THREE.MathUtils.degToRad(params.azimuth);
+            const sun = new THREE.Vector3();
+            sun.setFromSphericalCoords(1, phi, theta);
+
+            uniforms.sunPosition.value.copy(sun);
+            uniforms.turbidity.value = params.turbidity;
+            uniforms.rayleigh.value = params.rayleigh;
+            uniforms.mieCoefficient.value = params.mieCoefficient;
+            uniforms.mult.value = params.mult || 2;
+            uniforms.THICKNESS.value = params.THICKNESS / 3e4;
+            uniforms.ABSORPTION.value = params.ABSORPTION;
+            uniforms.N_MARCH_STEPS.value = 3;
+            uniforms.N_LIGHT_STEPS.value = 3;
+            uniforms.weaken.value = params.weaken;
+            uniforms.coverage.value = params.coverage;
+            uniforms.speed.value = params.speed / 10;
+            uniforms.wind.value = new THREE.Vector3(0.3, 0.3, 0.1);
+            uniforms.skylineF.value = params.skylineF;
+            uniforms.curve.value = 1 - params.curve;
+        }
+
+        updateParams();
+        log('Params set');
+
+        // =====================================================
+        // 动画循环
+        // =====================================================
+
+        function animate() {
+            requestAnimationFrame(animate);
+            uniforms.uTime.value = performance.now() * 0.001;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+        log('Animation started');
+    </script>
+</body>
+</html>
