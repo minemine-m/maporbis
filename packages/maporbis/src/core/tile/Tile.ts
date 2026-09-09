@@ -45,6 +45,8 @@ export type TileUpdateParams = {
 	minLevel: number;
 	maxLevel: number;
 	LODThreshold: number;
+	/** Map is currently interacting (pan/zoom) — throttle network loads */
+	interacting?: boolean;
 };
 
 /**
@@ -87,8 +89,16 @@ const frustum = new Frustum();
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _activeDownloads = 0;
 	private static _maxConcurrentDownloads = 10;
+	/** Lower concurrency while the user is panning/zooming */
+	private static _interactingMaxConcurrentDownloads = 3;
+	private static _interacting = false;
+	/** Priority queue of tiles waiting to start network load (center-first) */
+	private static _loadQueue: Array<{ tile: Tile; loader: ICompositeLoader; priority: number }> = [];
 	// Data mode switch 数据模式开关
 	private _dataMode: boolean = false;
+	private _abortController: AbortController | null = null;
+	/** Invoked when a queued load finishes (success, abort, or final failure) */
+	private _onLoadComplete: (() => void) | null = null;
 
 	/** Tile state 瓦片状态 */
 	private _state: TileState = TileState.Idle;
@@ -206,6 +216,60 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	public static set maxConcurrentDownloads(value: number) {
 		Tile._maxConcurrentDownloads = Math.max(1, value);
+	}
+
+	/** Whether map interaction throttling is active */
+	public static set interacting(value: boolean) {
+		Tile._interacting = value;
+	}
+
+	public static get interacting(): boolean {
+		return Tile._interacting;
+	}
+
+	/** Effective concurrency limit (lower while interacting) */
+	public static get effectiveMaxConcurrentDownloads(): number {
+		return Tile._interacting
+			? Math.min(Tile._interactingMaxConcurrentDownloads, Tile._maxConcurrentDownloads)
+			: Tile._maxConcurrentDownloads;
+	}
+
+	public static get loadQueueSize(): number {
+		return Tile._loadQueue.length;
+	}
+
+	/**
+	 * Enqueue a tile load by camera distance (center tiles first).
+	 * 按相机距离入队加载（中心优先）。
+	 */
+	private static _enqueueLoad(tile: Tile, loader: ICompositeLoader) {
+		Tile._loadQueue.push({ tile, loader, priority: tile.distToCamera });
+		Tile._drainLoadQueue();
+	}
+
+	private static _drainLoadQueue() {
+		if (Tile._loadQueue.length === 0) return;
+		// Refresh priorities from latest camera distances
+		for (const job of Tile._loadQueue) {
+			job.priority = job.tile.distToCamera;
+		}
+		// Closer tiles load first
+		Tile._loadQueue.sort((a, b) => a.priority - b.priority);
+		while (
+			Tile._activeDownloads < Tile.effectiveMaxConcurrentDownloads &&
+			Tile._loadQueue.length > 0
+		) {
+			const job = Tile._loadQueue.shift()!;
+			const tile = job.tile;
+			if (tile._canStartLoading()) {
+				void tile._loadData(job.loader);
+			}
+		}
+	}
+
+	/** Drop queued loads for tiles that are no longer pending */
+	private static _purgeQueue(tile: Tile) {
+		Tile._loadQueue = Tile._loadQueue.filter((job) => job.tile !== tile);
 	}
 
 	/** Coordinate of tile 瓦片坐标 */
@@ -398,11 +462,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @returns this
 	 */
 	protected _updateLOD(params: TileUpdateParams) {
-		if (Tile.downloadThreads >= Tile._maxConcurrentDownloads) {
-			return { action: LODAction.none };
-		}
+		// Always refine LOD structure; network concurrency is handled by the load queue.
+		// 始终细分 LOD 结构；网络并发由加载队列控制。
 		let newTiles: Tile[] = [];
-		// LOD evaluate
 		const { loader, minLevel, maxLevel, LODThreshold } = params;
 		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold);
 		if (action === LODAction.create) {
@@ -443,6 +505,11 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		this._transitionTo(TileState.Loading);
 		Tile._activeDownloads++;
 
+		// Abort previous request if any
+		this._abortController?.abort();
+		this._abortController = new AbortController();
+		const signal = this._abortController.signal;
+
 		const { x, y, z } = this;
 
 		try {
@@ -452,7 +519,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				const meshData = await loader.load({
 					x, y, z,
 					bounds: [-Infinity, -Infinity, Infinity, Infinity],
+					signal,
 				});
+				if (signal.aborted) {
+					this._transitionTo(TileState.Unloaded);
+					this._onLoadComplete = null;
+					return this;
+				}
 				(this as any)._vectorData = (meshData as any).geometry?.userData || {};
 
 				// Transition to Loaded state 转换到 Loaded 状态
@@ -471,7 +544,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					y,
 					z,
 					bounds: [-Infinity, -Infinity, Infinity, Infinity],
+					signal,
 				});
+				if (signal.aborted) {
+					this._transitionTo(TileState.Unloaded);
+					this._onLoadComplete = null;
+					return this;
+				}
 				this.material = meshData.materials;
 				this.geometry = meshData.geometry;
 				this.maxZ = this.geometry.boundingBox?.max.z || 0;
@@ -481,6 +560,19 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
 			}
 		} catch (error) {
+			const isAbort =
+				signal.aborted ||
+				(error as any)?.name === "AbortError" ||
+				String((error as Error)?.message || "").includes("AbortError");
+
+			if (isAbort) {
+				// Cancelled by dispose/refinement — not a failure
+				this._transitionTo(TileState.Unloaded);
+				this._abortController = null;
+				this._onLoadComplete = null;
+				return this;
+			}
+
 			console.error(`Tile load failed ${z}/${x}/${y} (attempt ${this._retryCount + 1}/${this._maxRetries}):`, error);
 
 			// Transition to Error state 转换到 Error 状态
@@ -497,6 +589,14 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			}
 		} finally {
 			Tile._activeDownloads--;
+			this._abortController = null;
+			const done = this._onLoadComplete;
+			this._onLoadComplete = null;
+			if (done) {
+				try { done(); } catch { /* ignore */ }
+			}
+			// Start next queued loads (center-first)
+			Tile._drainLoadQueue();
 		}
 
 		return this;
@@ -524,18 +624,18 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	public update(params: TileUpdateParams) {
 		console.assert(this.z === 0);
-		// console.log(`Tile.update called for root tile ${this.name}, parent exists: ${!!this.parent}`);
 		if (!this.parent) {
 			return this;
 		}
-		// console.log("camera:", camera);
+
+		// Interaction throttle for this frame
+		Tile.interacting = !!params.interacting;
 
 		// Get camera frustum
 		frustum.setFromProjectionMatrix(
 			tempMat4.multiplyMatrices(params.camera.projectionMatrix, params.camera.matrixWorldInverse)
 		);
 
-		// console.log(params.camera, '此时更新的camera -------------')
 		// Get camera position
 		const cameraWorldPosition = params.camera.getWorldPosition(tempVec3);
 
@@ -545,51 +645,40 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			tile.receiveShadow = this.receiveShadow;
 			tile.castShadow = this.castShadow;
 
-			// Tile is in frustum?
-			// const bounds = tileBox.clone().applyMatrix4(tile.matrixWorld);
-			// bounds.max.setY(9000);
-
 			// 修复视锥体检测
 			const bounds = tileBox.clone().applyMatrix4(tile.matrixWorld);
-			// 根据瓦片的最大高度动态设置包围盒
-			// bounds.max.z = tile.maxZ > 0 ? tile.maxZ : 100; // 默认给一个较小的高度
-			// tile.inFrustum = frustum.intersectsBox(bounds);
-			
-			// const bounds = new Box3(new Vector3(-0.5, -0.5, 0), new Vector3(0.5, 0.5, (this.z + 2) * 500)).applyMatrix4(
-			// 	tile.matrixWorld
-			// );
 			tile.inFrustum = frustum.intersectsBox(bounds);
 
 			// Get distance to camera
 			tile.distToCamera = getDistance(tile, cameraWorldPosition);
-			// console.log(params, 'params------------')
 			// LOD
 			const { action, newTiles } = tile._updateLOD(params);
-			// console.log(action, 'action------------')
 			this._processLODAction(tile, action, newTiles, params);
 		});
 
+		// Re-prioritize queued loads with fresh distances
+		Tile._drainLoadQueue();
+
 		this._checkReadyState();
 
-		// console.log(this, '此时更新的tile -------------')
 		return this;
 	}
 
 	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
-		// console.log(action, 'action------------')
-		// console.log(LODAction, 'LODAction------------')
 		if (action === LODAction.create) {
-			// Load new tiles data
+			// Init children, then enqueue loads by distance (center first)
 			newTiles?.forEach(newTile => {
 				newTile._initTile();
 				newTile._isVirtualTile = newTile.z < params.minLevel;
+				// Approximate priority from parent distance before first camera update
+				newTile.distToCamera = currentTile.distToCamera;
 				this.dispatchEvent({ type: "tile-created", tile: newTile });
 				if (!newTile.isDummy) {
-					newTile._loadData(params.loader).then(() => {
-						// Show tile when all children has loaded
+					newTile._onLoadComplete = () => {
 						newTile._checkVisibility();
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
-					});
+					};
+					Tile._enqueueLoad(newTile, params.loader);
 				}
 			});
 		} else if (action === LODAction.remove) {
@@ -647,6 +736,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	// }
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
+		// Cancel in-flight / queued work for this tile
+		Tile._purgeQueue(this);
+		this._abortController?.abort();
+		this._abortController = null;
+		this._onLoadComplete = null;
+
 		if (disposeSelf && this.isTile && !this.isDummy) {
 			// Transition to Unloaded state 转换到 Unloaded 状态
 			this._transitionTo(TileState.Unloaded);

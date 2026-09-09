@@ -38,6 +38,8 @@ export type TileLoadContext = {
     z: number;
     bounds: [number, number, number, number];
     lonLatBounds?: [number, number, number, number];
+    /** Optional abort signal for in-flight tile requests */
+    signal?: AbortSignal;
 };
 
 /**

@@ -40,7 +40,7 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
      * 加载瓦片几何体（矢量数据容器）
      */
     public async load(context: SourceLoadContext): Promise<BufferGeometry> {
-        const { source, x, y, z } = context;
+        const { source, x, y, z, signal } = context;
 
         // Get URL from source
         const url = typeof source._getUrl === "function"
@@ -51,6 +51,10 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
             return this.createErrorGeometry(x, y, z, new Error("Source returned empty URL"));
         }
 
+        if (signal?.aborted) {
+            return this.createErrorGeometry(x, y, z, new DOMException("Aborted", "AbortError"));
+        }
+
         // Initialize worker pool if needed
         if (this._workerPool.pool === 0) {
             this._workerPool.setWorkerLimit(THREAD_COUNT);
@@ -58,12 +62,12 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
 
         try {
             // Fetch raw data
-            const arrayBuffer = await this.fetchVectorData(url);
+            const arrayBuffer = await this.fetchVectorData(url, signal);
 
             // Parse in worker
             const message = { arrayBuffer, x, y, z };
             const workerResult = await this._workerPool.postMessage(message, [arrayBuffer]);
-            
+
             const vectorData = workerResult.data;
 
             if (vectorData.error) {
@@ -72,7 +76,7 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
 
             // Create geometry with data
             const geometry = this.createGeometryWithVectorData(vectorData, context);
-            
+
             // Notify manager
             TileLoaderFactory.manager.parseEnd(url);
 
@@ -83,9 +87,14 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
         }
     }
 
-    private async fetchVectorData(url: string): Promise<ArrayBuffer> {
+    private async fetchVectorData(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
         try {
-            const arrayBuffer = await this.fileLoader.loadAsync(url) as ArrayBuffer;
+            // fetch supports AbortSignal (FileLoader does not)
+            const response = await fetch(url, { signal });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
             if (!arrayBuffer || arrayBuffer.byteLength === 0) {
                 throw new Error("Empty response");
             }

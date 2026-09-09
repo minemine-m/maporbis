@@ -337,12 +337,14 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
             // Call tile update
             // 调用瓦片更新
             this.updateMatrixWorld(true);
+            const map = this.getMap?.();
             this._rootTile.update({
                 camera,
                 loader: this._loader,
                 minLevel: this.minLevel,
                 maxLevel: this.maxLevel,
-                LODThreshold: this.LODThreshold
+                LODThreshold: this.LODThreshold,
+                interacting: !!(map && (map as any).isInteracting)
             });
 
             // Check tile tree status
