@@ -167,6 +167,22 @@
                 使用 MapTiler OpenStreetMap 矢量切片服务 (.pbf)。
             </p>
         </div>
+
+        <!-- 调度状态（Step3 验证） -->
+        <div class="control-section">
+          <div class="control-label">
+            瓦片调度状态
+            <label class="switch">
+              <input type="checkbox" id="debugSchedule" onchange="toggleScheduleDebug(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="scheduleStats" style="font-family: ui-monospace, Consolas, monospace; font-size: 11px; line-height: 1.6; color: var(--orbis-text-secondary); background: var(--orbis-bg-secondary); border-radius: 8px; padding: 10px;">
+            等待地图加载…
+          </div>
+          <div id="scheduleLog" style="margin-top: 8px; max-height: 140px; overflow: auto; font-family: ui-monospace, Consolas, monospace; font-size: 10px; line-height: 1.4; color: var(--orbis-text-tertiary); background: var(--orbis-bg-secondary); border-radius: 8px; padding: 8px;">
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -229,9 +245,71 @@
 
       map.on("load", () => {
         addVectorLayer();
+        startSchedulePanel();
         console.log("地图加载完成");
         console.log(map,'map -----------');
       });
+    }
+
+    // ---- 调度状态面板（便于肉眼确认 Abort / 队列 / 限流）----
+    function toggleScheduleDebug(on) {
+      if (maporbis.Tile) {
+        maporbis.Tile.debugSchedule = on;
+      }
+      const log = document.getElementById('scheduleLog');
+      if (on) {
+        log.innerHTML = '<div>已开启 [Schedule] 控制台日志</div>';
+        console.log('[Demo] Tile.debugSchedule = true，控制台会打印 enqueue / start load / loaded / abort / retain');
+      } else {
+        log.innerHTML = '<div>已关闭详细日志</div>';
+        if (maporbis.Tile) maporbis.Tile.debugSchedule = false;
+      }
+    }
+
+    function startSchedulePanel() {
+      const statsEl = document.getElementById('scheduleStats');
+      const logEl = document.getElementById('scheduleLog');
+      if (!statsEl) return;
+
+      // Mirror [Schedule] logs into the panel so you can read them without DevTools
+      const orig = console.log;
+      console.log = function (...args) {
+        try {
+          const first = args[0];
+          if (typeof first === 'string' && first.startsWith('[Schedule]') && logEl) {
+            const line = document.createElement('div');
+            line.textContent = first;
+            logEl.appendChild(line);
+            while (logEl.childNodes.length > 40) logEl.removeChild(logEl.firstChild);
+            logEl.scrollTop = logEl.scrollHeight;
+          }
+        } catch (_) {}
+        return orig.apply(console, args);
+      };
+
+      setInterval(() => {
+        if (!maporbis.Tile || !maporbis.Tile.getScheduleStats) {
+          statsEl.textContent = 'Tile.getScheduleStats 不可用（请确认已 build 最新 dist）';
+          return;
+        }
+        const s = maporbis.Tile.getScheduleStats();
+        const root = vectorLayer && vectorLayer._rootTile;
+        let total = 0, loaded = 0, showing = 0, inFrustum = 0;
+        if (root) {
+          root.traverse(t => {
+            if (!t.isTile) return;
+            total++;
+            if (t.loaded) loaded++;
+            if (t.showing) showing++;
+            if (t.inFrustum) inFrustum++;
+          });
+        }
+        statsEl.innerHTML = [
+          `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
+          `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue}`,
+          `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
+        ].join('<br>');
+      }, 400);
     }
 
     function addVectorLayer() {

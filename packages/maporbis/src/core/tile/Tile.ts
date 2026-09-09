@@ -239,11 +239,38 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
+	 * Schedule snapshot for demos / debugging.
+	 * 调度快照，供演示与调试读取。
+	 */
+	public static getScheduleStats(): {
+		activeDownloads: number;
+		maxConcurrent: number;
+		loadQueue: number;
+		interacting: boolean;
+	} {
+		return {
+			activeDownloads: Tile._activeDownloads,
+			maxConcurrent: Tile.effectiveMaxConcurrentDownloads,
+			loadQueue: Tile._loadQueue.length,
+			interacting: Tile._interacting,
+		};
+	}
+
+	/** Toggle verbose schedule logs (create/load/abort/retain) */
+	public static debugSchedule = false;
+
+	/**
 	 * Enqueue a tile load by camera distance (center tiles first).
 	 * 按相机距离入队加载（中心优先）。
 	 */
 	private static _enqueueLoad(tile: Tile, loader: ICompositeLoader) {
 		Tile._loadQueue.push({ tile, loader, priority: tile.distToCamera });
+		if (Tile.debugSchedule) {
+			console.log(
+				`[Schedule] enqueue z${tile.z}/${tile.x}/${tile.y} ` +
+				`dist=${tile.distToCamera.toFixed(0)} queue=${Tile._loadQueue.length}`
+			);
+		}
 		Tile._drainLoadQueue();
 	}
 
@@ -475,7 +502,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * Checks the visibility of the tile.
+	 * Visibility / retain:
+	 * - Parent stays visible until every child tile has data (anti-flicker cover).
+	 * - If parent itself is missing, climb to the nearest loaded ancestor.
 	 */
 	private _checkVisibility() {
 		const parent = this.parent;
@@ -484,6 +513,31 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			const allLoaded = children.every(child => child.loaded);
 			parent.showing = !allLoaded;
 			children.forEach(child => (child.showing = allLoaded));
+
+			if (Tile.debugSchedule) {
+				const loadedCount = children.filter(c => c.loaded).length;
+				console.log(
+					`[Schedule] retain parent z${parent.z}/${parent.x}/${parent.y} ` +
+					`children ${loadedCount}/${children.length} loaded → parent.showing=${parent.showing}`
+				);
+			}
+
+			// Parent not ready yet: hold nearest loaded ancestor as cover
+			if (!allLoaded && !parent.loaded) {
+				let anc: Tile | null = parent.parent as Tile | null;
+				while (anc && (anc as any).isTile && !(anc as any).loaded) {
+					anc = (anc as any).parent as Tile | null;
+				}
+				if (anc && (anc as any).isTile) {
+					(anc as any).showing = true;
+					if (Tile.debugSchedule) {
+						console.log(
+							`[Schedule] ancestor cover z${(anc as any).z}/${(anc as any).x}/${(anc as any).y} ` +
+							`for incomplete z${parent.z}/${parent.x}/${parent.y}`
+						);
+					}
+				}
+			}
 		}
 		return this;
 	}
@@ -511,6 +565,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		const signal = this._abortController.signal;
 
 		const { x, y, z } = this;
+		if (Tile.debugSchedule) {
+			console.log(
+				`[Schedule] start load z${z}/${x}/${y} ` +
+				`active=${Tile._activeDownloads}/${Tile.effectiveMaxConcurrentDownloads} queue=${Tile._loadQueue.length}`
+			);
+		}
 
 		try {
 			// 如果是数据模式，只获取数据不创建Mesh
@@ -531,6 +591,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
+				if (Tile.debugSchedule) {
+					console.log(`[Schedule] loaded z${z}/${x}/${y} (vector)`);
+				}
 
 				// 触发数据加载事件
 				this.dispatchEvent({
@@ -567,6 +630,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 			if (isAbort) {
 				// Cancelled by dispose/refinement — not a failure
+				if (Tile.debugSchedule) {
+					console.log(`[Schedule] abort z${z}/${x}/${y} (cancelled, not an error)`);
+				}
 				this._transitionTo(TileState.Unloaded);
 				this._abortController = null;
 				this._onLoadComplete = null;
@@ -737,6 +803,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
 		// Cancel in-flight / queued work for this tile
+		if (Tile.debugSchedule && (this._abortController || Tile._loadQueue.some(j => j.tile === this))) {
+			console.log(`[Schedule] dispose/abort z${this.z}/${this.x}/${this.y}`);
+		}
 		Tile._purgeQueue(this);
 		this._abortController?.abort();
 		this._abortController = null;
