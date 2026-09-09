@@ -1,4 +1,4 @@
-import VectorTileWorkerConstructor from "./vector-tile.worker?worker";
+import VectorTileWorkerConstructor from "./vector-tile.worker?worker&inline";
 /**
  * Vector Tile Worker Manager
  * 矢量瓦片 Worker 管理器

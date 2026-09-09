@@ -1,73 +1,133 @@
-// loaders/VectorTileLoader/mvt-parser.ts
+// loaders/parsers/mvt-parser.ts
 
 import Pbf from "pbf";
-import { VectorTile } from "@mapbox/vector-tile";
+import { VectorTile, classifyRings } from "@mapbox/vector-tile";
+
+/** Tile-local ring: [[x, y], ...] in extent units */
+export type TileLocalRing = Array<[number, number]>;
+
+export type TileLocalGeometry = {
+	type: "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon";
+	coordinates: any;
+};
+
+export type TileLocalFeature = {
+	id: number | undefined;
+	properties: Record<string, any>;
+	geometry: TileLocalGeometry;
+};
+
+export type ParsedVectorTile = {
+	x: number;
+	y: number;
+	z: number;
+	extent: number;
+	layers: Record<string, TileLocalFeature[]>;
+	timestamp: number;
+	/** Marks geometry coordinates as tile-local [0, extent], not lon/lat */
+	dataFormat: "mvt-local";
+};
 
 /**
  * Mapbox Vector Tile (MVT) Parser
  * MVT 矢量瓦片解析器
- * 
- * @description
- * Parses MVT binary data (PBF) into GeoJSON compatible format.
- * 解析 MVT 二进制数据 (PBF) 为 GeoJSON 兼容格式。
+ *
+ * Keeps coordinates in tile-local extent space [0, extent].
+ * Does NOT expand to GeoJSON lon/lat on the hot path.
  */
 export class MVTParser {
-    /**
-     * Parse MVT data in Worker
-     * 在 Worker 中解析 MVT 数据
-     */
-    public static async parse(
-        arrayBuffer: ArrayBuffer,
-        x: number,
-        y: number,
-        z: number
-    ): Promise<any> {
-        try {
-            const layers = MVTParser.mvt2GeoJSON(arrayBuffer, x, y, z);
-            return {
-                x, y, z,
-                layers,
-                timestamp: Date.now(),
-                dataFormat: 'mvt'
-            };
-        } catch (error) {
-            console.error('[MVTParser] Error parsing vector tile data:', error);
-            throw error;
-        }
-    }
+	public static async parse(
+		arrayBuffer: ArrayBuffer,
+		x: number,
+		y: number,
+		z: number
+	): Promise<ParsedVectorTile> {
+		try {
+			return MVTParser.mvt2TileLocal(arrayBuffer, x, y, z);
+		} catch (error) {
+			console.error("[MVTParser] Error parsing vector tile data:", error);
+			throw error;
+		}
+	}
 
-    /**
-     * Convert MVT PBF to GeoJSON layers
-     * 将 MVT PBF 转换为 GeoJSON 图层
-     * 
-     * @param data PBF data
-     * @param x Tile X
-     * @param y Tile Y
-     * @param z Tile Zoom
-     */
-    public static mvt2GeoJSON(data: ArrayBuffer | Uint8Array, x: number, y: number, z: number) {
-        // Use Pbf to parse binary data
-        const pbf = new Pbf(data);
+	/**
+	 * Convert MVT PBF to tile-local feature layers (no GeoJSON lon/lat expansion).
+	 * 将 MVT PBF 转为瓦片本地坐标要素图层（不做 GeoJSON 经纬度展开）。
+	 */
+	public static mvt2TileLocal(
+		data: ArrayBuffer | Uint8Array,
+		x: number,
+		y: number,
+		z: number
+	): ParsedVectorTile {
+		const pbf = new Pbf(data);
+		const tile = new VectorTile(pbf);
+		const layers: Record<string, TileLocalFeature[]> = {};
+		let extent = 4096;
 
-        // Construct VectorTile instance
-        const tile = new VectorTile(pbf);
+		for (const layerName in tile.layers) {
+			const layer = tile.layers[layerName];
+			extent = layer.extent || extent;
+			const features: TileLocalFeature[] = [];
 
-        // Iterate layers and convert features to GeoJSON
-        const result: any = {};
+			for (let i = 0; i < layer.length; i++) {
+				const feature = layer.feature(i);
+				const geometry = MVTParser.featureToLocalGeometry(feature);
+				if (!geometry) continue;
+				features.push({
+					id: feature.id,
+					properties: feature.properties,
+					geometry,
+				});
+			}
 
-        for (const layerName in tile.layers) {
-            const layer = tile.layers[layerName];
-            const features = [];
+			layers[layerName] = features;
+		}
 
-            for (let i = 0; i < layer.length; i++) {
-                const feature = layer.feature(i);
-                const geojson = feature.toGeoJSON(x, y, z);
-                features.push(geojson);
-            }
+		return {
+			x,
+			y,
+			z,
+			extent,
+			layers,
+			timestamp: Date.now(),
+			dataFormat: "mvt-local",
+		};
+	}
 
-            result[layerName] = features;
-        }
+	private static featureToLocalGeometry(feature: any): TileLocalGeometry | null {
+		const rawLines = feature.loadGeometry();
+		const toRing = (line: Array<{ x: number; y: number }>): TileLocalRing =>
+			line.map((p) => [p.x, p.y] as [number, number]);
 
-        return result;
-    }
+		if (feature.type === 1) {
+			const points: Array<[number, number]> = [];
+			for (const line of rawLines) {
+				if (line[0]) points.push([line[0].x, line[0].y]);
+			}
+			if (points.length === 0) return null;
+			return points.length === 1
+				? { type: "Point", coordinates: points[0] }
+				: { type: "MultiPoint", coordinates: points };
+		}
+
+		if (feature.type === 2) {
+			const lines = rawLines.map(toRing);
+			if (lines.length === 0) return null;
+			return lines.length === 1
+				? { type: "LineString", coordinates: lines[0] }
+				: { type: "MultiLineString", coordinates: lines };
+		}
+
+		if (feature.type === 3) {
+			const polygons = classifyRings(rawLines);
+			const coordinates = polygons.map((polygon) => polygon.map(toRing));
+			if (coordinates.length === 0) return null;
+			return coordinates.length === 1
+				? { type: "Polygon", coordinates: coordinates[0] }
+				: { type: "MultiPolygon", coordinates };
+		}
+
+		return null;
+	}
 }

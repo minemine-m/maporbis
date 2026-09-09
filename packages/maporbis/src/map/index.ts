@@ -282,6 +282,26 @@ export class Map extends Handlerable(
 	}
 
 	/**
+	 * Convert projected (map model) coordinate to world coordinate
+	 * 投影坐标转换到世界坐标
+	 * @param point Projected coordinate (x, y, z in projection units)
+	 * @returns World coordinate
+	 */
+	public pointToWorld(point: Vector3) {
+		return this._rootGroup.localToWorld(point.clone());
+	}
+
+	/**
+	 * Convert world coordinate to projected (map model) coordinate
+	 * 世界坐标转换到投影坐标
+	 * @param worldPos World coordinate
+	 * @returns Projected coordinate
+	 */
+	public worldToPoint(worldPos: Vector3) {
+		return this._rootGroup.worldToLocal(worldPos.clone());
+	}
+
+	/**
 	 * Convert map model coordinate to geographic coordinate
 	 * 地图模型坐标转换到地理坐标
 	 * @param point Map model coordinate

@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
 import { LayoutFeature } from "../layout";
-import VectorTileWorkerConstructor from "./vector-tile.worker?worker";
+import VectorTileWorkerConstructor from "./vector-tile.worker?worker&inline";
 
 /**
  * Worker message types

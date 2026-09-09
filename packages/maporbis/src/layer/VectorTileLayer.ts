@@ -428,8 +428,9 @@ export class VectorTileLayer extends BaseTileLayer {
                 console.warn(`[VectorTileLayer] Tile ${tileKey} loaded but has no vector data.`);
                 return;
             }
-            if (vectorData.vectorData?.dataFormat === 'mvt') {
-                // console.log(`Vector tile layer Tile ${tileKey} loaded MVT data. 矢量瓦片图层 Tile ${tileKey} 加载了 MVT 数据。`);
+            // Accept both legacy GeoJSON path ('mvt') and tile-local path ('mvt-local')
+            const fmt = vectorData.vectorData?.dataFormat;
+            if (fmt === 'mvt' || fmt === 'mvt-local') {
                 this._tileDataMap.set(tileKey, {
                     data: vectorData,
                     tile,
@@ -439,7 +440,7 @@ export class VectorTileLayer extends BaseTileLayer {
             }
             // ② Render directly in tile-loaded stage only if tile is currently showing
             // ② 只有当前就处于 showing 的瓦片，才在 tile-loaded 阶段直接渲染
-            if (tile.showing && this._renderer && vectorData.vectorData?.dataFormat === 'mvt') {
+            if (tile.showing && this._renderer && (fmt === 'mvt' || fmt === 'mvt-local')) {
                 try {
                     // Use Worker if enabled, otherwise use main thread
                     // 如果启用则使用 Worker，否则使用主线程

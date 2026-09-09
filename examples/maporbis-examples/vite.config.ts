@@ -31,7 +31,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': resolve(__dirname, 'shared'),
-      'maporbis': resolve(__dirname, '../../packages/maporbis/src/index.ts')
+      'maporbis': resolve(__dirname, '../../packages/maporbis/dist/index.js')
     }
   },
   optimizeDeps: {
