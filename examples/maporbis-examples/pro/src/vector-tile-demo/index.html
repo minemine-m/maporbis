@@ -330,8 +330,10 @@
           }
         }
 
+        const vLayer = vectorLayer;
         statsEl.innerHTML = [
           `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
+          `矢量 maxLevel: ${vLayer && vLayer.maxLevel} · source.maxLevel: ${vLayer && vLayer.source && vLayer.source.maxLevel}`,
           `coveringZoom(标准XYZ基准256px): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
@@ -427,6 +429,19 @@
           });
         }
 
+        // 8. TileJSON maxzoom
+        {
+          const vLayer = vectorLayer;
+          const layerMax = vLayer && vLayer.maxLevel;
+          const srcMax = vLayer && vLayer.source && vLayer.source.maxLevel;
+          const ok = typeof layerMax === 'number' && layerMax <= 15 && layerMax === srcMax;
+          items.push({
+            ok,
+            title: '⑧ TileJSON maxzoom 自动夹紧 maxLevel',
+            evidence: `layer.maxLevel=${layerMax}, source.maxLevel=${srcMax}（MapTiler tiles.json 应为 15）`
+          });
+        }
+
         // 7. Worker inline（dist 构建）
         {
           const pbf = performance.getEntriesByType('resource').filter(r => r.name.includes('.pbf')).length;
@@ -463,9 +478,9 @@
                 dataType: "vector-tile"
             }),
             projection: maporbis.ProjectionFactory.create("3857"),
-            // MapTiler free tiles end ~z15; higher z must overzoom (keep z15), not 400-error
-            minLevel: 2,
-            maxLevel: 15,
+            // maxLevel is auto-clamped from TileJSON maxzoom (MapTiler v3 = 15)
+            // maxLevel 会由 TileJSON maxzoom 自动夹紧
+            minLevel: 0,
             style: [
                 {
                     filter: ['all', ['==', ['get', '$type'], 'Polygon'], ['==', ['get', '$layer'], 'water'], ['!=', ['get', 'class'], 'ocean']],

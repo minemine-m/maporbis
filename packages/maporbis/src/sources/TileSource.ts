@@ -117,6 +117,55 @@ export class TileSource implements ISource {
 	public static create(options: SourceOptions) {
 		return new TileSource(options);
 	}
+
+	/**
+	 * Derive a TileJSON URL from a standard {z}/{x}/{y} template when possible.
+	 * 从 {z}/{x}/{y} 模板推导 TileJSON URL。
+	 */
+	public getTileJSONUrl(): string | null {
+		const explicit = (this as any).tileJSONUrl as string | undefined;
+		if (explicit) return explicit;
+		if (!this.url) return null;
+		// e.g. https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=...
+		//   -> https://api.maptiler.com/tiles/v3/tiles.json?key=...
+		const replaced = this.url
+			.replace(/\{z\}\/\{x\}\/\{y\}[^?]*\/?/, "tiles.json")
+			.replace(/\{y\}\/\{x\}\/\{z\}[^?]*\/?/, "tiles.json");
+		if (replaced === this.url) return null;
+		return replaced;
+	}
+
+	/**
+	 * Fetch TileJSON and apply minzoom/maxzoom (and optional bounds) to this source.
+	 * 拉取 TileJSON，把 minzoom/maxzoom 写回 source。
+	 * Safe to call multiple times; failures leave configured levels unchanged.
+	 */
+	public async loadMetadata(): Promise<void> {
+		if ((this as any)._metadataLoaded) return;
+		const metaUrl = this.getTileJSONUrl();
+		if (!metaUrl) {
+			(this as any)._metadataLoaded = true;
+			return;
+		}
+		try {
+			const res = await fetch(metaUrl);
+			if (!res.ok) return;
+			const json = await res.json();
+			if (typeof json.minzoom === "number") {
+				this.minLevel = json.minzoom;
+			}
+			if (typeof json.maxzoom === "number") {
+				this.maxLevel = json.maxzoom;
+			}
+			if (Array.isArray(json.bounds) && json.bounds.length === 4) {
+				this.bounds = json.bounds as [number, number, number, number];
+			}
+			(this as any)._metadataLoaded = true;
+			(this as any)._metadata = json;
+		} catch {
+			// keep existing minLevel/maxLevel
+		}
+	}
 }
 
 

@@ -211,11 +211,50 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
         this.layerId = layerId;
         
         if (this.name === 'Layer-label-layer') {
-            // alert('标签图层')
             this.position.set(0, 0, 1);
         }
-        // this._rootTile.updateMatrixWorld(true);
-        // this.position.set(0, 0, 1000);
+    }
+
+    /**
+     * After map bind: load TileJSON metadata and clamp maxLevel to the source.
+     * 绑定地图后：读取 TileJSON，把 maxLevel 夹到数据源上限。
+     */
+    override _bindMap(mapInstance: any): void {
+        super._bindMap(mapInstance);
+        void this.applySourceMetadata();
+    }
+
+    /**
+     * Load TileJSON from sources (if supported) and clamp this.maxLevel.
+     * 从数据源加载 TileJSON 并夹紧 maxLevel。
+     */
+    public async applySourceMetadata(): Promise<void> {
+        const sources = Array.isArray(this.source) ? this.source : [this.source];
+        await Promise.all(
+            sources.map(async (s) => {
+                const anyS = s as any;
+                if (anyS && typeof anyS.loadMetadata === "function") {
+                    try {
+                        await anyS.loadMetadata();
+                    } catch {
+                        // ignore
+                    }
+                }
+            })
+        );
+        let srcMax = Infinity;
+        let srcMin = -Infinity;
+        for (const s of sources) {
+            const anyS = s as any;
+            if (typeof anyS?.maxLevel === "number") srcMax = Math.min(srcMax, anyS.maxLevel);
+            if (typeof anyS?.minLevel === "number") srcMin = Math.max(srcMin, anyS.minLevel);
+        }
+        if (Number.isFinite(srcMax) && srcMax < this.maxLevel) {
+            this.maxLevel = srcMax;
+        }
+        if (Number.isFinite(srcMin) && srcMin > this.minLevel) {
+            this.minLevel = srcMin;
+        }
     }
 
     /**
