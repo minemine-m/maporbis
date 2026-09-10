@@ -1,6 +1,6 @@
 
 
-import { Vector3 } from "three";
+import { Camera, PerspectiveCamera, Vector3 } from "three";
 import { Tile } from ".";
 import { ICompositeLoader } from "../../loaders";
 
@@ -10,6 +10,45 @@ export enum LODAction {
 	none,
 	create,
 	remove,
+}
+
+/**
+ * Estimate the integer tile zoom that best matches the current camera
+ * (Mapbox-style coveringZoomLevel). Target ~targetScreenSize pixels per tile.
+ *
+ * @param cameraOrDistance Pass a Camera, or a precomputed camera→ground distance.
+ */
+export function computeCoveringZoomLevel(
+	camera: Camera | number,
+	viewportHeight: number,
+	mapWidth: number,
+	targetScreenSize: number = 512,
+	fovDegOverride?: number
+): number {
+	let dist: number;
+	let fovDeg = 60;
+	if (typeof camera === "number") {
+		dist = camera;
+		if (typeof fovDegOverride === "number") fovDeg = fovDegOverride;
+	} else {
+		const cam = camera as PerspectiveCamera;
+		const camPos = new Vector3();
+		cam.getWorldPosition(camPos);
+		const target = (cam as any)?.controls?.target || (cam as any)?.parent?.userData?.cameraTarget;
+		if (target && target.isVector3) {
+			dist = camPos.distanceTo(target);
+		} else {
+			dist = camPos.length();
+		}
+		fovDeg = cam.fov || fovDegOverride || 60;
+	}
+	dist = Math.max(dist, 1);
+	const fovRad = (fovDeg * Math.PI) / 180;
+	const h = Math.max(viewportHeight, 1);
+	const worldPerPixel = (2 * dist * Math.tan(fovRad / 2)) / h;
+	const tileWorld = targetScreenSize * worldPerPixel;
+	const z = Math.log2(Math.max(mapWidth, 1) / Math.max(tileWorld, 1e-6));
+	return z;
 }
 
 // Get the distance of camera to tile
@@ -34,34 +73,34 @@ function getDistRatio(tile: Tile): number {
 }
 
 /**
- * Evaluate the Level of Detail (LOD) action
- *
- * @param tile The tile object
- * @param minLevel The minimum level
- * @param maxLevel The maximum level
- * @param threshold The threshold value
- * @returns The LOD action type
+ * Evaluate the Level of Detail (LOD) action.
+ * Primary: coveringZoom from camera (screen-space ideal z).
+ * Fallback: distance ratio threshold (legacy).
  */
-export function LODEvaluate(tile: Tile, minLevel: number, maxLevel: number, threshold: number): LODAction {
-	// Get the tile's FOV
+export function LODEvaluate(
+	tile: Tile,
+	minLevel: number,
+	maxLevel: number,
+	threshold: number,
+	coveringZoom?: number
+): LODAction {
 	const distRatio = getDistRatio(tile);
+	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
 
 	if (tile.isLeaf) {
-		// Only leaf tiles can create child tiles
+		const coverOk = hasCover ? tile.z < coveringZoom! : distRatio < threshold;
 		if (
-			tile.inFrustum && // Tile is in frustum
-			tile.z < maxLevel && // Tile level < map maxlevel
-			(tile.z < minLevel || tile.showing) && // (Tile level < map minLevel ) || (Parent tile has showed)
-			(tile.z < minLevel || distRatio < threshold) // (Tile level < map minLevel ) || (Distratio < threshold)
+			tile.inFrustum &&
+			tile.z < maxLevel &&
+			(tile.z < minLevel || tile.showing) &&
+			(tile.z < minLevel || coverOk)
 		) {
 			return LODAction.create;
 		}
 	} else {
-		// Only Non-leaf tile can remove child tiles
-		if (
-			tile.z >= minLevel && // Tile level >= map minLevel
-			(tile.z > maxLevel || distRatio > threshold) // (Tile level > map maxLevel ) || (Distratio > threshold)
-		) {
+		// Keep one extra level when using coveringZoom so parent can cover while children load
+		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
+		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk)) {
 			return LODAction.remove;
 		}
 	}

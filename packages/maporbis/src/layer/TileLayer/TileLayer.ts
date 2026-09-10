@@ -1,10 +1,11 @@
 // layers/BaseTileLayer.ts
-import { Camera } from "three";
+import { Camera, Vector3 } from "three";
 import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
-import { Tile } from "../../core/tile"; 
-import { ICompositeLoader } from "../../loaders"; 
+import { Tile } from "../../core/tile";
+import { computeCoveringZoomLevel } from "../../core/tile/util";
+import { ICompositeLoader } from "../../loaders";
 import { Layer, LayerOptions } from "../Layer";
 
 /**
@@ -337,14 +338,36 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
             // Call tile update
             // 调用瓦片更新
             this.updateMatrixWorld(true);
-            const map = this.getMap?.();
+            const map = this.getMap?.() as any;
+            const viewportHeight =
+                map?.sceneRenderer?.renderer?.domElement?.clientHeight ||
+                (typeof window !== "undefined" ? window.innerHeight : 800);
+
+            // Camera → look-at distance (orbit target), not distance from world origin.
+            const lookAt = map?.sceneRenderer?.controls?.target;
+            let camDist: number | undefined;
+            if (lookAt && typeof lookAt.x === "number") {
+                const camPos = new Vector3();
+                camera.getWorldPosition(camPos);
+                camDist = camPos.distanceTo(lookAt as Vector3);
+            }
+
+            const coveringZoom = computeCoveringZoomLevel(
+                camDist != null ? camDist : camera,
+                viewportHeight,
+                this.projection.mapWidth,
+                512,
+                (camera as any).fov
+            );
+
             this._rootTile.update({
                 camera,
                 loader: this._loader,
                 minLevel: this.minLevel,
                 maxLevel: this.maxLevel,
                 LODThreshold: this.LODThreshold,
-                interacting: !!(map && (map as any).isInteracting)
+                interacting: !!(map && map.isInteracting),
+                coveringZoom,
             });
 
             // Check tile tree status

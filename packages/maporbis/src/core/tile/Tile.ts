@@ -47,6 +47,8 @@ export type TileUpdateParams = {
 	LODThreshold: number;
 	/** Map is currently interacting (pan/zoom) — throttle network loads */
 	interacting?: boolean;
+	/** Screen-space ideal tile z from camera (coveringZoomLevel) */
+	coveringZoom?: number;
 };
 
 /**
@@ -256,6 +258,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		avgLoadedDist: number;
 		loadedDistMin: number;
 		loadedDistMax: number;
+		coveringZoom: number;
 	} {
 		return {
 			activeDownloads: Tile._activeDownloads,
@@ -274,7 +277,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					: 0,
 			loadedDistMin: Tile._statLoadedDistMin === Infinity ? 0 : Tile._statLoadedDistMin,
 			loadedDistMax: Tile._statLoadedDistMax,
+			coveringZoom: Tile._coveringZoom,
 		};
+	}
+
+	public static get coveringZoom(): number {
+		return Tile._coveringZoom;
 	}
 
 	/** Toggle verbose schedule logs (create/load/abort/retain) */
@@ -291,6 +299,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _statLoadedDistCount = 0;
 	private static _statLoadedDistMin = Infinity;
 	private static _statLoadedDistMax = 0;
+	private static _coveringZoom = 0;
 
 	/**
 	 * Enqueue a tile load by camera distance (center tiles first).
@@ -530,10 +539,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	protected _updateLOD(params: TileUpdateParams) {
 		// Always refine LOD structure; network concurrency is handled by the load queue.
-		// 始终细分 LOD 结构；网络并发由加载队列控制。
 		let newTiles: Tile[] = [];
-		const { loader, minLevel, maxLevel, LODThreshold } = params;
-		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold);
+		const { loader, minLevel, maxLevel, LODThreshold, coveringZoom } = params;
+		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold, coveringZoom);
 		if (action === LODAction.create) {
 			newTiles = createChildren(loader, this.x, this.y, this.z);
 			this.add(...newTiles);
@@ -746,6 +754,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 		// Interaction throttle for this frame
 		Tile.interacting = !!params.interacting;
+		if (typeof params.coveringZoom === "number" && Number.isFinite(params.coveringZoom)) {
+			Tile._coveringZoom = params.coveringZoom;
+		}
 
 		// Get camera frustum
 		frustum.setFromProjectionMatrix(
