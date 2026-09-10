@@ -568,10 +568,11 @@ export class Map extends Handlerable(
         this._maxZoom = this._ZOOM_MAX_CONST;
         // Clamp physical max distance so wheel cannot go past min zoom
         this.setZoomBounds(this._minZoom, this._maxZoom);
-        // Canvas may still be 0-size in constructor — refresh limits after first frames
+        // Canvas may still be 0-size in constructor — refresh limits + initial camera after first frames
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.setZoomBounds(this._minZoom, this._maxZoom);
+                this._reapplyInitialView();
             });
         });
 
@@ -883,6 +884,35 @@ export class Map extends Handlerable(
     }
 
     /**
+     * Re-apply the configured initial camera pose after the canvas has real size.
+     * Constructor easeTo can run against a 0-size canvas and leave the camera at origin.
+     */
+    private _reapplyInitialView(): void {
+        const cam = this.sceneRenderer?.camera;
+        const controls = this.sceneRenderer?.controls as any;
+        if (!cam || !controls) return;
+
+        const dist = cam.position.distanceTo(controls.target);
+        const canvas = this.sceneRenderer.renderer?.domElement;
+        const hasSize = !!canvas && canvas.clientWidth > 1 && canvas.clientHeight > 1;
+        // Only snap if still at default origin pose (user has not interacted yet)
+        if (hasSize && dist > 1) return;
+
+        const cameraOpts = this.options.camera ?? {};
+        this.sceneRenderer.easeTo({
+            center: [this.center[0], this.center[1]],
+            distance: typeof this.center[2] === "number" ? this.center[2] : undefined,
+            pitch: typeof cameraOpts.pitch === "number" ? cameraOpts.pitch : undefined,
+            bearing: typeof cameraOpts.bearing === "number" ? cameraOpts.bearing : undefined,
+            duration: 0,
+            curvePath: false,
+        });
+        // Refresh zoom bounds with the now-valid viewport height
+        this.setZoomBounds(this._minZoom, this._maxZoom);
+        this._lastCameraDistance = this._getCameraDistance();
+    }
+
+    /**
      * Inverse of coveringZoom (256px XYZ): camera distance for a given view zoom.
      */
     private _distanceForCoveringZoom(zoom: number, viewportHeight: number, fovDeg: number): number {
@@ -1178,6 +1208,16 @@ export class Map extends Handlerable(
                 listened: true
             };
             this.fire("load", eventData);
+            // Force a first layer pass immediately. map.render() is interval-throttled
+            // and rAF may be delayed (hidden tab), so covering would stay at 0.
+            if (this.sceneRenderer?.camera) {
+                const cam = this.sceneRenderer.camera;
+                this._layers.forEach((layer) => {
+                    if (layer.enabled && layer.visible) {
+                        layer.update(cam);
+                    }
+                });
+            }
         }, 0);
     }
 

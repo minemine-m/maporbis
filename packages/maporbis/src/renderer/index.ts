@@ -487,6 +487,17 @@ export class SceneRenderer extends SceneRendererBase {
       this.stats = new Stats();
       document.body.appendChild(this.stats.dom);
     }
+
+    // WebGL path never auto-resizes; ResizeObserver only fires on *changes*.
+    // Snap canvas to container now, and again after first layout.
+    if (this._isRendererReady && this.container) {
+      this.resize();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this.resize();
+        });
+      });
+    }
   }
 
   /**
@@ -1162,6 +1173,17 @@ export class SceneRenderer extends SceneRendererBase {
       if (this.flyTween) {
         this.flyTween.stop();
         this.flyTween = null;
+      }
+
+      // duration<=0: snap immediately (init path; Tween needs a later animate tick)
+      if (duration <= 0) {
+        camera.position.copy(positionEnd);
+        camera.lookAt(targetEnd);
+        camera.updateMatrixWorld(true);
+        controls.target.copy(targetEnd);
+        controls.update();
+        if (complete) complete();
+        return;
       }
 
       // 直线 / 曲线由 curvePath 控制，默认直线
