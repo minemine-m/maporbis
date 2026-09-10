@@ -416,6 +416,20 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return 2 + tile.distToCamera;
 	}
 
+	/**
+	 * Public API for SourceCache: enqueue a tile load with optional ideal keys.
+	 */
+	public static requestLoad(
+		tile: Tile,
+		loader: ICompositeLoader,
+		idealTiles?: Set<string>
+	): void {
+		if (!tile || !loader) return;
+		if (!tile._canStartLoading()) return;
+		if (Tile._isQueued(tile)) return;
+		Tile._enqueueLoad(tile, loader, idealTiles);
+	}
+
 	private static _enqueueLoad(
 		tile: Tile,
 		loader: ICompositeLoader,

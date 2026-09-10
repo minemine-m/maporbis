@@ -3,8 +3,8 @@ import { Camera, Vector3 } from "three";
 import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
-import { Tile } from "../../core/tile";
-import { computeCoveringZoomLevel, computeIdealTileSet, countIdealCovered, hasLoadedCover } from "../../core/tile/util";
+import { Tile, TileSourceCache } from "../../core/tile";
+import { computeCoveringZoomLevel } from "../../core/tile/util";
 import { ICompositeLoader } from "../../loaders";
 import { Layer, LayerOptions } from "../Layer";
 
@@ -173,6 +173,8 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
      */
     protected _idealRetain = false;
     protected _layerIdealTiles: Set<string> = new Set();
+    /** Per-layer SourceCache (ideal + retain). Used when _idealRetain is true. */
+    protected _sourceCache = new TileSourceCache();
 
     /**
      * Create a new BaseTileLayer instance.
@@ -407,12 +409,12 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 (camera as any).fov
             );
 
-            // Ideal covering set: vector-only. Raster must not share/purge this.
-            let idealKeys: Set<string> | undefined;
-            let idealSet: any = null;
             const viewportWidth =
                 map?.sceneRenderer?.renderer?.domElement?.clientWidth ||
                 (typeof window !== "undefined" ? window.innerWidth : 1200);
+
+            // Ideal covering set via SourceCache (vector layers)
+            let idealKeys: Set<string> | undefined;
             if (this._idealRetain) {
                 let lookAtProj = { x: 0, y: 0 };
                 if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
@@ -421,22 +423,26 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 } else if (map?.prjcenter) {
                     lookAtProj = { x: map.prjcenter.x, y: map.prjcenter.y };
                 }
-                idealSet = computeIdealTileSet(
-                    coveringZoom,
-                    lookAtProj,
-                    this.projection.mapWidth,
-                    this.projection.mapHeight,
+                const snap = this._sourceCache.update({
+                    root: this._rootTile,
+                    camera,
+                    loader: this._loader,
+                    mapWidth: this.projection.mapWidth,
+                    mapHeight: this.projection.mapHeight,
                     viewportWidth,
                     viewportHeight,
-                    camDist != null ? camDist : 1000,
-                    (camera as any).fov || 60,
-                    this.minLevel,
-                    this.maxLevel
-                );
-                this._layerIdealTiles = idealSet ? new Set(idealSet.keys) : new Set();
+                    lookAtProjected: lookAtProj,
+                    cameraDistance: camDist != null ? camDist : 1000,
+                    fovDeg: (camera as any).fov || 60,
+                    minLevel: this.minLevel,
+                    maxLevel: this.maxLevel,
+                    interacting: !!(map && map.isInteracting),
+                });
+                this._layerIdealTiles = snap.idealKeys;
                 idealKeys = this._layerIdealTiles;
-                // Stats for demo checklist (no queue purge)
-                Tile.setIdealTileSet(idealSet);
+                Tile.setIdealTileSet(snap.ideal);
+                Tile.setIdealLoadedCount(snap.idealLoaded);
+                Tile.setIdealCoveredCount(snap.idealCovered);
             }
 
             this._rootTile.update({
@@ -446,41 +452,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 maxLevel: this.maxLevel,
                 LODThreshold: this.LODThreshold,
                 interacting: !!(map && map.isInteracting),
-                coveringZoom,
+                coveringZoom: this._idealRetain ? this._sourceCache.coveringZoom : coveringZoom,
                 idealTiles: idealKeys,
             });
-
-            // Ideal coverage retain (vector layers only)
-            if (this._idealRetain && idealSet && idealSet.keys.length > 0) {
-                let idealLoaded = 0;
-                const loadedKeys = new Set<string>();
-                const byKey = new Map<string, any>();
-                this._rootTile.traverse((t: any) => {
-                    if (!t.isTile) return;
-                    const key = `${t.z}/${t.x}/${t.y}`;
-                    byKey.set(key, t);
-                    if (t.loaded) loadedKeys.add(key);
-                    if (t.loaded && this._layerIdealTiles.has(key)) idealLoaded++;
-                });
-                Tile.setIdealLoadedCount(idealLoaded);
-
-                for (const key of idealSet.keys) {
-                    if (loadedKeys.has(key)) continue;
-                    if (hasLoadedCover(loadedKeys, ...key.split("/").map(Number) as [number, number, number])) {
-                        const [iz, ix, iy] = key.split("/").map(Number);
-                        let cz = iz, cx = ix, cy = iy;
-                        while (cz > 0) {
-                            cx >>= 1; cy >>= 1; cz--;
-                            const anc = byKey.get(`${cz}/${cx}/${cy}`);
-                            if (anc && anc.loaded) {
-                                anc.showing = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                Tile.setIdealCoveredCount(countIdealCovered(idealSet.keys, loadedKeys));
-            }
 
             // Check tile tree status
             // 检查瓦片树状态
