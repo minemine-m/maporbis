@@ -416,6 +416,11 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
             // Ideal covering set via SourceCache (vector layers)
             let idealKeys: Set<string> | undefined;
             if (this._idealRetain) {
+                // Ensure camera matrices are current before DFS frustum culling
+                camera.updateMatrixWorld();
+                if ((camera as any).isPerspectiveCamera) {
+                    (camera as any).updateProjectionMatrix();
+                }
                 let lookAtProj = { x: 0, y: 0 };
                 if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
                     const p = map.worldToPoint(lookAt as Vector3);

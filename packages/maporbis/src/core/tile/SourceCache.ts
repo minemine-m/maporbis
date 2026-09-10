@@ -1,4 +1,4 @@
-import { Camera, Vector3 } from "three";
+import { Camera, PerspectiveCamera, Vector3 } from "three";
 import { Tile } from "./Tile";
 import { ICompositeLoader } from "../../loaders";
 import {
@@ -8,6 +8,7 @@ import {
 	countIdealCovered,
 	hasLoadedCover,
 } from "./util";
+import { computeCoveringTilesDFS } from "./coveringTiles";
 
 export type SourceCacheUpdateContext = {
 	root: Tile;
@@ -90,18 +91,39 @@ export class TileSourceCache {
 			ctx.fovDeg
 		);
 
-		this._ideal = computeIdealTileSet(
-			this._coveringZoom,
-			ctx.lookAtProjected,
-			ctx.mapWidth,
-			ctx.mapHeight,
-			ctx.viewportWidth,
-			ctx.viewportHeight,
-			ctx.cameraDistance,
-			ctx.fovDeg,
-			ctx.minLevel,
-			ctx.maxLevel
-		);
+		// Prefer real frustum DFS when a full camera is available; AABB fallback for stubs.
+		const cam = ctx.camera as PerspectiveCamera;
+		const camDistOk = Number.isFinite(ctx.cameraDistance) && ctx.cameraDistance > 1;
+		if (cam && cam.isPerspectiveCamera && ctx.mapWidth > 0 && camDistOk) {
+			// Root matrix includes map scale + group rotation (XZ ground, Y up)
+			ctx.root.updateMatrixWorld(true);
+			this._ideal = computeCoveringTilesDFS({
+				coveringZoom: this._coveringZoom,
+				camera: cam,
+				mapWidth: ctx.mapWidth,
+				mapHeight: ctx.mapHeight,
+				minLevel: ctx.minLevel,
+				maxLevel: ctx.maxLevel,
+				tileSize: 256,
+				// Uniform z + frustum cull this step; distance LOD needs tile-space units
+				useDistanceLod: false,
+				cameraToCenterDistance: ctx.cameraDistance,
+				rootWorldMatrix: ctx.root.matrixWorld,
+			});
+		} else {
+			this._ideal = computeIdealTileSet(
+				this._coveringZoom,
+				ctx.lookAtProjected,
+				ctx.mapWidth,
+				ctx.mapHeight,
+				ctx.viewportWidth,
+				ctx.viewportHeight,
+				ctx.cameraDistance,
+				ctx.fovDeg,
+				ctx.minLevel,
+				ctx.maxLevel
+			);
+		}
 		this._idealKeys = this._ideal ? new Set(this._ideal.keys) : new Set();
 
 		const loadedKeys = new Set<string>();
