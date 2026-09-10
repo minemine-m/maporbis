@@ -82,15 +82,25 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
 
             return geometry;
 
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.outOfBounds || error?.status === 404 || error?.status === 400) {
+                // Source has no tile at this z (e.g. MapTiler maxzoom). Treat as empty,
+                // not a hard error — higher zooms should overzoom from maxLevel.
+                return this.createEmptyGeometry(x, y, z);
+            }
             return this.createErrorGeometry(x, y, z, error);
         }
     }
 
     private async fetchVectorData(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
         try {
-            // fetch supports AbortSignal (FileLoader does not)
             const response = await fetch(url, { signal });
+            if (response.status === 400 || response.status === 404) {
+                const err: any = new Error(`HTTP ${response.status} out of bounds`);
+                err.status = response.status;
+                err.outOfBounds = true;
+                throw err;
+            }
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -100,6 +110,7 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
             }
             return arrayBuffer;
         } catch (error) {
+            if ((error as any)?.outOfBounds) throw error;
             throw new Error(`Failed to fetch vector tile: ${(error as Error).message}`);
         }
     }
@@ -128,6 +139,22 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
                 version: this.info.version,
                 loadedAt: Date.now()
             }
+        };
+        return geometry;
+    }
+
+    private createEmptyGeometry(x: number, y: number, z: number): MapTileGeometry {
+        const geometry = new MapTileGeometry();
+        (geometry as any).userData = {
+            vectorData: {
+                x, y, z,
+                extent: 4096,
+                layers: {},
+                timestamp: Date.now(),
+                dataFormat: "mvt-local",
+            },
+            tileInfo: { x, y, z, bounds: [0, 0, 0, 0] },
+            metadata: { dataType: "vector-tile-empty", empty: true },
         };
         return geometry;
     }

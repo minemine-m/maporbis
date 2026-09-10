@@ -445,24 +445,18 @@ export class VectorTileLayer extends BaseTileLayer {
             }
             // ② Render directly in tile-loaded stage only if tile is currently showing
             // ② 只有当前就处于 showing 的瓦片，才在 tile-loaded 阶段直接渲染
-            if (tile.showing && this._renderer && (fmt === 'mvt' || fmt === 'mvt-local')) {
+            // Always build meshes on load; visibility is applied from tile.showing.
+            // 加载后立刻建 mesh；是否可见由 tile.showing 控制（避免兄弟未齐时丢结果）。
+            if (this._renderer && (fmt === 'mvt' || fmt === 'mvt-local')) {
                 try {
-                    // Use Worker if enabled, otherwise use main thread
-                    // 如果启用则使用 Worker，否则使用主线程
                     if (this._useWorker) {
                         this._renderer.processTileDataAsync(tile, vectorData);
                     } else {
                         this._renderer.processTileData(tile, vectorData);
                     }
                 } catch (e) {
-                    // console.error(`[VectorTileLayer] Error processing data for tile ${tileKey}:`, e);
+                    // ignore
                 }
-            } else {
-                // console.warn(
-                //     `[VectorTileLayer] Skip immediate render for tile ${tileKey}, ` +
-                //     `showing=${tile.showing}, hasRenderer=${!!this._renderer}, ` +
-                //     `format=${vectorData.vectorData?.dataFormat}`
-                // );
             }
             // console.log(`All cached in loaded: loaed里所有的缓存:`, this._tileDataMap);
         });

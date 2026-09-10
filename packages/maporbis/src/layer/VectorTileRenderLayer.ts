@@ -171,8 +171,20 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             list = [];
             this._tileMeshMap.set(tileKey, list);
         }
+        // Vector bucket meshes sit at prjCenter with large local extents;
+        // Three.js frustum culling on default bounds can drop the map center.
+        (mesh as any).frustumCulled = false;
         list.push(mesh);
         this._statMeshCount++;
+    }
+
+    private _setTileMeshesVisible(tileKey: string, visible: boolean): void {
+        const meshes = this._tileMeshMap.get(tileKey);
+        if (meshes) {
+            meshes.forEach((m) => {
+                m.visible = visible;
+            });
+        }
     }
 
     private _showCachedTile(tileKey: string): boolean {
@@ -336,11 +348,13 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         }
 
         // Line buckets → mesh
+        const wantVisible = !!tile.showing;
         lineBuckets.forEach(({ config, bucket }) => {
             if (!bucket.hasData()) return;
             const data = bucket.getData();
             const mesh = this._createLineMesh(data.segments, config);
             mesh.position.copy(prjCenter);
+            mesh.visible = wantVisible;
             mesh.updateMatrixWorld(true);
             this.add(mesh);
             this._registerTileMesh(tileKey, mesh);
@@ -353,6 +367,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             const data = bucket.getData();
             const mesh = this._createPointMesh(data.instances, config);
             mesh.position.copy(prjCenter);
+            mesh.visible = wantVisible;
             mesh.updateMatrixWorld(true);
             this.add(mesh);
             this._registerTileMesh(tileKey, mesh);
@@ -365,6 +380,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             const data = bucket.getData();
             const mesh = this._createFillMesh(data.vertices, data.indices, config);
             mesh.position.copy(prjCenter);
+            mesh.visible = wantVisible;
             mesh.updateMatrixWorld(true);
             this.add(mesh);
             this._registerTileMesh(tileKey, mesh);
@@ -411,14 +427,18 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 this.paint
             );
 
-            if (!tile.showing || !tile.loaded) {
+            // Do not drop the worker result just because the tile is temporarily
+            // hidden (sibling children not all loaded). Only skip if disposed.
+            if (!tile.loaded) {
                 return;
             }
+            const wantVisible = !!tile.showing;
 
             result.lines.forEach(lineData => {
                 if (lineData.segments.length === 0) return;
                 const mesh = this._createLineMesh(lineData.segments, lineData.config);
                 mesh.position.copy(prjCenter);
+                mesh.visible = wantVisible;
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
                 this._registerTileMesh(tileKey, mesh);
@@ -429,6 +449,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 if (pointData.instances.length === 0) return;
                 const mesh = this._createPointMesh(pointData.instances, pointData.config);
                 mesh.position.copy(prjCenter);
+                mesh.visible = wantVisible;
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
                 this._registerTileMesh(tileKey, mesh);
@@ -439,6 +460,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 if (fillData.vertices.length === 0) return;
                 const mesh = this._createFillMesh(fillData.vertices, fillData.indices, fillData.config);
                 mesh.position.copy(prjCenter);
+                mesh.visible = wantVisible;
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
                 this._registerTileMesh(tileKey, mesh);

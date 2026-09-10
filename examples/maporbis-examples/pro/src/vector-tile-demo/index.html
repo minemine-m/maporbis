@@ -203,6 +203,11 @@
     import { VectorTileLayer } from "maporbis";
 
     let map, vectorLayer;
+    window.__vtDemo = {
+      get map() { return map; },
+      get vectorLayer() { return vectorLayer; },
+      get Tile() { return maporbis.Tile; },
+    };
 
     // MapTiler 免费 Key，用于演示
     const TILE_URL = "https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=uKYsZQZpm72WlbSgH9B7";
@@ -458,6 +463,9 @@
                 dataType: "vector-tile"
             }),
             projection: maporbis.ProjectionFactory.create("3857"),
+            // MapTiler free tiles end ~z15; higher z must overzoom (keep z15), not 400-error
+            minLevel: 2,
+            maxLevel: 15,
             style: [
                 {
                     filter: ['all', ['==', ['get', '$type'], 'Polygon'], ['==', ['get', '$layer'], 'water'], ['!=', ['get', 'class'], 'ocean']],
