@@ -568,6 +568,12 @@ export class Map extends Handlerable(
         this._maxZoom = this._ZOOM_MAX_CONST;
         // Clamp physical max distance so wheel cannot go past min zoom
         this.setZoomBounds(this._minZoom, this._maxZoom);
+        // Canvas may still be 0-size in constructor — refresh limits after first frames
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this.setZoomBounds(this._minZoom, this._maxZoom);
+            });
+        });
 
         // Initialize "last zoom" to current tile level
         // 初始化“上一次 zoom”为当前瓦片级别
@@ -858,11 +864,15 @@ export class Map extends Handlerable(
         if (controls) {
             const h =
                 this.sceneRenderer.renderer?.domElement?.clientHeight ||
+                this.sceneRenderer.renderer?.domElement?.parentElement?.clientHeight ||
                 (typeof window !== "undefined" ? window.innerHeight : 800);
             const fov = (this.sceneRenderer.camera as any)?.fov || 60;
-            const maxDist = this._distanceForCoveringZoom(minZoom, h, fov);
-            const minDist = this._distanceForCoveringZoom(maxZoom, h, fov);
-            controls.maxDistance = Math.max(maxDist, minDist * 1.01);
+            // Safety: if canvas height is tiny, fall back to window
+            const viewportH = Math.max(h, typeof window !== "undefined" ? window.innerHeight * 0.5 : 400);
+            const maxDist = this._distanceForCoveringZoom(minZoom, viewportH, fov);
+            const minDist = this._distanceForCoveringZoom(maxZoom, viewportH, fov);
+            // Generous max so we can always reach minZoom even if fov/pitch differ slightly
+            controls.maxDistance = maxDist * 1.15;
             controls.minDistance = Math.min(minDist, controls.maxDistance * 0.99);
             this._minZoomDistance = controls.minDistance;
             this._maxZoomDistance = controls.maxDistance;

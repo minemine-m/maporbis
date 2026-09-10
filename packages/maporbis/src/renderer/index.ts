@@ -728,9 +728,9 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // Low inertia: slight glide only, not floaty
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.02;
+    // No coasting after drag — map must track the pointer 1:1
+    controls.enableDamping = false;
+    controls.dampingFactor = 0;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
@@ -765,6 +765,9 @@ export class SceneRenderer extends SceneRendererBase {
       const isDistAboveThreshold = dist > DIST_THRESHOLD;
       controls.minAzimuthAngle = isDistAboveThreshold ? 0 : -Infinity;
       controls.maxAzimuthAngle = isDistAboveThreshold ? 0 : Infinity;
+
+      // Do not shrink maxDistance here — map.minZoom controls how far we can zoom out
+      // (overwriting maxDistance was keeping coveringZoom stuck above minZoom ~6.6)
 
       // const POLAR_BASE = 1e7;
       // const POLAR_EXPONENT = 4;
