@@ -604,9 +604,21 @@ export class Map extends Handlerable(
         }
 
         // Keep look-at on the mercator world so panning cannot walk into skybox
-        // Disabled: Amap-style world wrap allows panning past the edge.
-        // 世界环绕：允许 target 超出单世界范围。
-        // (target clamp removed)
+        // （环绕已去掉；重新夹紧 target，避免拖出世界出现空洞）
+        const controls = this.sceneRenderer.controls as any;
+        if (controls?.target && this.projection) {
+            const hw = this.projection.mapWidth / 2;
+            const hh = this.projection.mapHeight / 2;
+            const t = controls.target;
+            if (typeof this.worldToPoint === 'function' && typeof this.pointToWorld === 'function') {
+                const p = this.worldToPoint(t);
+                const cx = Math.max(-hw, Math.min(hw, p.x));
+                const cy = Math.max(-hh, Math.min(hh, p.y));
+                if (Math.abs(cx - p.x) > 1 || Math.abs(cy - p.y) > 1) {
+                    t.copy(this.pointToWorld(new Vector3(cx, cy, p.z)));
+                }
+            }
+        }
 
         // Current real tile level
         // 当前真实瓦片层级

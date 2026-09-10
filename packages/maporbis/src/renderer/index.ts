@@ -728,9 +728,9 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // Slight inertia: map follows pointer, gentle stop after release
+    // Almost no coasting — user rejected floaty pan
     controls.enableDamping = true;
-    controls.dampingFactor = 0.03;
+    controls.dampingFactor = 0.01;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
