@@ -176,8 +176,7 @@ export function LODEvaluate(
 	minLevel: number,
 	maxLevel: number,
 	threshold: number,
-	coveringZoom?: number,
-	interacting?: boolean
+	coveringZoom?: number
 ): LODAction {
 	const distRatio = getDistRatio(tile);
 	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
@@ -196,10 +195,9 @@ export function LODEvaluate(
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		// Do not add a separate !inFrustum teardown — releasing the mouse sets
-		// interacting=false and would unload every off-screen child, making the
-		// *next* pan reload the world. coveringZoom/distRatio already handle depth.
-		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk)) {
+		// Aggressively drop subtrees left behind while panning
+		const outOfView = !tile.inFrustum && tile.z >= minLevel;
+		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
 			return LODAction.remove;
 		}
 	}
