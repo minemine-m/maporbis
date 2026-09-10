@@ -731,7 +731,8 @@ export class SceneRenderer extends SceneRendererBase {
     // Three.js damping: leftover *= (1 - dampingFactor) each frame.
     // Small factor = almost no drag decay (coasts for seconds). 0.5 dies in ~100ms.
     controls.enableDamping = true;
-    controls.dampingFactor = 0.5;
+    // 0.5 was a bit abrupt; 0.35 adds a short tail after release without multi-second coast
+    controls.dampingFactor = 0.35;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
