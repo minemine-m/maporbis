@@ -711,46 +711,57 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	/**
 	 * Visibility / retain:
-	 * - Parent stays visible until every child tile has data (anti-flicker cover).
+	 * - Parent stays visible until every **in-frustum** child has data.
+	 * - Out-of-frustum siblings are deferred; they must not block showing
+	 *   loaded tiles that are on screen (edge of viewport).
 	 * - If parent itself is missing, climb to the nearest loaded ancestor.
+	 */
+	private _refreshCoverVisibility() {
+		const children = this.children.filter((child: any) => child?.isTile);
+		if (children.length === 0) return;
+
+		const inView = children.filter((c: any) => c.inFrustum);
+		// Gate on in-frustum children only; fall back to all if none flagged yet
+		const gate: any[] = inView.length > 0 ? inView : children;
+		const allReady = gate.every((c: any) => c.loaded);
+
+		if (allReady) {
+			if (this.showing) Tile._statRetainReleaseCount++;
+		} else {
+			Tile._statRetainHoldCount++;
+		}
+		this.showing = !allReady;
+		children.forEach((child: any) => {
+			child.showing = allReady;
+		});
+
+		if (Tile.debugSchedule) {
+			const loadedCount = gate.filter((c: any) => c.loaded).length;
+			console.log(
+				`[Schedule] retain parent z${this.z}/${this.x}/${this.y} ` +
+				`inView ${loadedCount}/${gate.length} loaded → parent.showing=${this.showing}`
+			);
+		}
+
+		// Parent not ready yet: hold nearest loaded ancestor as cover
+		if (!allReady && !this.loaded) {
+			let anc: Tile | null = this.parent as Tile | null;
+			while (anc && (anc as any).isTile && !(anc as any).loaded) {
+				anc = (anc as any).parent as Tile | null;
+			}
+			if (anc && (anc as any).isTile) {
+				(anc as any).showing = true;
+			}
+		}
+	}
+
+	/**
+	 * Visibility / retain (called when a child finishes loading).
 	 */
 	private _checkVisibility() {
 		const parent = this.parent;
 		if (parent && parent.isTile) {
-			const children = parent.children.filter(child => child.isTile);
-			const allLoaded = children.every(child => child.loaded);
-			if (allLoaded) {
-				if (parent.showing) Tile._statRetainReleaseCount++;
-			} else {
-				Tile._statRetainHoldCount++;
-			}
-			parent.showing = !allLoaded;
-			children.forEach(child => (child.showing = allLoaded));
-
-			if (Tile.debugSchedule) {
-				const loadedCount = children.filter(c => c.loaded).length;
-				console.log(
-					`[Schedule] retain parent z${parent.z}/${parent.x}/${parent.y} ` +
-					`children ${loadedCount}/${children.length} loaded → parent.showing=${parent.showing}`
-				);
-			}
-
-			// Parent not ready yet: hold nearest loaded ancestor as cover
-			if (!allLoaded && !parent.loaded) {
-				let anc: Tile | null = parent.parent as Tile | null;
-				while (anc && (anc as any).isTile && !(anc as any).loaded) {
-					anc = (anc as any).parent as Tile | null;
-				}
-				if (anc && (anc as any).isTile) {
-					(anc as any).showing = true;
-					if (Tile.debugSchedule) {
-						console.log(
-							`[Schedule] ancestor cover z${(anc as any).z}/${(anc as any).x}/${(anc as any).y} ` +
-							`for incomplete z${parent.z}/${parent.x}/${parent.y}`
-						);
-					}
-				}
-			}
+			(parent as Tile)._refreshCoverVisibility();
 		}
 		return this;
 	}
@@ -964,6 +975,14 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			// LOD
 			const { action, newTiles } = tile._updateLOD(params);
 			this._processLODAction(tile, action, newTiles, params);
+		});
+
+		// Re-evaluate parent cover after frustum flags are fresh (pan/zoom).
+		// Out-of-frustum siblings must not keep in-view children hidden.
+		this.traverse(tile => {
+			if (tile.isTile && !tile.isLeaf) {
+				(tile as Tile)._refreshCoverVisibility();
+			}
 		});
 
 		// Re-prioritize queued loads with fresh distances
