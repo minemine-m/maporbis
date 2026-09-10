@@ -356,7 +356,8 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 camDist != null ? camDist : camera,
                 viewportHeight,
                 this.projection.mapWidth,
-                512,
+                // 256 = standard XYZ / Google-style tile pixel size (not Mapbox's 512 render size)
+                256,
                 (camera as any).fov
             );
 

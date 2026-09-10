@@ -326,7 +326,8 @@
         }
 
         statsEl.innerHTML = [
-          `coveringZoom(相机→目标z): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
+          `coveringZoom(标准XYZ基准256px): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
+          `≈主流地图zoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(1) : '-'}（对照高德/Google观感）`,
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
@@ -341,13 +342,12 @@
         {
           const cz = s.coveringZoom;
           const ok = typeof cz === 'number' && cz > 0 && cz < 24;
-          // Compare with deepest showing tile
           let maxShowZ = 0;
           if (root) root.traverse(t => { if (t.isTile && t.showing && t.inFrustum) maxShowZ = Math.max(maxShowZ, t.z); });
           items.push({
             ok,
-            title: '⓪ coveringZoom（相机→目标瓦片层级）',
-            evidence: `coveringZoom=${cz != null ? cz.toFixed(2) : '-'}, 视锥内最深显示z=${maxShowZ}（应接近 floor(coveringZoom)）`
+            title: '⓪ coveringZoom（256px 标准XYZ，≈主流地图zoom）',
+            evidence: `coveringZoom=${cz != null ? cz.toFixed(2) : '-'}, 视锥内最深显示z=${maxShowZ}（tile z 常为 floor(cz) 或 floor(cz)+1）`
           });
         }
 
