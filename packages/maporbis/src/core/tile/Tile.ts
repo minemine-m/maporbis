@@ -298,6 +298,15 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		};
 	}
 
+	/** Count tiles in a layer tree (debug). */
+	public static countTree(root: Tile): number {
+		let n = 0;
+		root.traverse((t) => {
+			if ((t as any).isTile) n++;
+		});
+		return n;
+	}
+
 	public static get coveringZoom(): number {
 		return Tile._coveringZoom;
 	}
@@ -428,11 +437,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private static _drainLoadQueue() {
 		if (Tile._loadQueue.length === 0) return;
-		// Refresh priorities each drain (parent-block and ideal change as camera moves)
+		Tile._pruneLoadQueue();
 		for (const job of Tile._loadQueue) {
 			job.priority = Tile._loadPriority(job.tile, job.idealTiles);
 		}
-		// Closer tiles load first
 		Tile._loadQueue.sort((a, b) => a.priority - b.priority);
 		while (
 			Tile._activeDownloads < Tile.effectiveMaxConcurrentDownloads &&
@@ -443,6 +451,37 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			if (tile._canStartLoading()) {
 				void tile._loadData(job.loader);
 			}
+		}
+	}
+
+	/**
+	 * Drop obsolete queued work while panning: disposed tiles, out-of-frustum
+	 * (unless blocking a showing parent), and cap the queue size.
+	 * 平移时剪掉过时请求，避免队列无限膨胀导致越拖越慢。
+	 */
+	private static _pruneLoadQueue() {
+		const MAX_QUEUE = 240;
+		if (Tile._loadQueue.length === 0) return;
+		const before = Tile._loadQueue.length;
+		Tile._loadQueue = Tile._loadQueue.filter((job) => {
+			const t = job.tile;
+			if (t.z !== 0 && !t.parent) return false;
+			if (t.loaded || t.state === TileState.Unloaded) return false;
+			const parent = t.parent as Tile | null;
+			if (parent && (parent as any).isTile && parent.showing) {
+				const sibs = parent.children.filter((c: any) => c.isTile);
+				if (sibs.some((c: any) => !c.loaded)) return true;
+			}
+			// Only drop out-of-frustum work when the queue is actually backing up
+			if (!t.inFrustum && Tile._loadQueue.length > 48) return false;
+			return true;
+		});
+		if (Tile._loadQueue.length > MAX_QUEUE) {
+			Tile._loadQueue.sort((a, b) => a.priority - b.priority);
+			Tile._loadQueue.length = MAX_QUEUE;
+		}
+		if (before !== Tile._loadQueue.length && Tile.debugSchedule) {
+			console.log(`[Schedule] prune queue ${before}→${Tile._loadQueue.length}`);
 		}
 	}
 
@@ -953,6 +992,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				newTile._initTile();
 				newTile._isVirtualTile = newTile.z < params.minLevel;
 				newTile.distToCamera = currentTile.distToCamera;
+				// Inherit frustum so this-frame enqueue is not pruned as out-of-view
+				(newTile as any).inFrustum = currentTile.inFrustum;
 				this.dispatchEvent({ type: "tile-created", tile: newTile });
 				if (!newTile.isDummy) {
 					newTile._onLoadComplete = () => {

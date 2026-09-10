@@ -195,7 +195,9 @@ export function LODEvaluate(
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk)) {
+		// Aggressively drop subtrees left behind while panning
+		const outOfView = !tile.inFrustum && tile.z >= minLevel;
+		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
 			return LODAction.remove;
 		}
 	}

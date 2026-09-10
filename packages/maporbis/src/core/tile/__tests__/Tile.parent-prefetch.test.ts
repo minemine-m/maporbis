@@ -46,6 +46,8 @@ describe("Tile parent-prefetch when subdividing unloaded parent", () => {
 		expect(parent.state).toBe(TileState.Idle);
 
 		const children = createChildren(loader, parent.x, parent.y, parent.z);
+		// Must be in the scene graph (queue prune drops detached tiles)
+		parent.add(...children);
 		const params = makeParams(loader);
 		(root as any)._processLODAction(parent, LODAction.create, children, params);
 
@@ -78,6 +80,7 @@ describe("Tile parent-prefetch when subdividing unloaded parent", () => {
 		(parent as any)._transitionTo(TileState.Loaded);
 
 		const children = createChildren(loader, parent.x, parent.y, parent.z);
+		parent.add(...children);
 		(root as any)._processLODAction(parent, LODAction.create, children, makeParams(loader));
 		await new Promise((r) => setTimeout(r, 0));
 
