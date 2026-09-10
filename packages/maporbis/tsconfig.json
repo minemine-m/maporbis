@@ -1,9 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "noEmit": false,
-    "declaration": true,
+    "noEmit": true,
+    "declaration": false,
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
