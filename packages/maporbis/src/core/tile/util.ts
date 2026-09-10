@@ -88,12 +88,13 @@ export function LODEvaluate(
 	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
 
 	if (tile.isLeaf) {
+		// Root (z=0) must always refine when in frustum; it has no parent to set showing.
+		const forceRefine = tile.z === 0 || tile.z < minLevel;
 		const coverOk = hasCover ? tile.z < coveringZoom! : distRatio < threshold;
 		if (
 			tile.inFrustum &&
 			tile.z < maxLevel &&
-			(tile.z < minLevel || tile.showing) &&
-			(tile.z < minLevel || coverOk)
+			(forceRefine || (tile.showing && coverOk))
 		) {
 			return LODAction.create;
 		}

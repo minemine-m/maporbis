@@ -243,17 +243,15 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
             })
         );
         let srcMax = Infinity;
-        let srcMin = -Infinity;
         for (const s of sources) {
             const anyS = s as any;
             if (typeof anyS?.maxLevel === "number") srcMax = Math.min(srcMax, anyS.maxLevel);
-            if (typeof anyS?.minLevel === "number") srcMin = Math.max(srcMin, anyS.minLevel);
         }
+        // Only clamp maxLevel. Do not lower minLevel from TileJSON:
+        // minLevel=0 removes the z < minLevel refine path and can freeze LOD at the root.
+        // 只夹紧 maxLevel；不要用 TileJSON 的 minzoom 压低 minLevel，否则根节点不再细分。
         if (Number.isFinite(srcMax) && srcMax < this.maxLevel) {
             this.maxLevel = srcMax;
-        }
-        if (Number.isFinite(srcMin) && srcMin > this.minLevel) {
-            this.minLevel = srcMin;
         }
     }
 
