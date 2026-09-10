@@ -990,7 +990,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			// Init children, then enqueue in-frustum loads by distance (center first)
 			newTiles?.forEach(newTile => {
 				newTile._initTile();
-				newTile._isVirtualTile = newTile.z < params.minLevel;
+				// At far zoom, coveringZoom may be < minLevel — still load ancestors
+				// so the world is not a single tile + skybox (issue: min zoom empty).
+				const minLoad = Math.min(
+					params.minLevel,
+					Math.max(0, Math.floor(params.coveringZoom ?? params.minLevel))
+				);
+				newTile._isVirtualTile = newTile.z < minLoad;
 				newTile.distToCamera = currentTile.distToCamera;
 				// Inherit frustum so this-frame enqueue is not pruned as out-of-view
 				(newTile as any).inFrustum = currentTile.inFrustum;

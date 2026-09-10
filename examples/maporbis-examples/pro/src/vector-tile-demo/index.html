@@ -234,7 +234,8 @@
                 projectionID: "3857",
               }),
               projection: maporbis.ProjectionFactory.create("3857"),
-              minLevel: 2,
+              // 0 so far-zoom can load z=0 world tile (not dummy-only skybox)
+              minLevel: 0,
               maxLevel: 18,
 
             }),
