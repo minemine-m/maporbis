@@ -299,6 +299,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		Tile._loadQueue = Tile._loadQueue.filter((job) => job.tile !== tile);
 	}
 
+	private static _isQueued(tile: Tile): boolean {
+		return Tile._loadQueue.some((job) => job.tile === tile);
+	}
+
 	/** Coordinate of tile 瓦片坐标 */
 	public readonly x: number;
 	public readonly y: number;
@@ -717,6 +721,28 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 			// Get distance to camera
 			tile.distToCamera = getDistance(tile, cameraWorldPosition);
+
+			// Deferred load: tile entered frustum after it was created
+			if (
+				tile.inFrustum &&
+				!tile.isDummy &&
+				!tile.loaded &&
+				tile.z >= params.minLevel &&
+				tile._canStartLoading() &&
+				!Tile._isQueued(tile)
+			) {
+				if (!tile._onLoadComplete) {
+					tile._onLoadComplete = () => {
+						tile._checkVisibility();
+						this.dispatchEvent({ type: "tile-loaded", tile });
+					};
+				}
+				if (Tile.debugSchedule) {
+					console.log(`[Schedule] enter-frustum load z${tile.z}/${tile.x}/${tile.y}`);
+				}
+				Tile._enqueueLoad(tile, params.loader);
+			}
+
 			// LOD
 			const { action, newTiles } = tile._updateLOD(params);
 			this._processLODAction(tile, action, newTiles, params);
@@ -732,7 +758,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
 		if (action === LODAction.create) {
-			// Init children, then enqueue loads by distance (center first)
+			// Init children, then enqueue in-frustum loads by distance (center first)
 			newTiles?.forEach(newTile => {
 				newTile._initTile();
 				newTile._isVirtualTile = newTile.z < params.minLevel;
@@ -744,7 +770,15 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						newTile._checkVisibility();
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
 					};
-					Tile._enqueueLoad(newTile, params.loader);
+					// Only fetch tiles that intersect the camera frustum.
+					// Out-of-frustum children wait until they enter view (see update()).
+					if (currentTile.inFrustum) {
+						Tile._enqueueLoad(newTile, params.loader);
+					} else if (Tile.debugSchedule) {
+						console.log(
+							`[Schedule] defer load z${newTile.z}/${newTile.x}/${newTile.y} (parent out of frustum)`
+						);
+					}
 				}
 			});
 		} else if (action === LODAction.remove) {
