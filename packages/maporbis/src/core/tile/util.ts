@@ -167,16 +167,43 @@ function getDistRatio(tile: Tile): number {
 }
 
 /**
+ * True if any ideal key lives under this tile (strict descendant).
+ * ideal key 是否落在该瓦片子树内。
+ */
+export function isAncestorOfAnyIdeal(
+	z: number,
+	x: number,
+	y: number,
+	idealKeys?: ReadonlySet<string> | Set<string> | null
+): boolean {
+	if (!idealKeys || idealKeys.size === 0) return false;
+	for (const key of idealKeys) {
+		const parts = key.split("/");
+		const iz = +parts[0];
+		const ix = +parts[1];
+		const iy = +parts[2];
+		if (!Number.isFinite(iz) || iz <= z) continue;
+		const dz = iz - z;
+		if ((ix >> dz) === x && (iy >> dz) === y) return true;
+	}
+	return false;
+}
+
+/**
  * Evaluate the Level of Detail (LOD) action.
  * Primary: coveringZoom from camera (screen-space ideal z).
  * Fallback: distance ratio threshold (legacy).
+ *
+ * 细分条件：在视锥内且需要更细（coveringZoom / ideal 祖先）。
+ * 不要求 showing——否则边缘/平移后父级未 showing 时永远建不出子树。
  */
 export function LODEvaluate(
 	tile: Tile,
 	minLevel: number,
 	maxLevel: number,
 	threshold: number,
-	coveringZoom?: number
+	coveringZoom?: number,
+	idealTiles?: ReadonlySet<string> | Set<string> | null
 ): LODAction {
 	const distRatio = getDistRatio(tile);
 	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
@@ -185,18 +212,22 @@ export function LODEvaluate(
 		// Root (z=0) must always refine when in frustum; it has no parent to set showing.
 		const forceRefine = tile.z === 0 || tile.z < minLevel;
 		const coverOk = hasCover ? tile.z < coveringZoom! : distRatio < threshold;
+		const needsIdeal = isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealTiles);
 		if (
 			tile.inFrustum &&
 			tile.z < maxLevel &&
-			(forceRefine || (tile.showing && coverOk))
+			(forceRefine || coverOk || needsIdeal)
 		) {
 			return LODAction.create;
 		}
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		// Aggressively drop subtrees left behind while panning
-		const outOfView = !tile.inFrustum && tile.z >= minLevel;
+		// Drop out-of-view subtrees, but keep anything still needed for ideal cover
+		const outOfView =
+			!tile.inFrustum &&
+			tile.z >= minLevel &&
+			!isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealTiles);
 		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
 			return LODAction.remove;
 		}

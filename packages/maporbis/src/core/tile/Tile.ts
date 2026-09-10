@@ -700,8 +700,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	protected _updateLOD(params: TileUpdateParams) {
 		// Always refine LOD structure; network concurrency is handled by the load queue.
 		let newTiles: Tile[] = [];
-		const { loader, minLevel, maxLevel, LODThreshold, coveringZoom } = params;
-		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold, coveringZoom);
+		const { loader, minLevel, maxLevel, LODThreshold, coveringZoom, idealTiles } = params;
+		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold, coveringZoom, idealTiles);
 		if (action === LODAction.create) {
 			newTiles = createChildren(loader, this.x, this.y, this.z);
 			this.add(...newTiles);
