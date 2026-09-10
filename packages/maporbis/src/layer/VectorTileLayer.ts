@@ -123,6 +123,8 @@ export class VectorTileLayer extends BaseTileLayer {
         this._featureFilter = options.featureFilter;
         this._renderAltitude = options.altitude || 0;
         this._useWorker = options.useWorker ?? true;
+        // Vector layer owns the ideal covering set (raster layers must not)
+        this._idealRetain = true;
         // 🔥 Critical: Set root tile to data mode (no Three.js geometry rendering)
         // 🔥 关键：设置根瓦片为数据模式 (不进行 Three.js 几何体渲染)
         (this as any)._rootTile.setDataOnlyMode(true);

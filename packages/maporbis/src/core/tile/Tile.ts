@@ -49,6 +49,8 @@ export type TileUpdateParams = {
 	interacting?: boolean;
 	/** Screen-space ideal tile z from camera (coveringZoomLevel) */
 	coveringZoom?: number;
+	/** Per-layer ideal tile keys for this update (not global) */
+	idealTiles?: Set<string>;
 };
 
 /**
@@ -95,7 +97,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _interactingMaxConcurrentDownloads = 3;
 	private static _interacting = false;
 	/** Priority queue of tiles waiting to start network load (center-first) */
-	private static _loadQueue: Array<{ tile: Tile; loader: ICompositeLoader; priority: number }> = [];
+	private static _loadQueue: Array<{
+		tile: Tile;
+		loader: ICompositeLoader;
+		priority: number;
+		idealTiles?: Set<string>;
+	}> = [];
 	// Data mode switch 数据模式开关
 	private _dataMode: boolean = false;
 	private _abortController: AbortController | null = null;
@@ -330,17 +337,11 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	public static setIdealTileSet(set: IdealTileSet | null) {
+		// Stats/demo only. Do NOT purge the shared queue here —
+		// raster and vector layers share Tile._loadQueue; purging with one
+		// layer's ideal set drops the other layer's requests.
 		Tile._idealTileSet = set;
 		Tile._idealTiles = set ? new Set(set.keys) : new Set();
-		// Drop queued loads that are neither ideal nor ancestor cover
-		if (set) {
-			const before = Tile._loadQueue.length;
-			Tile._loadQueue = Tile._loadQueue.filter((job) => Tile._isNeededForIdealCover(job.tile));
-			const dropped = before - Tile._loadQueue.length;
-			if (dropped > 0 && Tile.debugSchedule) {
-				console.log(`[Schedule] purge non-ideal queue -${dropped}, remain=${Tile._loadQueue.length}`);
-			}
-		}
 	}
 
 	public static setIdealLoadedCount(n: number) {
@@ -385,12 +386,15 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * Ideal tiles (covering set) load before non-ideal.
 	 * 按相机距离入队；ideal 集内的瓦片优先。
 	 */
-	private static _enqueueLoad(tile: Tile, loader: ICompositeLoader) {
+	private static _enqueueLoad(
+		tile: Tile,
+		loader: ICompositeLoader,
+		idealTiles?: Set<string>
+	) {
 		const key = `${tile.z}/${tile.x}/${tile.y}`;
-		const isIdeal = Tile._idealTiles.has(key);
-		// Ideal tiles sort first, then by distance
+		const isIdeal = idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key);
 		const priority = isIdeal ? 0 : 1 + tile.distToCamera;
-		Tile._loadQueue.push({ tile, loader, priority });
+		Tile._loadQueue.push({ tile, loader, priority, idealTiles });
 		if (Tile._loadQueue.length > Tile._statMaxQueue) {
 			Tile._statMaxQueue = Tile._loadQueue.length;
 		}
@@ -405,10 +409,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private static _drainLoadQueue() {
 		if (Tile._loadQueue.length === 0) return;
-		// Refresh priorities: ideal tiles first, then by latest distance
+		// Refresh priorities: per-job ideal set first, then by latest distance
 		for (const job of Tile._loadQueue) {
 			const key = `${job.tile.z}/${job.tile.x}/${job.tile.y}`;
-			job.priority = Tile._idealTiles.has(key) ? 0 : 1 + job.tile.distToCamera;
+			const isIdeal = job.idealTiles
+				? job.idealTiles.has(key)
+				: Tile._idealTiles.has(key);
+			job.priority = isIdeal ? 0 : 1 + job.tile.distToCamera;
 		}
 		// Closer tiles load first
 		Tile._loadQueue.sort((a, b) => a.priority - b.priority);
@@ -883,7 +890,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					console.log(`[Schedule] enter-frustum load z${tile.z}/${tile.x}/${tile.y}`);
 				}
 				Tile._statEnterFrustumCount++;
-				Tile._enqueueLoad(tile, params.loader);
+				Tile._enqueueLoad(tile, params.loader, params.idealTiles);
 			}
 
 			// LOD
@@ -923,7 +930,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						`(cover while children load)`
 					);
 				}
-				Tile._enqueueLoad(currentTile, params.loader);
+				Tile._enqueueLoad(currentTile, params.loader, params.idealTiles);
 			}
 
 			// Init children, then enqueue in-frustum loads by distance (center first)
@@ -938,7 +945,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
 					};
 					if (currentTile.inFrustum) {
-						Tile._enqueueLoad(newTile, params.loader);
+						Tile._enqueueLoad(newTile, params.loader, params.idealTiles);
 					} else {
 						Tile._statDeferCount++;
 						if (Tile.debugSchedule) {

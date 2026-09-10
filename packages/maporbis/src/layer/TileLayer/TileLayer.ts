@@ -166,6 +166,15 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
     public maxLevel: number = 19;
 
     /**
+     * When true, this layer computes an ideal covering set and uses it for
+     * load priority + ancestor retain. Raster layers leave this false so they
+     * do not fight vector layers over shared Tile schedule state.
+     * 为 true 时本层计算 ideal 覆盖集（矢量层）；栅格层保持 false，避免串层。
+     */
+    protected _idealRetain = false;
+    protected _layerIdealTiles: Set<string> = new Set();
+
+    /**
      * Create a new BaseTileLayer instance.
      * 创建一个新的 BaseTileLayer 实例。
      * 
@@ -398,30 +407,37 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 (camera as any).fov
             );
 
-            // Ideal covering tile set for this frame (Mapbox coveringTiles approximation)
+            // Ideal covering set: vector-only. Raster must not share/purge this.
+            let idealKeys: Set<string> | undefined;
+            let idealSet: any = null;
             const viewportWidth =
                 map?.sceneRenderer?.renderer?.domElement?.clientWidth ||
                 (typeof window !== "undefined" ? window.innerWidth : 1200);
-            let lookAtProj = { x: 0, y: 0 };
-            if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
-                const p = map.worldToPoint(lookAt as Vector3);
-                lookAtProj = { x: p.x, y: p.y };
-            } else if (map?.prjcenter) {
-                lookAtProj = { x: map.prjcenter.x, y: map.prjcenter.y };
+            if (this._idealRetain) {
+                let lookAtProj = { x: 0, y: 0 };
+                if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
+                    const p = map.worldToPoint(lookAt as Vector3);
+                    lookAtProj = { x: p.x, y: p.y };
+                } else if (map?.prjcenter) {
+                    lookAtProj = { x: map.prjcenter.x, y: map.prjcenter.y };
+                }
+                idealSet = computeIdealTileSet(
+                    coveringZoom,
+                    lookAtProj,
+                    this.projection.mapWidth,
+                    this.projection.mapHeight,
+                    viewportWidth,
+                    viewportHeight,
+                    camDist != null ? camDist : 1000,
+                    (camera as any).fov || 60,
+                    this.minLevel,
+                    this.maxLevel
+                );
+                this._layerIdealTiles = idealSet ? new Set(idealSet.keys) : new Set();
+                idealKeys = this._layerIdealTiles;
+                // Stats for demo checklist (no queue purge)
+                Tile.setIdealTileSet(idealSet);
             }
-            const idealSet = computeIdealTileSet(
-                coveringZoom,
-                lookAtProj,
-                this.projection.mapWidth,
-                this.projection.mapHeight,
-                viewportWidth,
-                viewportHeight,
-                camDist != null ? camDist : 1000,
-                (camera as any).fov || 60,
-                this.minLevel,
-                this.maxLevel
-            );
-            Tile.setIdealTileSet(idealSet);
 
             this._rootTile.update({
                 camera,
@@ -431,29 +447,27 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 LODThreshold: this.LODThreshold,
                 interacting: !!(map && map.isInteracting),
                 coveringZoom,
+                idealTiles: idealKeys,
             });
 
-            // Ideal coverage: self loaded, or nearest loaded ancestor shown as cover
-            const ideal = Tile.idealTileSet;
-            let idealLoaded = 0;
-            const loadedKeys = new Set<string>();
-            const byKey = new Map<string, any>();
-            this._rootTile.traverse((t: any) => {
-                if (!t.isTile) return;
-                const key = `${t.z}/${t.x}/${t.y}`;
-                byKey.set(key, t);
-                if (t.loaded) loadedKeys.add(key);
-                if (t.loaded && Tile.isIdealTile(t)) idealLoaded++;
-            });
-            Tile.setIdealLoadedCount(idealLoaded);
+            // Ideal coverage retain (vector layers only)
+            if (this._idealRetain && idealSet && idealSet.keys.length > 0) {
+                let idealLoaded = 0;
+                const loadedKeys = new Set<string>();
+                const byKey = new Map<string, any>();
+                this._rootTile.traverse((t: any) => {
+                    if (!t.isTile) return;
+                    const key = `${t.z}/${t.x}/${t.y}`;
+                    byKey.set(key, t);
+                    if (t.loaded) loadedKeys.add(key);
+                    if (t.loaded && this._layerIdealTiles.has(key)) idealLoaded++;
+                });
+                Tile.setIdealLoadedCount(idealLoaded);
 
-            if (ideal && ideal.keys.length > 0) {
-                // Force nearest loaded ancestor to show when an ideal tile is missing
-                for (const key of ideal.keys) {
+                for (const key of idealSet.keys) {
                     if (loadedKeys.has(key)) continue;
-                    const [iz, ix, iy] = key.split("/").map(Number);
-                    if (hasLoadedCover(loadedKeys, iz, ix, iy)) {
-                        // find that ancestor and pin showing
+                    if (hasLoadedCover(loadedKeys, ...key.split("/").map(Number) as [number, number, number])) {
+                        const [iz, ix, iy] = key.split("/").map(Number);
                         let cz = iz, cx = ix, cy = iy;
                         while (cz > 0) {
                             cx >>= 1; cy >>= 1; cz--;
@@ -465,9 +479,7 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                         }
                     }
                 }
-                Tile.setIdealCoveredCount(countIdealCovered(ideal.keys, loadedKeys));
-            } else {
-                Tile.setIdealCoveredCount(0);
+                Tile.setIdealCoveredCount(countIdealCovered(idealSet.keys, loadedKeys));
             }
 
             // Check tile tree status
