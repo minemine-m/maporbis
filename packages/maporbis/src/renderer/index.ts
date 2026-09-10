@@ -771,15 +771,11 @@ export class SceneRenderer extends SceneRendererBase {
       // Do not shrink maxDistance here — map.minZoom controls how far we can zoom out
       // (overwriting maxDistance was keeping coveringZoom stuck above minZoom ~6.6)
 
-      // const POLAR_BASE = 1e7;
-      // const POLAR_EXPONENT = 4;
-      // controls.maxPolarAngle = Math.min(Math.pow(POLAR_BASE / dist, POLAR_EXPONENT), MAX_POLAR_ANGLE);
-      controls.maxPolarAngle = mapValue(
-        controls.getDistance(),
-        0,
-        70000,
-        MAX_POLAR_ANGLE,
-        0,
+      // Allow pitch at all distances. Far zoom used to collapse maxPolarAngle to 0
+      // (top-down only), which blocked tilting after min-zoom distance got large.
+      controls.maxPolarAngle = Math.max(
+        mapValue(controls.getDistance(), 0, 70000, MAX_POLAR_ANGLE, 0),
+        MAX_POLAR_ANGLE * 0.55
       );
       // 此处绑定map的事件
       // console.log(this.map,'我的map ----------------- ')
