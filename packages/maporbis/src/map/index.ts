@@ -852,17 +852,34 @@ export class Map extends Handlerable(
         this._minZoom = minZoom;
         this._maxZoom = maxZoom;
 
-        // Sync limit control physical zoom distance (Still used for setZoom camera pushing)
-        // 同步限制控制器的物理缩放距离（仍然用于 setZoom 推相机）
+        // Sync distance limits using the same coveringZoom formula as getZoom,
+        // so maxDistance is not stuck several levels above minZoom.
         const controls = this.sceneRenderer.controls as any;
         if (controls) {
-            const minDist = this._computeDistanceFromZoom(this._maxZoom);
-            const maxDist = this._computeDistanceFromZoom(this._minZoom);
-            controls.minDistance = minDist;
-            controls.maxDistance = maxDist;
+            const h =
+                this.sceneRenderer.renderer?.domElement?.clientHeight ||
+                (typeof window !== "undefined" ? window.innerHeight : 800);
+            const fov = (this.sceneRenderer.camera as any)?.fov || 60;
+            const maxDist = this._distanceForCoveringZoom(minZoom, h, fov);
+            const minDist = this._distanceForCoveringZoom(maxZoom, h, fov);
+            controls.maxDistance = Math.max(maxDist, minDist * 1.01);
+            controls.minDistance = Math.min(minDist, controls.maxDistance * 0.99);
+            this._minZoomDistance = controls.minDistance;
+            this._maxZoomDistance = controls.maxDistance;
         }
 
         return this;
+    }
+
+    /**
+     * Inverse of coveringZoom (256px XYZ): camera distance for a given view zoom.
+     */
+    private _distanceForCoveringZoom(zoom: number, viewportHeight: number, fovDeg: number): number {
+        const mapWidth = this.projection?.mapWidth || 40075016;
+        const h = Math.max(viewportHeight, 1);
+        const fovRad = ((fovDeg || 60) * Math.PI) / 180;
+        // dist = mapWidth * H / (2^z * 512 * tan(fov/2))
+        return (mapWidth * h) / (Math.pow(2, zoom) * 512 * Math.tan(fovRad / 2));
     }
 
     /**

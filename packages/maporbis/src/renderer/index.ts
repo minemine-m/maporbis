@@ -728,9 +728,9 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // Soft map feel: light coasting after release, not harsh and not floaty
+    // Low inertia: slight glide only, not floaty
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    controls.dampingFactor = 0.02;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
