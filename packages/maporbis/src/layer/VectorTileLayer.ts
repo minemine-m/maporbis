@@ -219,12 +219,10 @@ export class VectorTileLayer extends BaseTileLayer {
             if (tile !== this._rootTile) {
                 tile.setDataOnlyMode(true);
             }
-            // Add tile-hidden listener to tile
-            // 为瓦片添加 tile-hidden 监听器
-            // // this._addHiddenListenerToTile(tile);
-            // this._addHiddenListenerToTile(tile);
+            // Add tile-hidden listener so parent meshes hide once children cover
+            // 监听 tile-hidden：子瓦片齐后隐藏父级 mesh，避免叠绘
+            this._addHiddenListenerToTile(tile);
             // Add shown listener to supplement render cached data
-            // 添加显示监听，补渲染缓存数据
             this._addShownListenerToTile(tile);
             // Add unload listener to thoroughly clean up vector features of that tile
             // 添加卸载监听，彻底清理该 tile 的矢量要素
