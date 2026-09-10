@@ -1,5 +1,5 @@
 // layers/BaseTileLayer.ts
-import { Camera, Vector3 } from "three";
+import { Camera, Group, Vector3 } from "three";
 import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
@@ -173,6 +173,12 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
      */
     protected _idealRetain = false;
     protected _layerIdealTiles: Set<string> = new Set();
+
+    /** World-wrap: mesh copies offset by ±mapWidth/Height when panning off-world */
+    protected _wrapEnabled = true;
+    private _wrapGroups = new Map<string, Group>();
+    private _wrapDirty = true;
+    private _wrapBuildTick = 0;
 
     /**
      * Create a new BaseTileLayer instance.
@@ -482,6 +488,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 Tile.setIdealCoveredCount(countIdealCovered(idealSet.keys, loadedKeys));
             }
 
+            // Amap-style world wrap (X and Y): fill off-world view with copies
+            this._updateWorldWrap(map, camera);
+
             // Check tile tree status
             // 检查瓦片树状态
             // this._debugTileTree();
@@ -490,6 +499,78 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
             // console.error(`💥 图层更新错误:`, error);
         }
         console.groupEnd();
+    }
+
+    /**
+     * Clone loaded tile meshes into ±1 world offsets (X and Y) when the camera
+     * look-at leaves the single world rectangle — Amap-style wrap.
+     * 相机中心离开单世界范围时，复制瓦片 mesh 到 ±mapWidth/Height，实现水平+垂直绕回。
+     */
+    private _updateWorldWrap(map: any, camera: Camera): void {
+        if (!this._wrapEnabled || !this._rootTile || !this.projection) return;
+        const mapW = this.projection.mapWidth;
+        const mapH = this.projection.mapHeight;
+        const lookAt = map?.sceneRenderer?.controls?.target;
+        if (!lookAt || typeof lookAt.x !== "number" || typeof map.worldToPoint !== "function") {
+            return;
+        }
+        const p = map.worldToPoint(lookAt as Vector3);
+        const hw = mapW / 2;
+        const hh = mapH / 2;
+        // Activate wrap when look-at is near/outside the world box
+        const margin = mapW * 0.15;
+        const outside =
+            p.x < -hw + margin || p.x > hw - margin || p.y < -hh + margin || p.y > hh - margin;
+        if (!outside) {
+            this._wrapGroups.forEach((g) => (g.visible = false));
+            return;
+        }
+
+        for (const g of this._wrapGroups.values()) g.visible = false;
+
+        const uniq = new Map<string, [number, number]>();
+        const nearX = p.x < -hw + margin || p.x > hw - margin;
+        const nearY = p.y < -hh + margin || p.y > hh - margin;
+        if (p.x < -hw + margin) uniq.set("-1,0", [-1, 0]);
+        if (p.x > hw - margin) uniq.set("1,0", [1, 0]);
+        if (p.y < -hh + margin) uniq.set("0,-1", [0, -1]);
+        if (p.y > hh - margin) uniq.set("0,1", [0, 1]);
+        if (nearX && nearY) {
+            const sx = p.x < -hw + margin ? -1 : 1;
+            const sy = p.y < -hh + margin ? -1 : 1;
+            uniq.set(`${sx},${sy}`, [sx, sy]);
+        }
+
+        this._wrapBuildTick = (this._wrapBuildTick || 0) + 1;
+        const rebuild = this._wrapDirty || this._wrapBuildTick % 20 === 0;
+
+        for (const [key, [dx, dy]] of uniq) {
+            let group = this._wrapGroups.get(key);
+            if (!group) {
+                group = new Group();
+                group.name = `world-wrap-${key}`;
+                this._wrapGroups.set(key, group);
+                this.add(group);
+            }
+            group.visible = true;
+            group.position.set(dx * mapW, dy * mapH, 0);
+
+            if (rebuild || group.children.length === 0) {
+                group.clear();
+                this._rootTile.traverse((obj: any) => {
+                    if (!obj.isTile || obj === this._rootTile) return;
+                    if (!obj.loaded || !obj.showing || !obj.geometry) return;
+                    const mesh = obj.clone(false);
+                    mesh.geometry = obj.geometry;
+                    mesh.material = obj.material;
+                    obj.updateMatrixWorld(true);
+                    mesh.matrix.copy(obj.matrixWorld);
+                    mesh.matrix.decompose(mesh.position, mesh.quaternion, mesh.scale);
+                    group.add(mesh);
+                });
+            }
+        }
+        this._wrapDirty = false;
     }
 
     // @ts-ignore

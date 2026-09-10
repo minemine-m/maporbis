@@ -96,19 +96,16 @@ export class TileSource implements ISource {
 	 * @returns url tile url 瓦片URL
 	 */
 	public _getUrl(x: number, y: number, z: number): string | undefined {
-		// get subdomains random
-		// 随机获取子域名
 		const subLen = this.subdomains.length;
 		if (subLen > 0) {
 			const index = Math.floor(Math.random() * subLen);
 			this.s = this.subdomains[index];
 		}
-		// Wrap X for world repeat (pan past antimeridian still hits valid tiles)
+		// Wrap X/Y for world repeat (pan past edges still hits valid tiles)
 		const n = Math.pow(2, z);
 		const xw = ((Math.round(x) % n) + n) % n;
-		// reverse y coordinate if TMS scheme
-		// 如果是TMS方案，反转Y坐标
-		const reverseY = this.isTMS ? n - 1 - y : y;
+		const yw = ((Math.round(y) % n) + n) % n;
+		const reverseY = this.isTMS ? n - 1 - yw : yw;
 		return this.getUrl(xw, reverseY, z);
 	}
 

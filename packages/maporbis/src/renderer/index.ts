@@ -728,9 +728,9 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // No coasting after drag — map must track the pointer 1:1
-    controls.enableDamping = false;
-    controls.dampingFactor = 0;
+    // Slight inertia: map follows pointer, gentle stop after release
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.03;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
