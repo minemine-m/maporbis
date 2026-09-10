@@ -741,50 +741,46 @@ export class Map extends Handlerable(
     /**
      * Get current "View Zoom Level".
      * 获取当前“视图缩放级别”
-     * 
+     *
      * @description
-     * Mapped to fixed scale [0, 22] based on camera distance.
-     * This value can exceed data source maxLevel (e.g., 18), used for UI / Styling / Interaction.
-     * 按相机距离映射到固定标尺 [0, 22]。
-     * 这个值可以超过数据源的 maxLevel（比如 18），用于 UI / 样式 / 交互。
+     * Primary source: camera-driven coveringZoom (Mapbox-style, standard 256px XYZ).
+     * Falls back to scanning the base tile tree only before the first tile update.
+     * 主来源：相机推算的 coveringZoom；仅在首帧瓦片更新前回退到树扫描。
      */
     public getZoom(): number {
-        // Current real tile level
-        // 当前真实瓦片层级
-        const dataZoom = this.getTileZoom();
-
-        // Base map configured max data level
-        // 底图配置的最大数据级别
         const baseLayer = this.getLayers()
             .find((layer) => (layer as any).isBaseLayer === true) as any;
-        const maxDataZoom: number =
-            baseLayer?.maxLevel ?? this.maxLevel;
+        const maxDataZoom: number = baseLayer?.maxLevel ?? this.maxLevel;
+        const minZoom = this._minZoom;
+        const maxViewZoom = this._maxZoom;
 
-        // Data not reached limit: use data level directly
-        // 数据还没到上限：直接用数据层级
+        // Camera-driven covering zoom (continuous, matches mainstream XYZ scale)
+        const cover = Tile.coveringZoom;
+        if (typeof cover === "number" && Number.isFinite(cover) && cover > 0) {
+            // Below data max: view zoom == covering zoom (clamped)
+            if (cover <= maxDataZoom) {
+                return Math.min(Math.max(cover, minZoom), maxDataZoom);
+            }
+            // Past data max: overzoom = coveringZoom beyond maxLevel (capped by view max)
+            const over = cover - maxDataZoom;
+            return Math.min(maxDataZoom + over, maxViewZoom);
+        }
+
+        // Fallback: legacy tile-tree scan (before first update)
+        const dataZoom = this.getTileZoom();
         if (dataZoom < maxDataZoom) {
             return dataZoom;
         }
-
-        // Data reached limit: add overzoom
-        // 数据到上限：叠加 overzoom
         return maxDataZoom + this._overZoom;
     }
 
     /**
-    * Get current "Data Zoom Level" (Tile z).
-    * 获取当前“数据缩放级别”（瓦片 z）
-    * 
-    * @description
-    * Actual z calculated from TileMap base layer tile tree.
-    * Max value limited by data source and TileLayer.maxLevel, e.g., data only goes up to 18.
-    * 从 TileMap 的底图瓦片树中统计出来的实际 z。
-    * 最大值受数据源和 TileLayer.maxLevel 限制，例如数据只到 18。
+     * Get current deepest tile z actually present in the visible base tile tree.
+     * 获取当前可见底图瓦片树中的最深层级 z（调试用，不再是 getZoom 的主来源）。
      */
     public getTileZoom(): number {
         let current = this.minLevel;
 
-        // 找到底图图层（isBaseLayer === true）
         const baseLayer = this.getLayers()
             .find((layer) => (layer as any).isBaseLayer === true) as any;
 

@@ -326,8 +326,8 @@
         }
 
         statsEl.innerHTML = [
+          `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `coveringZoom(标准XYZ基准256px): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
-          `≈主流地图zoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(1) : '-'}（对照高德/Google观感）`,
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
@@ -337,6 +337,19 @@
         const check = document.getElementById('verifyChecklist');
         if (!check) return;
         const items = [];
+
+        // 0b. map.zoom driven by coveringZoom
+        {
+          const mz = map && map.getZoom ? map.getZoom() : NaN;
+          const cz = s.coveringZoom;
+          const diff = Math.abs(mz - cz);
+          const ok = Number.isFinite(mz) && Number.isFinite(cz) && diff < 0.6;
+          items.push({
+            ok,
+            title: '⓪+ map.zoom 由 coveringZoom 驱动（不再从瓦片树反推）',
+            evidence: `map.getZoom()=${Number.isFinite(mz) ? mz.toFixed(2) : '-'}, coveringZoom=${cz != null ? cz.toFixed(2) : '-'}, |Δ|=${Number.isFinite(diff) ? diff.toFixed(2) : '-'}（应 < 0.6，缩放时一起变）`
+          });
+        }
 
         // 0. coveringZoom
         {
