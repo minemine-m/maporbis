@@ -262,6 +262,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		coveringZoom: number;
 		idealTileCount: number;
 		idealTileZ: number | null;
+		idealLoadedCount: number;
 	} {
 		return {
 			activeDownloads: Tile._activeDownloads,
@@ -284,6 +285,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			coveringZoom: Tile._coveringZoom,
 			idealTileCount: Tile._idealTiles.size,
 			idealTileZ: Tile._idealTileSet ? Tile._idealTileSet.z : null,
+			idealLoadedCount: Tile._idealLoadedCount,
 		};
 	}
 
@@ -303,9 +305,48 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`);
 	}
 
+	/**
+	 * Keep queued work that is ideal, or an ancestor of an ideal tile (parent cover).
+	 * Drop the rest — obsolete after camera moved.
+	 */
+	private static _isNeededForIdealCover(tile: Tile): boolean {
+		if (Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`)) return true;
+		const set = Tile._idealTileSet;
+		if (!set) return true; // no ideal info — keep everything
+		// Ancestor of any ideal key: same z-prefix via integer division
+		const shift = set.z - tile.z;
+		if (shift < 0) return false; // deeper than ideal — not needed as cover
+		const n = Math.pow(2, shift);
+		for (const key of Tile._idealTiles) {
+			const [iz, ix, iy] = key.split("/").map(Number);
+			if (iz !== set.z) continue;
+			if (Math.floor(ix / n) === tile.x && Math.floor(iy / n) === tile.y) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static setIdealTileSet(set: IdealTileSet | null) {
 		Tile._idealTileSet = set;
 		Tile._idealTiles = set ? new Set(set.keys) : new Set();
+		// Drop queued loads that are neither ideal nor ancestor cover
+		if (set) {
+			const before = Tile._loadQueue.length;
+			Tile._loadQueue = Tile._loadQueue.filter((job) => Tile._isNeededForIdealCover(job.tile));
+			const dropped = before - Tile._loadQueue.length;
+			if (dropped > 0 && Tile.debugSchedule) {
+				console.log(`[Schedule] purge non-ideal queue -${dropped}, remain=${Tile._loadQueue.length}`);
+			}
+		}
+	}
+
+	public static setIdealLoadedCount(n: number) {
+		Tile._idealLoadedCount = n;
+	}
+
+	public static get idealLoadedCount(): number {
+		return Tile._idealLoadedCount;
 	}
 
 	/** Toggle verbose schedule logs (create/load/abort/retain) */
@@ -326,6 +367,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _coveringZoom = 0;
 	private static _idealTiles: Set<string> = new Set();
 	private static _idealTileSet: IdealTileSet | null = null;
+	private static _idealLoadedCount = 0;
 
 	/**
 	 * Enqueue a tile load by camera distance (center tiles first).

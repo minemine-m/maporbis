@@ -433,6 +433,15 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 coveringZoom,
             });
 
+            // How many ideal tiles already have data (coverage ratio)
+            let idealLoaded = 0;
+            this._rootTile.traverse((t) => {
+                if ((t as any).isTile && (t as any).loaded && Tile.isIdealTile(t as Tile)) {
+                    idealLoaded++;
+                }
+            });
+            Tile.setIdealLoadedCount(idealLoaded);
+
             // Check tile tree status
             // 检查瓦片树状态
             // this._debugTileTree();
