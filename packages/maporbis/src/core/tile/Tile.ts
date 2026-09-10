@@ -263,6 +263,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		idealTileCount: number;
 		idealTileZ: number | null;
 		idealLoadedCount: number;
+		idealCoveredCount: number;
 	} {
 		return {
 			activeDownloads: Tile._activeDownloads,
@@ -286,6 +287,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			idealTileCount: Tile._idealTiles.size,
 			idealTileZ: Tile._idealTileSet ? Tile._idealTileSet.z : null,
 			idealLoadedCount: Tile._idealLoadedCount,
+			idealCoveredCount: Tile._idealCoveredCount,
 		};
 	}
 
@@ -349,6 +351,14 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return Tile._idealLoadedCount;
 	}
 
+	public static setIdealCoveredCount(n: number) {
+		Tile._idealCoveredCount = n;
+	}
+
+	public static get idealCoveredCount(): number {
+		return Tile._idealCoveredCount;
+	}
+
 	/** Toggle verbose schedule logs (create/load/abort/retain) */
 	public static debugSchedule = false;
 
@@ -368,6 +378,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _idealTiles: Set<string> = new Set();
 	private static _idealTileSet: IdealTileSet | null = null;
 	private static _idealLoadedCount = 0;
+	private static _idealCoveredCount = 0;
 
 	/**
 	 * Enqueue a tile load by camera distance (center tiles first).

@@ -61,6 +61,36 @@ export type IdealTileSet = {
 };
 
 /**
+ * True if the ideal tile itself is loaded, or any ancestor is loaded (cover).
+ * ideal 自身已加载，或任一祖先已加载可作覆盖。
+ */
+export function hasLoadedCover(
+	loadedKeys: Set<string>,
+	z: number,
+	x: number,
+	y: number
+): boolean {
+	if (loadedKeys.has(`${z}/${x}/${y}`)) return true;
+	if (z <= 0) return false;
+	return hasLoadedCover(loadedKeys, z - 1, x >> 1, y >> 1);
+}
+
+/**
+ * Count how many ideal tiles are visually covered (self or ancestor loaded).
+ */
+export function countIdealCovered(
+	idealKeys: string[],
+	loadedKeys: Set<string>
+): number {
+	let n = 0;
+	for (const key of idealKeys) {
+		const [z, x, y] = key.split("/").map(Number);
+		if (hasLoadedCover(loadedKeys, z, x, y)) n++;
+	}
+	return n;
+}
+
+/**
  * Mapbox-style coveringTiles (viewport AABB at covering zoom).
  * Returns ideal XYZ keys the camera wants this frame.
  * 每帧根据相机与视口计算 ideal 瓦片 key 集合。

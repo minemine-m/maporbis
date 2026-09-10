@@ -4,7 +4,7 @@ import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
 import { Tile } from "../../core/tile";
-import { computeCoveringZoomLevel, computeIdealTileSet } from "../../core/tile/util";
+import { computeCoveringZoomLevel, computeIdealTileSet, countIdealCovered, hasLoadedCover } from "../../core/tile/util";
 import { ICompositeLoader } from "../../loaders";
 import { Layer, LayerOptions } from "../Layer";
 
@@ -433,14 +433,42 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 coveringZoom,
             });
 
-            // How many ideal tiles already have data (coverage ratio)
+            // Ideal coverage: self loaded, or nearest loaded ancestor shown as cover
+            const ideal = Tile.idealTileSet;
             let idealLoaded = 0;
-            this._rootTile.traverse((t) => {
-                if ((t as any).isTile && (t as any).loaded && Tile.isIdealTile(t as Tile)) {
-                    idealLoaded++;
-                }
+            const loadedKeys = new Set<string>();
+            const byKey = new Map<string, any>();
+            this._rootTile.traverse((t: any) => {
+                if (!t.isTile) return;
+                const key = `${t.z}/${t.x}/${t.y}`;
+                byKey.set(key, t);
+                if (t.loaded) loadedKeys.add(key);
+                if (t.loaded && Tile.isIdealTile(t)) idealLoaded++;
             });
             Tile.setIdealLoadedCount(idealLoaded);
+
+            if (ideal && ideal.keys.length > 0) {
+                // Force nearest loaded ancestor to show when an ideal tile is missing
+                for (const key of ideal.keys) {
+                    if (loadedKeys.has(key)) continue;
+                    const [iz, ix, iy] = key.split("/").map(Number);
+                    if (hasLoadedCover(loadedKeys, iz, ix, iy)) {
+                        // find that ancestor and pin showing
+                        let cz = iz, cx = ix, cy = iy;
+                        while (cz > 0) {
+                            cx >>= 1; cy >>= 1; cz--;
+                            const anc = byKey.get(`${cz}/${cx}/${cy}`);
+                            if (anc && anc.loaded) {
+                                anc.showing = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                Tile.setIdealCoveredCount(countIdealCovered(ideal.keys, loadedKeys));
+            } else {
+                Tile.setIdealCoveredCount(0);
+            }
 
             // Check tile tree status
             // 检查瓦片树状态

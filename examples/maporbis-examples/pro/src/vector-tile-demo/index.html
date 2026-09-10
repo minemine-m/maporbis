@@ -335,7 +335,7 @@
           `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `矢量 maxLevel: ${vLayer && vLayer.maxLevel} · source.maxLevel: ${vLayer && vLayer.source && vLayer.source.maxLevel}`,
           `coveringZoom(标准XYZ基准256px): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
-          `ideal瓦片: ${s.idealLoadedCount}/${s.idealTileCount} 已加载 @ z=${s.idealTileZ}`,
+          `ideal瓦片: 加载 ${s.idealLoadedCount}/${s.idealTileCount} · 覆盖 ${s.idealCoveredCount}/${s.idealTileCount} @ z=${s.idealTileZ}`,
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
@@ -350,13 +350,14 @@
         {
           const n = s.idealTileCount;
           const loaded = s.idealLoadedCount || 0;
+          const covered = s.idealCoveredCount || 0;
           const iz = s.idealTileZ;
-          const ratio = n > 0 ? loaded / n : 0;
-          const ok = n > 0 && n < 500 && typeof iz === 'number' && ratio > 0.5;
+          const covRatio = n > 0 ? covered / n : 0;
+          const ok = n > 0 && n < 500 && typeof iz === 'number' && covRatio > 0.85;
           items.push({
             ok,
-            title: '⓪++ ideal 瓦片集（coveringTiles）',
-            evidence: `idealLoaded=${loaded}/${n} (${(ratio*100).toFixed(0)}%), idealZ=${iz}（缩放/平移后应逐渐填满）`
+            title: '⓪++ ideal 瓦片集 + 祖先覆盖',
+            evidence: `loaded=${loaded}/${n}, covered=${covered}/${n} (${(covRatio*100).toFixed(0)}%), idealZ=${iz}（covered 应接近 100%）`
           });
         }
 
