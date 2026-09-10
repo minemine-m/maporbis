@@ -176,7 +176,8 @@ export function LODEvaluate(
 	minLevel: number,
 	maxLevel: number,
 	threshold: number,
-	coveringZoom?: number
+	coveringZoom?: number,
+	interacting?: boolean
 ): LODAction {
 	const distRatio = getDistRatio(tile);
 	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
@@ -195,8 +196,10 @@ export function LODEvaluate(
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		// Aggressively drop subtrees left behind while panning
-		const outOfView = !tile.inFrustum && tile.z >= minLevel;
+		// While panning, do NOT tear down off-frustum children every frame —
+		// that abort/recreates causes load thrash and feels like progressive slowdown.
+		const outOfView =
+			!tile.inFrustum && tile.z >= minLevel && !interacting;
 		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
 			return LODAction.remove;
 		}
