@@ -39,7 +39,7 @@ describe("Tile parent-prefetch when subdividing unloaded parent", () => {
 		// Parent at z=2: in tree, in frustum, showing, but never loaded
 		const parent = new Tile(1, 1, 2);
 		root.add(parent);
-		parent.inFrustum = true;
+		(parent as any).inFrustum = true;
 		parent.showing = true;
 		parent.distToCamera = 1000;
 		expect(parent.loaded).toBe(false);
@@ -72,7 +72,7 @@ describe("Tile parent-prefetch when subdividing unloaded parent", () => {
 		const root = new Tile(0, 0, 0);
 		const parent = new Tile(0, 0, 1);
 		root.add(parent);
-		parent.inFrustum = true;
+		(parent as any).inFrustum = true;
 		parent.showing = true;
 		// Simulate already loaded
 		(parent as any)._transitionTo(TileState.Loaded);
