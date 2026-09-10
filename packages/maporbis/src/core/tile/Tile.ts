@@ -252,6 +252,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		abortCount: number;
 		deferCount: number;
 		enterFrustumCount: number;
+		parentPrefetchCount: number;
 		retainHoldCount: number;
 		retainReleaseCount: number;
 		maxQueueSeen: number;
@@ -268,6 +269,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			abortCount: Tile._statAbortCount,
 			deferCount: Tile._statDeferCount,
 			enterFrustumCount: Tile._statEnterFrustumCount,
+			parentPrefetchCount: Tile._statParentPrefetchCount,
 			retainHoldCount: Tile._statRetainHoldCount,
 			retainReleaseCount: Tile._statRetainReleaseCount,
 			maxQueueSeen: Tile._statMaxQueue,
@@ -292,6 +294,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _statAbortCount = 0;
 	private static _statDeferCount = 0;
 	private static _statEnterFrustumCount = 0;
+	private static _statParentPrefetchCount = 0;
 	private static _statRetainHoldCount = 0;
 	private static _statRetainReleaseCount = 0;
 	private static _statMaxQueue = 0;
@@ -816,11 +819,35 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
 		if (action === LODAction.create) {
+			// Mapbox-style: ensure the parent has data so it can cover while children load
+			if (
+				!currentTile.isDummy &&
+				currentTile.z >= params.minLevel &&
+				!currentTile.loaded &&
+				currentTile._canStartLoading() &&
+				!Tile._isQueued(currentTile)
+			) {
+				if (!currentTile._onLoadComplete) {
+					const parentForEvent = this;
+					currentTile._onLoadComplete = () => {
+						currentTile._checkVisibility();
+						parentForEvent.dispatchEvent({ type: "tile-loaded", tile: currentTile });
+					};
+				}
+				Tile._statParentPrefetchCount++;
+				if (Tile.debugSchedule) {
+					console.log(
+						`[Schedule] parent-prefetch z${currentTile.z}/${currentTile.x}/${currentTile.y} ` +
+						`(cover while children load)`
+					);
+				}
+				Tile._enqueueLoad(currentTile, params.loader);
+			}
+
 			// Init children, then enqueue in-frustum loads by distance (center first)
 			newTiles?.forEach(newTile => {
 				newTile._initTile();
 				newTile._isVirtualTile = newTile.z < params.minLevel;
-				// Approximate priority from parent distance before first camera update
 				newTile.distToCamera = currentTile.distToCamera;
 				this.dispatchEvent({ type: "tile-created", tile: newTile });
 				if (!newTile.isDummy) {
@@ -828,8 +855,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						newTile._checkVisibility();
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
 					};
-					// Only fetch tiles that intersect the camera frustum.
-					// Out-of-frustum children wait until they enter view (see update()).
 					if (currentTile.inFrustum) {
 						Tile._enqueueLoad(newTile, params.loader);
 					} else {

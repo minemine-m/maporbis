@@ -418,7 +418,7 @@
           items.push({
             ok: s.retainHoldCount > 0,
             title: '⑥ 父级覆盖 retain（子未齐时父瓦片顶上）',
-            evidence: `hold=${s.retainHoldCount}, release=${s.retainReleaseCount}`
+            evidence: `hold=${s.retainHoldCount}, release=${s.retainReleaseCount}, parent-prefetch=${s.parentPrefetchCount}（细分时父级未入队才计数；hold>0 即覆盖在工作）`
           });
         }
 
