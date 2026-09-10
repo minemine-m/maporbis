@@ -196,11 +196,10 @@ export function LODEvaluate(
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		// While panning, do NOT tear down off-frustum children every frame —
-		// that abort/recreates causes load thrash and feels like progressive slowdown.
-		const outOfView =
-			!tile.inFrustum && tile.z >= minLevel && !interacting;
-		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
+		// Do not add a separate !inFrustum teardown — releasing the mouse sets
+		// interacting=false and would unload every off-screen child, making the
+		// *next* pan reload the world. coveringZoom/distRatio already handle depth.
+		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk)) {
 			return LODAction.remove;
 		}
 	}

@@ -467,13 +467,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			const t = job.tile;
 			if (t.z !== 0 && !t.parent) return false;
 			if (t.loaded || t.state === TileState.Unloaded) return false;
-			const parent = t.parent as Tile | null;
-			if (parent && (parent as any).isTile && parent.showing) {
-				const sibs = parent.children.filter((c: any) => c.isTile);
-				if (sibs.some((c: any) => !c.loaded)) return true;
-			}
-			// Only drop out-of-frustum work when the queue is actually backing up
-			if (!t.inFrustum && Tile._loadQueue.length > 48) return false;
+			// Keep anything that might still fill the view
 			return true;
 		});
 		if (Tile._loadQueue.length > MAX_QUEUE) {
