@@ -173,7 +173,7 @@
           <div class="control-label">
             瓦片调度状态
             <label class="switch">
-              <input type="checkbox" id="debugSchedule" onchange="toggleScheduleDebug(this.checked)">
+              <input type="checkbox" id="debugSchedule">
               <span class="slider"></span>
             </label>
           </div>
@@ -252,24 +252,25 @@
     }
 
     // ---- 调度状态面板（便于肉眼确认 Abort / 队列 / 限流）----
-    function toggleScheduleDebug(on) {
-      if (maporbis.Tile) {
-        maporbis.Tile.debugSchedule = on;
-      }
-      const log = document.getElementById('scheduleLog');
-      if (on) {
-        log.innerHTML = '<div>已开启 [Schedule] 控制台日志</div>';
-        console.log('[Demo] Tile.debugSchedule = true，控制台会打印 enqueue / start load / loaded / abort / retain');
-      } else {
-        log.innerHTML = '<div>已关闭详细日志</div>';
-        if (maporbis.Tile) maporbis.Tile.debugSchedule = false;
-      }
-    }
-
     function startSchedulePanel() {
       const statsEl = document.getElementById('scheduleStats');
       const logEl = document.getElementById('scheduleLog');
+      const debugCb = document.getElementById('debugSchedule');
       if (!statsEl) return;
+
+      if (debugCb) {
+        debugCb.addEventListener('change', () => {
+          const on = debugCb.checked;
+          if (maporbis.Tile) maporbis.Tile.debugSchedule = on;
+          if (on) {
+            logEl.innerHTML = '<div>已开启 [Schedule] 控制台日志</div>';
+            console.log('[Demo] Tile.debugSchedule = true，控制台会打印 enqueue / start load / loaded / abort / retain');
+          } else {
+            logEl.innerHTML = '<div>已关闭详细日志</div>';
+            if (maporbis.Tile) maporbis.Tile.debugSchedule = false;
+          }
+        });
+      }
 
       // Mirror [Schedule] logs into the panel so you can read them without DevTools
       const orig = console.log;
