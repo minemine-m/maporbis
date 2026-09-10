@@ -93,8 +93,8 @@ const frustum = new Frustum();
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _activeDownloads = 0;
 	private static _maxConcurrentDownloads = 10;
-	/** Lower concurrency while the user is panning/zooming */
-	private static _interactingMaxConcurrentDownloads = 3;
+	/** Still allow enough bandwidth while panning so edges do not starve */
+	private static _interactingMaxConcurrentDownloads = 8;
 	private static _interacting = false;
 	/** Priority queue of tiles waiting to start network load (center-first) */
 	private static _loadQueue: Array<{
@@ -386,14 +386,33 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * Ideal tiles (covering set) load before non-ideal.
 	 * 按相机距离入队；ideal 集内的瓦片优先。
 	 */
+	/**
+	 * Load priority (lower = sooner).
+	 * 0: sibling blocking a showing parent (edge holes)
+	 * 1: ideal covering tile
+	 * 2+: distance (fair across raster/vector — no absolute ideal=0 flood)
+	 */
+	private static _loadPriority(tile: Tile, idealTiles?: Set<string>): number {
+		const parent = tile.parent as Tile | null;
+		if (parent && (parent as any).isTile) {
+			const sibs = parent.children.filter((c: any) => c.isTile);
+			if (parent.showing && sibs.some((c: any) => !c.loaded)) {
+				return 0;
+			}
+		}
+		const key = `${tile.z}/${tile.x}/${tile.y}`;
+		if (idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key)) {
+			return 1;
+		}
+		return 2 + tile.distToCamera;
+	}
+
 	private static _enqueueLoad(
 		tile: Tile,
 		loader: ICompositeLoader,
 		idealTiles?: Set<string>
 	) {
-		const key = `${tile.z}/${tile.x}/${tile.y}`;
-		const isIdeal = idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key);
-		const priority = isIdeal ? 0 : 1 + tile.distToCamera;
+		const priority = Tile._loadPriority(tile, idealTiles);
 		Tile._loadQueue.push({ tile, loader, priority, idealTiles });
 		if (Tile._loadQueue.length > Tile._statMaxQueue) {
 			Tile._statMaxQueue = Tile._loadQueue.length;
@@ -409,13 +428,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private static _drainLoadQueue() {
 		if (Tile._loadQueue.length === 0) return;
-		// Refresh priorities: per-job ideal set first, then by latest distance
+		// Refresh priorities each drain (parent-block and ideal change as camera moves)
 		for (const job of Tile._loadQueue) {
-			const key = `${job.tile.z}/${job.tile.x}/${job.tile.y}`;
-			const isIdeal = job.idealTiles
-				? job.idealTiles.has(key)
-				: Tile._idealTiles.has(key);
-			job.priority = isIdeal ? 0 : 1 + job.tile.distToCamera;
+			job.priority = Tile._loadPriority(job.tile, job.idealTiles);
 		}
 		// Closer tiles load first
 		Tile._loadQueue.sort((a, b) => a.priority - b.priority);
