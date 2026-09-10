@@ -247,17 +247,50 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		maxConcurrent: number;
 		loadQueue: number;
 		interacting: boolean;
+		abortCount: number;
+		deferCount: number;
+		enterFrustumCount: number;
+		retainHoldCount: number;
+		retainReleaseCount: number;
+		maxQueueSeen: number;
+		avgLoadedDist: number;
+		loadedDistMin: number;
+		loadedDistMax: number;
 	} {
 		return {
 			activeDownloads: Tile._activeDownloads,
 			maxConcurrent: Tile.effectiveMaxConcurrentDownloads,
 			loadQueue: Tile._loadQueue.length,
 			interacting: Tile._interacting,
+			abortCount: Tile._statAbortCount,
+			deferCount: Tile._statDeferCount,
+			enterFrustumCount: Tile._statEnterFrustumCount,
+			retainHoldCount: Tile._statRetainHoldCount,
+			retainReleaseCount: Tile._statRetainReleaseCount,
+			maxQueueSeen: Tile._statMaxQueue,
+			avgLoadedDist:
+				Tile._statLoadedDistCount > 0
+					? Tile._statLoadedDistSum / Tile._statLoadedDistCount
+					: 0,
+			loadedDistMin: Tile._statLoadedDistMin === Infinity ? 0 : Tile._statLoadedDistMin,
+			loadedDistMax: Tile._statLoadedDistMax,
 		};
 	}
 
 	/** Toggle verbose schedule logs (create/load/abort/retain) */
 	public static debugSchedule = false;
+
+	// ---- Verification counters (demo checklist) ----
+	private static _statAbortCount = 0;
+	private static _statDeferCount = 0;
+	private static _statEnterFrustumCount = 0;
+	private static _statRetainHoldCount = 0;
+	private static _statRetainReleaseCount = 0;
+	private static _statMaxQueue = 0;
+	private static _statLoadedDistSum = 0;
+	private static _statLoadedDistCount = 0;
+	private static _statLoadedDistMin = Infinity;
+	private static _statLoadedDistMax = 0;
 
 	/**
 	 * Enqueue a tile load by camera distance (center tiles first).
@@ -265,6 +298,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	private static _enqueueLoad(tile: Tile, loader: ICompositeLoader) {
 		Tile._loadQueue.push({ tile, loader, priority: tile.distToCamera });
+		if (Tile._loadQueue.length > Tile._statMaxQueue) {
+			Tile._statMaxQueue = Tile._loadQueue.length;
+		}
 		if (Tile.debugSchedule) {
 			console.log(
 				`[Schedule] enqueue z${tile.z}/${tile.x}/${tile.y} ` +
@@ -515,6 +551,11 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (parent && parent.isTile) {
 			const children = parent.children.filter(child => child.isTile);
 			const allLoaded = children.every(child => child.loaded);
+			if (allLoaded) {
+				if (parent.showing) Tile._statRetainReleaseCount++;
+			} else {
+				Tile._statRetainHoldCount++;
+			}
 			parent.showing = !allLoaded;
 			children.forEach(child => (child.showing = allLoaded));
 
@@ -595,8 +636,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
+				Tile._statLoadedDistSum += this.distToCamera;
+				Tile._statLoadedDistCount++;
+				if (this.distToCamera < Tile._statLoadedDistMin) Tile._statLoadedDistMin = this.distToCamera;
+				if (this.distToCamera > Tile._statLoadedDistMax) Tile._statLoadedDistMax = this.distToCamera;
 				if (Tile.debugSchedule) {
-					console.log(`[Schedule] loaded z${z}/${x}/${y} (vector)`);
+					console.log(`[Schedule] loaded z${z}/${x}/${y} (vector) dist=${this.distToCamera.toFixed(0)}`);
 				}
 
 				// 触发数据加载事件
@@ -634,6 +679,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 			if (isAbort) {
 				// Cancelled by dispose/refinement — not a failure
+				Tile._statAbortCount++;
 				if (Tile.debugSchedule) {
 					console.log(`[Schedule] abort z${z}/${x}/${y} (cancelled, not an error)`);
 				}
@@ -740,6 +786,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				if (Tile.debugSchedule) {
 					console.log(`[Schedule] enter-frustum load z${tile.z}/${tile.x}/${tile.y}`);
 				}
+				Tile._statEnterFrustumCount++;
 				Tile._enqueueLoad(tile, params.loader);
 			}
 
@@ -774,10 +821,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					// Out-of-frustum children wait until they enter view (see update()).
 					if (currentTile.inFrustum) {
 						Tile._enqueueLoad(newTile, params.loader);
-					} else if (Tile.debugSchedule) {
-						console.log(
-							`[Schedule] defer load z${newTile.z}/${newTile.x}/${newTile.y} (parent out of frustum)`
-						);
+					} else {
+						Tile._statDeferCount++;
+						if (Tile.debugSchedule) {
+							console.log(
+								`[Schedule] defer load z${newTile.z}/${newTile.x}/${newTile.y} (parent out of frustum)`
+							);
+						}
 					}
 				}
 			});
