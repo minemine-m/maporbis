@@ -728,12 +728,11 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // Map-like feel: no coasting after mouse release (issue: "松手才慢慢滑过来")
-    controls.enableDamping = false;
-    controls.dampingFactor = 0;
+    // Soft map feel: light coasting after release, not harsh and not floaty
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
     controls.keyPanSpeed = 1;
-    // One wheel notch ≈ one zoom step; distance-based speed was jumping ~4 levels
-    controls.zoomSpeed = 1;
+    controls.zoomSpeed = 1.8;
 
     controls.listenToKeyEvents(this.renderer.domElement);
 
@@ -741,8 +740,8 @@ export class SceneRenderer extends SceneRendererBase {
       const polar = Math.max(controls.getPolarAngle(), 0.1);
       const dist = Math.max(controls.getDistance(), 100);
 
-      // Keep zoom steady across world→city distances (was log(dist)+3 → ~4 levels/wheel)
-      controls.zoomSpeed = 1;
+      // Moderate zoom: not ~4 levels/wheel, not crawling
+      controls.zoomSpeed = 1.8;
       const maxFar = Math.max(controls.maxDistance * 2, 300000 * 2);
       if (controls.maxDistance > maxFar * 0.95)
         controls.maxDistance = maxFar * 0.95;

@@ -42,10 +42,10 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
     public async load(context: SourceLoadContext): Promise<BufferGeometry> {
         const { source, x, y, z, signal } = context;
 
-        // Get URL from source
+        // Get URL from source — wrap X for TMS/XYZ world repeat
         const url = typeof source._getUrl === "function"
-            ? source._getUrl(x, y, z)
-            : this.buildTileUrl((source as any).url as string, x, y, z);
+            ? source._getUrl(this.wrapX(x, z), y, z)
+            : this.buildTileUrl((source as any).url as string, this.wrapX(x, z), y, z);
 
         if (!url) {
             return this.createErrorGeometry(x, y, z, new Error("Source returned empty URL"));
@@ -90,6 +90,11 @@ export class MapboxVectorTileGeometryLoader implements IGeometryLoader {
             }
             return this.createErrorGeometry(x, y, z, error);
         }
+    }
+
+    private wrapX(x: number, z: number): number {
+        const n = Math.pow(2, z);
+        return ((Math.round(x) % n) + n) % n;
     }
 
     private async fetchVectorData(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {

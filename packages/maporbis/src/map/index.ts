@@ -562,10 +562,12 @@ export class Map extends Handlerable(
             .find((layer) => (layer as any).isBaseLayer === true) as any;
         const dataMin = baseLayer?.minLevel ?? this.minLevel;
 
-        // Min zoom uses data minLevel, Max zoom uses global theoretical limit (e.g. 22)
-        // 最小 zoom 用数据的 minLevel，最大 zoom 用全局理论上限（比如 22）
-        this._minZoom = Math.max(this._ZOOM_MIN_CONST, Math.min(this._ZOOM_MAX_CONST, dataMin));
+        // Min zoom uses data minLevel, but never zoom out past ~4 (Amap-like)
+        // so the viewport stays covered by tiles instead of one tile + skybox.
+        this._minZoom = Math.max(this._ZOOM_MIN_CONST, Math.min(this._ZOOM_MAX_CONST, dataMin), 4);
         this._maxZoom = this._ZOOM_MAX_CONST;
+        // Clamp physical max distance so wheel cannot go past min zoom
+        this.setZoomBounds(this._minZoom, this._maxZoom);
 
         // Initialize "last zoom" to current tile level
         // 初始化“上一次 zoom”为当前瓦片级别
@@ -593,6 +595,22 @@ export class Map extends Handlerable(
         // 安全检查：如果对象已销毁，直接返回
         if (!this._rootGroup || !this._collisionEngine) {
             return;
+        }
+
+        // Keep look-at on the mercator world so panning cannot walk into skybox
+        const controls = this.sceneRenderer.controls as any;
+        if (controls?.target && this.projection) {
+            const hw = this.projection.mapWidth / 2;
+            const hh = this.projection.mapHeight / 2;
+            const t = controls.target;
+            if (typeof this.worldToPoint === 'function' && typeof this.pointToWorld === 'function') {
+                const p = this.worldToPoint(t);
+                const cx = Math.max(-hw, Math.min(hw, p.x));
+                const cy = Math.max(-hh, Math.min(hh, p.y));
+                if (Math.abs(cx - p.x) > 1 || Math.abs(cy - p.y) > 1) {
+                    t.copy(this.pointToWorld(new Vector3(cx, cy, p.z)));
+                }
+            }
         }
 
         // Current real tile level

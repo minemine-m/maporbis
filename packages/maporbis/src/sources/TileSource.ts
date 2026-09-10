@@ -103,10 +103,13 @@ export class TileSource implements ISource {
 			const index = Math.floor(Math.random() * subLen);
 			this.s = this.subdomains[index];
 		}
+		// Wrap X for world repeat (pan past antimeridian still hits valid tiles)
+		const n = Math.pow(2, z);
+		const xw = ((Math.round(x) % n) + n) % n;
 		// reverse y coordinate if TMS scheme
 		// 如果是TMS方案，反转Y坐标
-		const reverseY = this.isTMS ? Math.pow(2, z) - 1 - y : y;
-		return this.getUrl(x, reverseY, z);
+		const reverseY = this.isTMS ? n - 1 - y : y;
+		return this.getUrl(xw, reverseY, z);
 	}
 
 	/**
