@@ -728,9 +728,10 @@ export class SceneRenderer extends SceneRendererBase {
     controls.minDistance = minDistance ?? 0.1;
     controls.maxDistance = maxDistance ?? 40000000;
     controls.maxPolarAngle = MAX_POLAR_ANGLE;
-    // Almost no coasting — user rejected floaty pan
+    // Three.js damping: leftover *= (1 - dampingFactor) each frame.
+    // Small factor = almost no drag decay (coasts for seconds). 0.5 dies in ~100ms.
     controls.enableDamping = true;
-    controls.dampingFactor = 0.01;
+    controls.dampingFactor = 0.5;
     controls.keyPanSpeed = 1;
     controls.zoomSpeed = 1.8;
 
