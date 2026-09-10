@@ -15,7 +15,7 @@ import {
 	Vector3,
 } from "three";
 import { ICompositeLoader } from "../../loaders";
-import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate } from "./util";
+import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate, IdealTileSet } from "./util";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -260,6 +260,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		loadedDistMin: number;
 		loadedDistMax: number;
 		coveringZoom: number;
+		idealTileCount: number;
+		idealTileZ: number | null;
 	} {
 		return {
 			activeDownloads: Tile._activeDownloads,
@@ -280,11 +282,30 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			loadedDistMin: Tile._statLoadedDistMin === Infinity ? 0 : Tile._statLoadedDistMin,
 			loadedDistMax: Tile._statLoadedDistMax,
 			coveringZoom: Tile._coveringZoom,
+			idealTileCount: Tile._idealTiles.size,
+			idealTileZ: Tile._idealTileSet ? Tile._idealTileSet.z : null,
 		};
 	}
 
 	public static get coveringZoom(): number {
 		return Tile._coveringZoom;
+	}
+
+	public static get idealTileCount(): number {
+		return Tile._idealTiles.size;
+	}
+
+	public static get idealTileSet(): IdealTileSet | null {
+		return Tile._idealTileSet;
+	}
+
+	public static isIdealTile(tile: Tile): boolean {
+		return Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`);
+	}
+
+	public static setIdealTileSet(set: IdealTileSet | null) {
+		Tile._idealTileSet = set;
+		Tile._idealTiles = set ? new Set(set.keys) : new Set();
 	}
 
 	/** Toggle verbose schedule logs (create/load/abort/retain) */
@@ -303,13 +324,20 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _statLoadedDistMin = Infinity;
 	private static _statLoadedDistMax = 0;
 	private static _coveringZoom = 0;
+	private static _idealTiles: Set<string> = new Set();
+	private static _idealTileSet: IdealTileSet | null = null;
 
 	/**
 	 * Enqueue a tile load by camera distance (center tiles first).
-	 * 按相机距离入队加载（中心优先）。
+	 * Ideal tiles (covering set) load before non-ideal.
+	 * 按相机距离入队；ideal 集内的瓦片优先。
 	 */
 	private static _enqueueLoad(tile: Tile, loader: ICompositeLoader) {
-		Tile._loadQueue.push({ tile, loader, priority: tile.distToCamera });
+		const key = `${tile.z}/${tile.x}/${tile.y}`;
+		const isIdeal = Tile._idealTiles.has(key);
+		// Ideal tiles sort first, then by distance
+		const priority = isIdeal ? 0 : 1 + tile.distToCamera;
+		Tile._loadQueue.push({ tile, loader, priority });
 		if (Tile._loadQueue.length > Tile._statMaxQueue) {
 			Tile._statMaxQueue = Tile._loadQueue.length;
 		}
@@ -324,9 +352,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private static _drainLoadQueue() {
 		if (Tile._loadQueue.length === 0) return;
-		// Refresh priorities from latest camera distances
+		// Refresh priorities: ideal tiles first, then by latest distance
 		for (const job of Tile._loadQueue) {
-			job.priority = job.tile.distToCamera;
+			const key = `${job.tile.z}/${job.tile.x}/${job.tile.y}`;
+			job.priority = Tile._idealTiles.has(key) ? 0 : 1 + job.tile.distToCamera;
 		}
 		// Closer tiles load first
 		Tile._loadQueue.sort((a, b) => a.priority - b.priority);

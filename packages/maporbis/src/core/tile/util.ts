@@ -51,6 +51,70 @@ export function computeCoveringZoomLevel(
 	return z;
 }
 
+export type IdealTileSet = {
+	z: number;
+	keys: string[];
+	minX: number;
+	maxX: number;
+	minY: number;
+	maxY: number;
+};
+
+/**
+ * Mapbox-style coveringTiles (viewport AABB at covering zoom).
+ * Returns ideal XYZ keys the camera wants this frame.
+ * 每帧根据相机与视口计算 ideal 瓦片 key 集合。
+ */
+export function computeIdealTileSet(
+	coveringZoom: number,
+	lookAtProjected: { x: number; y: number },
+	mapWidth: number,
+	mapHeight: number,
+	viewportWidth: number,
+	viewportHeight: number,
+	dist: number,
+	fovDeg: number,
+	minLevel: number,
+	maxLevel: number
+): IdealTileSet | null {
+	if (!Number.isFinite(coveringZoom)) return null;
+	const z = Math.min(
+		Math.max(Math.floor(coveringZoom), minLevel),
+		maxLevel
+	);
+	const n = Math.pow(2, z);
+	const fovRad = (fovDeg * Math.PI) / 180;
+	const h = Math.max(viewportHeight, 1);
+	const w = Math.max(viewportWidth, 1);
+	const asp = w / h;
+	const d = Math.max(dist, 1);
+
+	const visH = 2 * d * Math.tan(fovRad / 2);
+	const visW = visH * asp;
+
+	const u0 = (lookAtProjected.x + mapWidth / 2) / mapWidth;
+	const v0 = (mapHeight / 2 - lookAtProjected.y) / mapHeight;
+
+	const halfTilesX = (visW / mapWidth) * n * 0.5;
+	const halfTilesY = (visH / mapHeight) * n * 0.5;
+	const cx = u0 * n;
+	const cy = v0 * n;
+
+	const minX = Math.max(0, Math.floor(cx - halfTilesX));
+	const maxX = Math.min(n - 1, Math.ceil(cx + halfTilesX));
+	const minY = Math.max(0, Math.floor(cy - halfTilesY));
+	const maxY = Math.min(n - 1, Math.ceil(cy + halfTilesY));
+	if (maxX < minX || maxY < minY) return null;
+
+	const keys: string[] = [];
+	for (let x = minX; x <= maxX; x++) {
+		for (let y = minY; y <= maxY; y++) {
+			keys.push(`${z}/${x}/${y}`);
+		}
+	}
+	return { z, keys, minX, maxX, minY, maxY };
+}
+
 // Get the distance of camera to tile
 /**
  */

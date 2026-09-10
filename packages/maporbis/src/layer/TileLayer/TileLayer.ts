@@ -4,7 +4,7 @@ import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
 import { Tile } from "../../core/tile";
-import { computeCoveringZoomLevel } from "../../core/tile/util";
+import { computeCoveringZoomLevel, computeIdealTileSet } from "../../core/tile/util";
 import { ICompositeLoader } from "../../loaders";
 import { Layer, LayerOptions } from "../Layer";
 
@@ -397,6 +397,31 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 256,
                 (camera as any).fov
             );
+
+            // Ideal covering tile set for this frame (Mapbox coveringTiles approximation)
+            const viewportWidth =
+                map?.sceneRenderer?.renderer?.domElement?.clientWidth ||
+                (typeof window !== "undefined" ? window.innerWidth : 1200);
+            let lookAtProj = { x: 0, y: 0 };
+            if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
+                const p = map.worldToPoint(lookAt as Vector3);
+                lookAtProj = { x: p.x, y: p.y };
+            } else if (map?.prjcenter) {
+                lookAtProj = { x: map.prjcenter.x, y: map.prjcenter.y };
+            }
+            const idealSet = computeIdealTileSet(
+                coveringZoom,
+                lookAtProj,
+                this.projection.mapWidth,
+                this.projection.mapHeight,
+                viewportWidth,
+                viewportHeight,
+                camDist != null ? camDist : 1000,
+                (camera as any).fov || 60,
+                this.minLevel,
+                this.maxLevel
+            );
+            Tile.setIdealTileSet(idealSet);
 
             this._rootTile.update({
                 camera,

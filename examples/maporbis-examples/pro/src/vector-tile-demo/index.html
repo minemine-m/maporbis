@@ -335,6 +335,7 @@
           `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `矢量 maxLevel: ${vLayer && vLayer.maxLevel} · source.maxLevel: ${vLayer && vLayer.source && vLayer.source.maxLevel}`,
           `coveringZoom(标准XYZ基准256px): ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
+          `ideal瓦片: ${s.idealTileCount} @ z=${s.idealTileZ}`,
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
@@ -344,6 +345,18 @@
         const check = document.getElementById('verifyChecklist');
         if (!check) return;
         const items = [];
+
+        // 0c. ideal tile set
+        {
+          const n = s.idealTileCount;
+          const iz = s.idealTileZ;
+          const ok = n > 0 && n < 500 && typeof iz === 'number';
+          items.push({
+            ok,
+            title: '⓪++ ideal 瓦片集（coveringTiles）',
+            evidence: `idealCount=${n}, idealZ=${iz}（缩放/平移时应变化，且 ≤ maxLevel）`
+          });
+        }
 
         // 0b. map.zoom driven by coveringZoom
         {
