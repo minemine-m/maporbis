@@ -48,17 +48,21 @@ interface FeatureTileData {
 }
 
 export type VectorTileRenderLayerOptions = OverlayLayerOptions<Feature> & {
-    /** 
+    /**
      * Paint configuration: Global PaintRule array, applied to all vector layers.
-     * 样式配置：全局 PaintRule 数组，应用于所有矢量图层 
+     * 样式配置：全局 PaintRule 数组，应用于所有矢量图层
      */
     paint: PaintRule[];
     // Physical size of tile in Three.js world (e.g., 256 or 1)
-    // 瓦片在 Three.js 世界中的物理尺寸（例如 256 或 1）
     tileSize?: number;
     // Tile grid extent (usually 4096)
-    // 瓦片网格范围（通常是 4096）
     extent?: number;
+    /**
+     * Create per-feature proxy objects (MergedFeature / InstancedFeature).
+     * Default false: bucket meshes only (faster, less GC). Enable if picking needs Feature APIs.
+     * 是否创建逐要素代理对象。默认 false：只保留分桶 Mesh。
+     */
+    createFeatureProxies?: boolean;
 };
 
 /**
@@ -88,6 +92,11 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      * @private
      */
     private _tileFeatureMap = new Map<string, Feature[]>();
+    /** Bucket meshes per tile (primary lifecycle when createFeatureProxies is false) */
+    private _tileMeshMap = new Map<string, Object3D[]>();
+    private _createFeatureProxies: boolean;
+    private _statProxyCount = 0;
+    private _statMeshCount = 0;
 
     /**
      * Currently active feature filter (from VectorTileLayer).
@@ -115,12 +124,132 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         // Initialize as array
         // 初始化为数组
         this.paint = options.paint || [];
+        this._createFeatureProxies = options.createFeatureProxies ?? false;
         this._layout = new FeatureLayout();
         this._workerManager = new VectorTileWorkerManager();
 
         // Ensure _onMapUpdate 'this' binding is correct
         // 确保 _onMapUpdate 的 this 指向正确
         this._onMapUpdate = this._onMapUpdate.bind(this);
+    }
+
+    /** Whether per-feature proxies are created (for picking / Feature APIs) */
+    public get createFeatureProxies(): boolean {
+        return this._createFeatureProxies;
+    }
+
+    /**
+     * Render-layer stats for demos / verification.
+     */
+    public getRenderStats(): {
+        createFeatureProxies: boolean;
+        meshTiles: number;
+        meshCount: number;
+        proxyCount: number;
+        featureTiles: number;
+    } {
+        let meshCount = 0;
+        this._tileMeshMap.forEach((list) => {
+            meshCount += list.length;
+        });
+        let proxyCount = 0;
+        this._tileFeatureMap.forEach((list) => {
+            proxyCount += list.length;
+        });
+        return {
+            createFeatureProxies: this._createFeatureProxies,
+            meshTiles: this._tileMeshMap.size,
+            meshCount,
+            proxyCount,
+            featureTiles: this._tileFeatureMap.size,
+        };
+    }
+
+    private _registerTileMesh(tileKey: string, mesh: Object3D): void {
+        let list = this._tileMeshMap.get(tileKey);
+        if (!list) {
+            list = [];
+            this._tileMeshMap.set(tileKey, list);
+        }
+        list.push(mesh);
+        this._statMeshCount++;
+    }
+
+    private _showCachedTile(tileKey: string): boolean {
+        const meshes = this._tileMeshMap.get(tileKey);
+        if (meshes && meshes.length > 0) {
+            meshes.forEach((m) => {
+                m.visible = true;
+                if (!this.children.some((c) => c === m)) {
+                    this.add(m);
+                }
+            });
+            // Also restore proxies if they exist
+            const features = this._tileFeatureMap.get(tileKey);
+            if (features) {
+                features.forEach((f) => {
+                    f.visible = true;
+                    if (!this.children.some((child) => child && f && child.uuid === f.uuid)) {
+                        f.addTo(this);
+                    }
+                });
+            }
+            return true;
+        }
+        const onlyFeatures = this._tileFeatureMap.get(tileKey);
+        if (onlyFeatures && onlyFeatures.length > 0) {
+            onlyFeatures.forEach((f) => {
+                f.visible = true;
+                if (!this.children.some((child) => child && f && child.uuid === f.uuid)) {
+                    f.addTo(this);
+                }
+            });
+            return true;
+        }
+        return false;
+    }
+
+    private _maybeCreateProxies(
+        mesh: Object3D,
+        infos: Array<{ id: any; properties: any; startIndex: number; vertexCount: number }>,
+        config: PaintConfig,
+        kind: "line" | "point" | "fill",
+        newFeatures: Feature[]
+    ): void {
+        if (!this._createFeatureProxies) return;
+        infos.forEach((info) => {
+            const feature =
+                kind === "point"
+                    ? new InstancedFeature(
+                          mesh as any,
+                          {
+                              id: info.id,
+                              userData: info.properties,
+                              geometry: { type: "MergedPoint", coordinates: [] },
+                              paint: config,
+                          },
+                          info.startIndex,
+                          info.vertexCount
+                      )
+                    : new MergedFeature(
+                          mesh as any,
+                          {
+                              id: info.id,
+                              userData: info.properties,
+                              geometry: { type: "Merged", coordinates: [] },
+                              paint: config,
+                          },
+                          info.startIndex,
+                          info.vertexCount
+                      );
+            feature._layer = this;
+            newFeatures.push(feature);
+            this._statProxyCount++;
+        });
+        const last = newFeatures[newFeatures.length - 1];
+        if (last instanceof MergedFeature) {
+            last._sharedMesh = mesh as any;
+        }
     }
 
     // --- Core Rendering and Data Processing Methods ---
@@ -138,23 +267,13 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         const map = this.getMap();
         const tileKey = `${tile.z}-${tile.x}-${tile.y}`;
 
-        // 🔥 Optimization: Check cache first. If Features for this tile already exist, show them directly and return
-        // 🔥 优化：先检查缓存。如果该瓦片的 Features 已经存在，直接显示并返回
-        const existingFeatures = this._tileFeatureMap.get(tileKey);
-        if (existingFeatures && existingFeatures.length > 0) {
-            existingFeatures.forEach(f => {
-                f.visible = true;
-                if (!this.children.some(child => child && f && child.uuid === f.uuid)) {
-                    f.addTo(this);
-                }
-            });
+        // Cache hit: restore meshes / proxies without rebuilding
+        if (this._showCachedTile(tileKey)) {
             return;
         }
 
         const vectorData = data.vectorData;
 
-        // Check basic conditions and paint configuration
-        // 检查基本条件和样式配置
         if (!vectorData || !vectorData.layers || !map || this.paint.length === 0) {
             return;
         }
@@ -163,8 +282,6 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         const globalPaintRules = this.paint;
         const prjCenter = map.prjcenter as Vector3;
 
-        // Phase B: Use Layout for coordinate transformation
-        // 阶段 B：使用 Layout 进行坐标转换
         const layoutFeatures = this._layout.layoutTileFeatures(
             vectorData,
             map,
@@ -173,18 +290,12 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             (filter, properties, layerName, geometryType) => this._evaluateFilter(filter, properties, layerName, geometryType)
         );
 
-        // Group by paint config for batching
-        // 按样式分组进行批处理
         const lineBuckets = new Map<string, { config: PaintConfig, bucket: LineBucket }>();
         const pointBuckets = new Map<string, { config: PaintConfig, bucket: PointBucket }>();
         const fillBuckets = new Map<string, { config: PaintConfig, bucket: FillBucket }>();
 
-        // Process layout features
-        // 处理布局后的要素
         let lineCount = 0, pointCount = 0, fillCount = 0;
         for (const layoutFeature of layoutFeatures) {
-            // Find matching paint config from original data
-            // 从原始数据中找到匹配的样式配置
             let matchedPaintConfig: PaintConfig | null = null;
             for (const rule of globalPaintRules) {
                 if (this._evaluateFilter(rule.filter, layoutFeature.properties, layoutFeature.layerName, layoutFeature.type)) {
@@ -224,101 +335,45 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             }
         }
 
-        // Render Line Buckets
+        // Line buckets → mesh
         lineBuckets.forEach(({ config, bucket }) => {
             if (!bucket.hasData()) return;
-
             const data = bucket.getData();
             const mesh = this._createLineMesh(data.segments, config);
             mesh.position.copy(prjCenter);
             mesh.updateMatrixWorld(true);
             this.add(mesh);
-
-            // Create proxy features
-            data.features.forEach(info => {
-                const feature = new MergedFeature(mesh, {
-                    id: info.id,
-                    userData: info.properties,
-                    geometry: { type: 'Merged', coordinates: [] },
-                    paint: config
-                }, info.startIndex, info.vertexCount);
-                feature._layer = this;
-                newFeatures.push(feature);
-            });
-
-            if (newFeatures.length > 0) {
-                const lastFeature = newFeatures[newFeatures.length - 1];
-                if (lastFeature instanceof MergedFeature) {
-                    lastFeature._sharedMesh = mesh;
-                }
-            }
+            this._registerTileMesh(tileKey, mesh);
+            this._maybeCreateProxies(mesh, data.features, config, "line", newFeatures);
         });
 
-        // Render Point Buckets
+        // Point buckets → mesh
         pointBuckets.forEach(({ config, bucket }) => {
-            if (!bucket.hasData()) {
-                return;
-            }
-
+            if (!bucket.hasData()) return;
             const data = bucket.getData();
             const mesh = this._createPointMesh(data.instances, config);
             mesh.position.copy(prjCenter);
             mesh.updateMatrixWorld(true);
             this.add(mesh);
-
-            // Create proxy features
-            data.features.forEach(info => {
-                const feature = new InstancedFeature(mesh, {
-                    id: info.id,
-                    userData: info.properties,
-                    geometry: { type: 'MergedPoint', coordinates: [] },
-                    paint: config
-                }, info.startIndex, info.vertexCount);
-                feature._layer = this;
-                newFeatures.push(feature);
-            });
-
-            if (newFeatures.length > 0) {
-                const lastFeature = newFeatures[newFeatures.length - 1];
-                if (lastFeature instanceof MergedFeature || lastFeature instanceof InstancedFeature) {
-                    lastFeature._sharedMesh = mesh;
-                }
-            }
+            this._registerTileMesh(tileKey, mesh);
+            this._maybeCreateProxies(mesh, data.features, config, "point", newFeatures);
         });
 
-        // Render Fill Buckets
+        // Fill buckets → mesh
         fillBuckets.forEach(({ config, bucket }) => {
             if (!bucket.hasData()) return;
-
             const data = bucket.getData();
             const mesh = this._createFillMesh(data.vertices, data.indices, config);
             mesh.position.copy(prjCenter);
             mesh.updateMatrixWorld(true);
             this.add(mesh);
-
-            // Create proxy features
-            data.features.forEach(info => {
-                const feature = new MergedFeature(mesh, {
-                    id: info.id,
-                    userData: info.properties,
-                    geometry: { type: 'Merged', coordinates: [] },
-                    paint: config
-                }, info.startIndex, info.vertexCount);
-                feature._layer = this;
-                newFeatures.push(feature);
-            });
-
-            if (newFeatures.length > 0) {
-                const lastFeature = newFeatures[newFeatures.length - 1];
-                if (lastFeature instanceof MergedFeature) {
-                    lastFeature._sharedMesh = mesh;
-                }
-            }
+            this._registerTileMesh(tileKey, mesh);
+            this._maybeCreateProxies(mesh, data.features, config, "fill", newFeatures);
         });
 
-        // Store new Features reference
-        // 存储新的 Features 引用
-        this._tileFeatureMap.set(tileKey, newFeatures);
+        if (this._createFeatureProxies) {
+            this._tileFeatureMap.set(tileKey, newFeatures);
+        }
     }
 
     /**
@@ -329,15 +384,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         const map = this.getMap();
         const tileKey = `${tile.z}-${tile.x}-${tile.y}`;
 
-        // Check cache
-        const existingFeatures = this._tileFeatureMap.get(tileKey);
-        if (existingFeatures && existingFeatures.length > 0) {
-            existingFeatures.forEach(f => {
-                f.visible = true;
-                if (!this.children.some(child => child && f && child.uuid === f.uuid)) {
-                    f.addTo(this);
-                }
-            });
+        if (this._showCachedTile(tileKey)) {
             return;
         }
 
@@ -350,8 +397,6 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         const newFeatures: Feature[] = [];
 
         try {
-            // Step 1: Layout on main thread (coordinate transformation using map.lngLatToWorld)
-            // 第一步：在主线程进行 Layout（坐标转换，使用 map.lngLatToWorld）
             const layoutFeatures = this._layout.layoutTileFeatures(
                 vectorData,
                 map,
@@ -360,80 +405,49 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 (filter, properties, layerName, geometryType) => this._evaluateFilter(filter, properties, layerName, geometryType)
             );
 
-            // Step 2: Send pre-transformed features to Worker for bucket grouping + vertex generation
-            // 第二步：将已转换坐标的要素发送给 Worker 进行分桶 + 顶点生成
             const result = await this._workerManager.processTile(
                 tileKey,
                 layoutFeatures,
                 this.paint
             );
 
-            // Check if tile is still valid after async processing
             if (!tile.showing || !tile.loaded) {
                 return;
             }
 
-            // Process lines
             result.lines.forEach(lineData => {
                 if (lineData.segments.length === 0) return;
                 const mesh = this._createLineMesh(lineData.segments, lineData.config);
                 mesh.position.copy(prjCenter);
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
-
-                lineData.features.forEach(info => {
-                    const feature = new MergedFeature(mesh, {
-                        id: info.id,
-                        userData: info.properties,
-                        geometry: { type: 'Merged', coordinates: [] },
-                        paint: lineData.config
-                    }, info.startIndex, info.vertexCount);
-                    feature._layer = this;
-                    newFeatures.push(feature);
-                });
+                this._registerTileMesh(tileKey, mesh);
+                this._maybeCreateProxies(mesh, lineData.features, lineData.config, "line", newFeatures);
             });
 
-            // Process points
             result.points.forEach(pointData => {
                 if (pointData.instances.length === 0) return;
                 const mesh = this._createPointMesh(pointData.instances, pointData.config);
                 mesh.position.copy(prjCenter);
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
-
-                pointData.features.forEach(info => {
-                    const feature = new InstancedFeature(mesh, {
-                        id: info.id,
-                        userData: info.properties,
-                        geometry: { type: 'MergedPoint', coordinates: [] },
-                        paint: pointData.config
-                    }, info.startIndex, info.vertexCount);
-                    feature._layer = this;
-                    newFeatures.push(feature);
-                });
+                this._registerTileMesh(tileKey, mesh);
+                this._maybeCreateProxies(mesh, pointData.features, pointData.config, "point", newFeatures);
             });
 
-            // Process fills
             result.fills.forEach(fillData => {
                 if (fillData.vertices.length === 0) return;
                 const mesh = this._createFillMesh(fillData.vertices, fillData.indices, fillData.config);
                 mesh.position.copy(prjCenter);
                 mesh.updateMatrixWorld(true);
                 this.add(mesh);
-
-                fillData.features.forEach(info => {
-                    const feature = new MergedFeature(mesh, {
-                        id: info.id,
-                        userData: info.properties,
-                        geometry: { type: 'Merged', coordinates: [] },
-                        paint: fillData.config
-                    }, info.startIndex, info.vertexCount);
-                    feature._layer = this;
-                    newFeatures.push(feature);
-                });
+                this._registerTileMesh(tileKey, mesh);
+                this._maybeCreateProxies(mesh, fillData.features, fillData.config, "fill", newFeatures);
             });
 
-            this._tileFeatureMap.set(tileKey, newFeatures);
+            if (this._createFeatureProxies) {
+                this._tileFeatureMap.set(tileKey, newFeatures);
+            }
 
         } catch (error) {
             console.error(`[Worker] Failed to process tile ${tileKey}, falling back to main thread:`, error);
@@ -684,12 +698,16 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      * @param tileKey Tile identifier. 瓦片标识符。
      */
     public hideFeaturesByTileKey(tileKey: string): void {
+        const meshes = this._tileMeshMap.get(tileKey);
+        if (meshes) {
+            meshes.forEach((m) => {
+                m.visible = false;
+            });
+        }
         const features = this._tileFeatureMap.get(tileKey);
         if (features) {
-            // console.log(`Cache hit when hiding ${tileKey}`);
-            features.forEach(f => {
+            features.forEach((f) => {
                 f.visible = false;
-                // console.log(`I am hidden ${f.id}`);
             });
         }
     }
@@ -707,69 +725,59 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
     }
 
     private _removeFeaturesByTileKey(tileKey: string): void {
+        const meshes = this._tileMeshMap.get(tileKey);
+        if (meshes) {
+            meshes.forEach((mesh) => this._disposeBucketMesh(mesh));
+            this._tileMeshMap.delete(tileKey);
+        }
+
         const features = this._tileFeatureMap.get(tileKey);
-        // console.log(features, 'Unloaded vector tile features')
-        //   console.log(features, 'Read vector tile')
         if (features) {
-            // Clean up shared meshes for MergedFeatures
-            // 清理 MergedFeatures 的共享网格
             const sharedMeshes = new Set<Object3D>();
             features.forEach(f => {
                 if (f instanceof MergedFeature && f._sharedMesh) {
                     sharedMeshes.add(f._sharedMesh);
                 }
             });
-
-            // Dispose shared meshes
-            // 释放共享网格资源
-            sharedMeshes.forEach(mesh => {
-                this.remove(mesh);
-                if ((mesh as any).geometry) {
-                    // Check if geometry is cached (shared)
-                    let isCached = false;
-                    for (const cachedGeom of VectorTileRenderLayer._geometryCache.values()) {
-                        if (cachedGeom === (mesh as any).geometry) {
-                            isCached = true;
-                            break;
-                        }
-                    }
-                    if (!isCached) {
-                        (mesh as any).geometry.dispose();
-                    }
-                }
-                if ((mesh as any).material) {
-                    const material = (mesh as any).material;
-                    // 仅当材质不在缓存中时才销毁 (缓存的材质是共享的，应保留)
-                    let isCached = false;
-                    for (const cachedMat of VectorTileRenderLayer._materialCache.values()) {
-                         if (Array.isArray(material)) {
-                             // 复杂情况暂不处理，假设 VectorTileRenderLayer 仅使用单一材质
-                         } else {
-                             if (cachedMat === material) {
-                                 isCached = true;
-                                 break;
-                             }
-                         }
-                    }
-
-                    if (!isCached) {
-                        if (Array.isArray(material)) {
-                            material.forEach((m: any) => m.dispose());
-                        } else {
-                            material.dispose();
-                        }
-                    }
-                }
-            });
-
+            sharedMeshes.forEach(mesh => this._disposeBucketMesh(mesh));
             features.forEach(f => {
-                // 调用 Feature 自身的销毁和移除逻辑
-                // console.log(`Destroying feature ${f.id}`);
-                
-                // 重要：对于 MergedFeature，必须确保不会重复销毁共享网格
                 f._remove();
             });
             this._tileFeatureMap.delete(tileKey);
+        }
+    }
+
+    private _disposeBucketMesh(mesh: Object3D): void {
+        this.remove(mesh);
+        const geom = (mesh as any).geometry;
+        if (geom) {
+            let isCached = false;
+            for (const cachedGeom of VectorTileRenderLayer._geometryCache.values()) {
+                if (cachedGeom === geom) {
+                    isCached = true;
+                    break;
+                }
+            }
+            if (!isCached && typeof geom.dispose === "function") {
+                geom.dispose();
+            }
+        }
+        const material = (mesh as any).material;
+        if (material) {
+            let isCached = false;
+            for (const cachedMat of VectorTileRenderLayer._materialCache.values()) {
+                if (!Array.isArray(material) && cachedMat === material) {
+                    isCached = true;
+                    break;
+                }
+            }
+            if (!isCached) {
+                if (Array.isArray(material)) {
+                    material.forEach((m: any) => m.dispose?.());
+                } else {
+                    material.dispose?.();
+                }
+            }
         }
     }
 

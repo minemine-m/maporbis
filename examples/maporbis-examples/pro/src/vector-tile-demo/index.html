@@ -424,15 +424,16 @@
 
         // 7. Worker inline（dist 构建）
         {
-          const workerOk = !performance.getEntriesByType('resource').some(r =>
-            r.name.includes('/assets/vector-tile.worker') && r.name.endsWith('.js') === false
-          );
-          // simpler: no failed worker request - we can't easily see; check pbf loaded
           const pbf = performance.getEntriesByType('resource').filter(r => r.name.includes('.pbf')).length;
+          const rs = vectorLayer && vectorLayer._renderer && vectorLayer._renderer.getRenderStats
+            ? vectorLayer._renderer.getRenderStats()
+            : null;
           items.push({
-            ok: pbf > 0 && loaded > 0,
-            title: '⑦ 构建产物 dist + 矢量渲染',
-            evidence: `pbf请求=${pbf}, 已加载瓦片=${loaded}, 路上有矢量即为通过`
+            ok: pbf > 0 && loaded > 0 && rs && rs.createFeatureProxies === false && rs.meshCount > 0,
+            title: '⑦ bucket 直出（默认无 Feature 代理）',
+            evidence: rs
+              ? `proxies=${rs.createFeatureProxies}, meshTiles=${rs.meshTiles}, meshCount=${rs.meshCount}, proxyCount=${rs.proxyCount}（应 meshCount>0 且 proxyCount=0）`
+              : `pbf=${pbf}, 已加载瓦片=${loaded}`
           });
         }
 

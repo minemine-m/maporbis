@@ -42,6 +42,12 @@ export interface VectorTileLayerOptions extends BaseTileLayerOptions {
      * @default false
      */
     useWorker?: boolean; // Use Web Worker for off-thread processing 使用 Web Worker 进行线程外处理
+
+    /**
+     * Create per-feature proxy objects for picking (default false = mesh-only).
+     * 是否创建逐要素代理（默认 false，只保留分桶 Mesh）。
+     */
+    createFeatureProxies?: boolean;
 }
 
 /**
@@ -150,6 +156,7 @@ export class VectorTileLayer extends BaseTileLayer {
                 collision: this._collision,
                 zIndex: typeof baseOptions.zIndex === 'number' ? baseOptions.zIndex : undefined,
                 depthOffset: typeof baseOptions.depthOffset === 'number' ? baseOptions.depthOffset : undefined,
+                createFeatureProxies: baseOptions.createFeatureProxies ?? false,
             });
             this._renderer = vtrenderer;
 
