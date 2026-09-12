@@ -847,6 +847,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				this.material = meshData.materials;
 				this.geometry = meshData.geometry;
 				this.maxZ = this.geometry.boundingBox?.max.z || 0;
+				this._applyRasterDepthBias();
 
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
@@ -915,6 +916,23 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		// 	matrixWorld: this.matrixWorld.toArray()
 		// });
 	}
+
+	/**
+	 * Child tiles (higher z) must win over parents during retain handoff —
+	 * coplanar rasters otherwise z-fight while both are retained.
+	 */
+	private _applyRasterDepthBias(): void {
+		if (this._dataMode || !Array.isArray(this.material)) return;
+		const factor = -this.z * 2;
+		this.material.forEach((mat) => {
+			if (!mat) return;
+			mat.polygonOffset = true;
+			mat.polygonOffsetFactor = factor;
+			mat.polygonOffsetUnits = factor;
+			mat.needsUpdate = true;
+		});
+	}
+
 	/**
 	 * Updates the tile.
 	 * @param params - The update parameters.
