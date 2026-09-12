@@ -795,25 +795,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			return this;
 		}
 
-		// Transition to Loading state 转换到 Loading 状态
-		this._transitionTo(TileState.Loading);
-		Tile._activeDownloads++;
-		Tile._loadingTiles.add(this);
-
-		// Abort previous request if any
-		this._abortController?.abort();
-		this._abortController = new AbortController();
-		const signal = this._abortController.signal;
-
 		const { x, y, z } = this;
-		if (Tile.debugSchedule) {
-			console.log(
-				`[Schedule] start load z${z}/${x}/${y} ` +
-				`active=${Tile._activeDownloads}/${Tile.effectiveMaxConcurrentDownloads} queue=${Tile._loadQueue.length}`
-			);
-		}
 
-		// Memory cache hit: restore payload without network
+		// Cache hit first — must not take a download slot (no network)
 		const cache = this._rootCache();
 		if (cache) {
 			const hit = cache.get(z, x, y);
@@ -844,6 +828,23 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					/* fall through to network */
 				}
 			}
+		}
+
+		// Transition to Loading state 转换到 Loading 状态
+		this._transitionTo(TileState.Loading);
+		Tile._activeDownloads++;
+		Tile._loadingTiles.add(this);
+
+		// Abort previous request if any
+		this._abortController?.abort();
+		this._abortController = new AbortController();
+		const signal = this._abortController.signal;
+
+		if (Tile.debugSchedule) {
+			console.log(
+				`[Schedule] start load z${z}/${x}/${y} ` +
+				`active=${Tile._activeDownloads}/${Tile.effectiveMaxConcurrentDownloads} queue=${Tile._loadQueue.length}`
+			);
 		}
 
 		try {
