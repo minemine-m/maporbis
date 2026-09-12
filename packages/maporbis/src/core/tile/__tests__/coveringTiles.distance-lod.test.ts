@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Matrix4, PerspectiveCamera } from "three";
 import { computeCoveringTilesDFS } from "../coveringTiles";
-import { computeCoveringZoomLevel } from "../util";
+import { computeCoveringZoomLevel, LODAction, LODEvaluate, isAncestorOfAnyIdeal } from "../util";
+import { Tile } from "../Tile";
 
 const mapW = 40075016;
 const mapH = 40075016;
@@ -92,5 +93,55 @@ describe("coveringTiles distance LOD (pitch)", () => {
 		const zooms = new Set(set!.keys.map((k) => Number(k.split("/")[0])));
 		expect(zooms.size).toBe(1);
 		expect([...zooms][0]).toBe(Math.floor(coverZ));
+	});
+});
+
+describe("mixed-z ideal path (distance LOD) + LODEvaluate", () => {
+	it("reports max zoom as IdealTileSet.z when mixed", () => {
+		const dist = 80000;
+		const cam = pitchedCamera(dist, 65);
+		const coverZ = computeCoveringZoomLevel(dist, 900, mapW, 256, 45);
+		const set = computeCoveringTilesDFS({
+			coveringZoom: coverZ,
+			camera: cam,
+			mapWidth: mapW,
+			mapHeight: mapH,
+			minLevel: 0,
+			maxLevel: 15,
+			useDistanceLod: true,
+			cameraToCenterDistance: dist,
+			rootWorldMatrix: engineRoot(),
+		});
+		expect(set).not.toBeNull();
+		const zooms = set!.keys.map((k) => Number(k.split("/")[0]));
+		expect(set!.z).toBe(Math.max(...zooms));
+	});
+
+	it("does not force uniform refine when mixed ideal set is present", () => {
+		// Far ideal at z=12; coveringZoom would otherwise pull this to 14
+		const t = new Tile(25, 12, 10);
+		(t as any).inFrustum = true;
+		const ideals = new Set(["12/100/50", "14/400/200"]);
+		const action = LODEvaluate(t, 0, 15, 1, 14.2, ideals);
+		// 100>>2=25, 50>>2=12 → ancestor of z=12 ideal → create
+		expect(action).toBe(LODAction.create);
+	});
+
+	it("skips non-ancestor leaves when mixed ideal set is present", () => {
+		const t = new Tile(0, 0, 10);
+		(t as any).inFrustum = true;
+		// Ideals live under (25,12) / (100,50) branches — not this tile
+		const ideals = new Set(["12/100/50", "14/400/200"]);
+		const action = LODEvaluate(t, 0, 15, 1, 14.2, ideals);
+		expect(action).toBe(LODAction.none);
+	});
+
+	it("isAncestorOfAnyIdeal accepts mixed zoom keys", () => {
+		const ideals = new Set(["12/100/50", "14/400/200"]);
+		// 100>>2=25, 50>>2=12 at z=10
+		expect(isAncestorOfAnyIdeal(10, 25, 12, ideals)).toBe(true);
+		// 400>>3=50, 200>>3=25 at z=11
+		expect(isAncestorOfAnyIdeal(11, 50, 25, ideals)).toBe(true);
+		expect(isAncestorOfAnyIdeal(10, 0, 0, ideals)).toBe(false);
 	});
 });

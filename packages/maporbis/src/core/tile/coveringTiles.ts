@@ -220,7 +220,8 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 		}
 
 		if (!shouldSplit(it.z, _box)) {
-			if (resultZ === null) resultZ = it.z;
+			// Representative z = max (near-camera detail). Mixed under pitch distance LOD.
+			if (resultZ === null || it.z > resultZ) resultZ = it.z;
 			keys.push(`${it.z}/${it.x}/${it.y}`);
 			if (it.x < minX) minX = it.x;
 			if (it.x > maxX) maxX = it.x;

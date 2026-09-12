@@ -286,9 +286,21 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		coveringZoom: number;
 		idealTileCount: number;
 		idealTileZ: number | null;
+		idealMinZ: number | null;
+		idealMaxZ: number | null;
 		idealLoadedCount: number;
 		idealCoveredCount: number;
 	} {
+		let idealMinZ: number | null = null;
+		let idealMaxZ: number | null = null;
+		if (Tile._idealTiles.size > 0) {
+			for (const key of Tile._idealTiles) {
+				const z = +key.split("/")[0];
+				if (!Number.isFinite(z)) continue;
+				if (idealMinZ === null || z < idealMinZ) idealMinZ = z;
+				if (idealMaxZ === null || z > idealMaxZ) idealMaxZ = z;
+			}
+		}
 		return {
 			activeDownloads: Tile._activeDownloads,
 			maxConcurrent: Tile.effectiveMaxConcurrentDownloads,
@@ -310,6 +322,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			coveringZoom: Tile._coveringZoom,
 			idealTileCount: Tile._idealTiles.size,
 			idealTileZ: Tile._idealTileSet ? Tile._idealTileSet.z : null,
+			idealMinZ,
+			idealMaxZ,
 			idealLoadedCount: Tile._idealLoadedCount,
 			idealCoveredCount: Tile._idealCoveredCount,
 		};
@@ -346,20 +360,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	private static _isNeededForIdealCover(tile: Tile): boolean {
 		if (Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`)) return true;
-		const set = Tile._idealTileSet;
-		if (!set) return true; // no ideal info — keep everything
-		// Ancestor of any ideal key: same z-prefix via integer division
-		const shift = set.z - tile.z;
-		if (shift < 0) return false; // deeper than ideal — not needed as cover
-		const n = Math.pow(2, shift);
-		for (const key of Tile._idealTiles) {
-			const [iz, ix, iy] = key.split("/").map(Number);
-			if (iz !== set.z) continue;
-			if (Math.floor(ix / n) === tile.x && Math.floor(iy / n) === tile.y) {
-				return true;
-			}
-		}
-		return false;
+		if (!Tile._idealTileSet) return true; // no ideal info — keep everything
+		// Mixed-z distance LOD: ideals are not all at one z. Ancestor check is
+		// per-key (isAncestorOfAnyIdeal), not via IdealTileSet.z.
+		return isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, Tile._idealTiles);
 	}
 
 	public static setIdealTileSet(set: IdealTileSet | null) {

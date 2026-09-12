@@ -381,6 +381,21 @@
           });
         }
 
+        // ⑩ pitch 距离 LOD（近高远低；近垂直时保持统一 z）
+        {
+          const minZ = s.idealMinZ;
+          const maxZ = s.idealMaxZ;
+          const mixed = typeof minZ === 'number' && typeof maxZ === 'number' && minZ !== maxZ;
+          const pitch = map && map.getPitch ? map.getPitch() : NaN;
+          const nearTopDown = Number.isFinite(pitch) && pitch < 15;
+          const ok = typeof minZ === 'number' && (nearTopDown ? !mixed : true);
+          items.push({
+            ok,
+            title: '⑩ pitch 距离 LOD（近目标 z，远粗一层；近垂直统一）',
+            evidence: `pitch=${Number.isFinite(pitch) ? pitch.toFixed(0) : '-'}°, idealZ=${minZ}${mixed ? `–${maxZ}` : ''}, mixed=${mixed}（俯仰后应 mixed；回正后 uniform）`
+          });
+        }
+
         // 0b. map.zoom driven by coveringZoom
         {
           const mz = map && map.getZoom ? map.getZoom() : NaN;

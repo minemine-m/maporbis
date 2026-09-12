@@ -341,8 +341,9 @@ export class TileSourceCache {
 				minLevel: ctx.minLevel,
 				maxLevel: ctx.maxLevel,
 				tileSize: 256,
-				// Uniform z — mixed-z distance LOD made sharp/blur patches
-				useDistanceLod: false,
+				// Pitched-only distance LOD (coveringTiles skips near top-down).
+				// Near look-at keeps targetZ; far tiles step down. Top-down stays uniform.
+				useDistanceLod: true,
 				cameraToCenterDistance: ctx.cameraDistance,
 				rootWorldMatrix: ctx.root.matrixWorld,
 			});
