@@ -102,6 +102,13 @@ function ensureTilePath(
 			for (const k of kids) {
 				(k as any)._initTile?.();
 				(k as any).inFrustum = (node as any).inFrustum;
+				// Must notify layers on load — VectorTileLayer listens on root tile-loaded
+				if (!(k as any)._onLoadComplete) {
+					const forEvent = root;
+					(k as any)._onLoadComplete = () => {
+						forEvent.dispatchEvent({ type: "tile-loaded", tile: k });
+					};
+				}
 				root.dispatchEvent({ type: "tile-created", tile: k });
 			}
 			child = kids.find((k) => k.x === cx && k.y === cy);

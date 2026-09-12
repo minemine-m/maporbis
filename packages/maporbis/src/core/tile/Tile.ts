@@ -420,6 +420,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	/**
 	 * Public API for SourceCache: enqueue a tile load with optional ideal keys.
+	 * Always attaches tile-loaded → root so vector/raster layers can render.
 	 */
 	public static requestLoad(
 		tile: Tile,
@@ -428,6 +429,16 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	): void {
 		if (!tile || !loader) return;
 		if (!tile._canStartLoading()) return;
+		if (!tile._onLoadComplete) {
+			let root: Tile = tile;
+			while (root.parent && (root.parent as any).isTile) {
+				root = root.parent as Tile;
+			}
+			const forEvent = root;
+			tile._onLoadComplete = () => {
+				forEvent.dispatchEvent({ type: "tile-loaded", tile });
+			};
+		}
 		if (Tile._isQueued(tile)) return;
 		Tile._enqueueLoad(tile, loader, idealTiles);
 	}
