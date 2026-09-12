@@ -92,9 +92,9 @@ const frustum = new Frustum();
  */
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _activeDownloads = 0;
-	private static _maxConcurrentDownloads = 10;
+	private static _maxConcurrentDownloads = 16;
 	/** Still allow enough bandwidth while panning so edges do not starve */
-	private static _interactingMaxConcurrentDownloads = 8;
+	private static _interactingMaxConcurrentDownloads = 12;
 	private static _interacting = false;
 	/** Priority queue of tiles waiting to start network load (center-first) */
 	private static _loadQueue: Array<{
@@ -103,6 +103,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		priority: number;
 		idealTiles?: Set<string>;
 	}> = [];
+	/** Tiles with in-flight network loads (for abort on pan) */
+	private static _loadingTiles = new Set<Tile>();
 	// Data mode switch 数据模式开关
 	private _dataMode: boolean = false;
 	private _abortController: AbortController | null = null;
@@ -397,21 +399,21 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	/**
 	 * Load priority (lower = sooner).
-	 * 0: sibling blocking a showing parent (edge holes)
-	 * 1: ideal covering tile
-	 * 2+: distance (fair across raster/vector — no absolute ideal=0 flood)
+	 * 0: ideal covering tile
+	 * 1: in-frustum sibling blocking a showing parent
+	 * 2+: distance
 	 */
 	private static _loadPriority(tile: Tile, idealTiles?: Set<string>): number {
-		const parent = tile.parent as Tile | null;
-		if (parent && (parent as any).isTile) {
-			const sibs = parent.children.filter((c: any) => c.isTile);
-			if (parent.showing && sibs.some((c: any) => !c.loaded)) {
-				return 0;
-			}
-		}
 		const key = `${tile.z}/${tile.x}/${tile.y}`;
 		if (idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key)) {
-			return 1;
+			return 0;
+		}
+		const parent = tile.parent as Tile | null;
+		if (parent && (parent as any).isTile && tile.inFrustum) {
+			const sibs = parent.children.filter((c: any) => c.isTile);
+			if (parent.showing && sibs.some((c: any) => !c.loaded)) {
+				return 1;
+			}
 		}
 		return 2 + tile.distToCamera;
 	}
@@ -469,27 +471,34 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * Drop obsolete queued work while panning: disposed tiles, out-of-frustum
-	 * (unless blocking a showing parent), and cap the queue size.
-	 * 平移时剪掉过时请求，避免队列无限膨胀导致越拖越慢。
+	 * Drop obsolete queued work while panning: disposed tiles, non-ideal
+	 * out-of-frustum work, and cap the queue size. Ideal tiles always stay.
+	 * 平移时剪掉过时请求；ideal 永远保留。
 	 */
 	private static _pruneLoadQueue() {
-		const MAX_QUEUE = 240;
+		const MAX_QUEUE = 120;
 		if (Tile._loadQueue.length === 0) return;
 		const before = Tile._loadQueue.length;
+		const ideals = Tile._idealTiles;
 		Tile._loadQueue = Tile._loadQueue.filter((job) => {
 			const t = job.tile;
 			if (t.z !== 0 && !t.parent) return false;
 			if (t.loaded || t.state === TileState.Unloaded) return false;
-			const parent = t.parent as Tile | null;
-			if (parent && (parent as any).isTile && parent.showing) {
-				const sibs = parent.children.filter((c: any) => c.isTile);
-				if (sibs.some((c: any) => !c.loaded)) return true;
-			}
-			// Only drop out-of-frustum work when the queue is actually backing up
-			if (!t.inFrustum && Tile._loadQueue.length > 48) return false;
-			return true;
+			const key = `${t.z}/${t.x}/${t.y}`;
+			if (ideals.has(key)) return true;
+			if (t.inFrustum) return true;
+			// Non-ideal out-of-frustum: keep only a small tail (recent work)
+			return Tile._loadQueue.length <= 24;
 		});
+		// Abort in-flight non-ideal OOF downloads when queue is still deep
+		if (Tile._loadQueue.length > 80) {
+			for (const t of Tile._loadingTiles) {
+				if (t.inFrustum) continue;
+				const key = `${t.z}/${t.x}/${t.y}`;
+				if (ideals.has(key)) continue;
+				t._abortController?.abort();
+			}
+		}
 		if (Tile._loadQueue.length > MAX_QUEUE) {
 			Tile._loadQueue.sort((a, b) => a.priority - b.priority);
 			Tile._loadQueue.length = MAX_QUEUE;
@@ -782,6 +791,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		// Transition to Loading state 转换到 Loading 状态
 		this._transitionTo(TileState.Loading);
 		Tile._activeDownloads++;
+		Tile._loadingTiles.add(this);
 
 		// Abort previous request if any
 		this._abortController?.abort();
@@ -884,6 +894,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			}
 		} finally {
 			Tile._activeDownloads--;
+			Tile._loadingTiles.delete(this);
 			this._abortController = null;
 			const done = this._onLoadComplete;
 			this._onLoadComplete = null;

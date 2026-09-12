@@ -223,10 +223,13 @@ export function LODEvaluate(
 	} else {
 		// Keep one extra level when using coveringZoom so parent can cover while children load
 		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
-		// Drop out-of-view subtrees, but keep anything still needed for ideal cover
+		// Drop deep out-of-view subtrees, but keep shallow loaded tiles for pan-back
+		// and anything still needed for ideal cover.
+		const keepForPan = tile.loaded && hasCover && tile.z <= coveringZoom! + 1;
 		const outOfView =
 			!tile.inFrustum &&
 			tile.z >= minLevel &&
+			!keepForPan &&
 			!isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealTiles);
 		if (tile.z >= minLevel && (tile.z > maxLevel || coverOk || outOfView)) {
 			return LODAction.remove;
