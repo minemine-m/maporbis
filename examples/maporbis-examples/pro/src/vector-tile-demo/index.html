@@ -332,6 +332,8 @@
         }
 
         const vLayer = vectorLayer;
+        const pCache = vLayer && vLayer._rootTile && vLayer._rootTile._payloadCache;
+        const cStat = pCache && pCache.stats ? pCache.stats : null;
         statsEl.innerHTML = [
           `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `矢量 maxLevel: ${vLayer && vLayer.maxLevel} · source.maxLevel: ${vLayer && vLayer.source && vLayer.source.maxLevel}`,
@@ -340,6 +342,9 @@
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
+          cStat
+            ? `TileCache: ${cStat.size}/${cStat.maxSize} · 命中 ${cStat.hits} · 未中 ${cStat.misses} · 命中率 ${(cStat.hitRate * 100).toFixed(0)}%`
+            : `TileCache: 不可用`,
         ].join('<br>');
 
         // ---- 验证清单 ----
@@ -359,6 +364,20 @@
             ok,
             title: '⓪++ ideal 瓦片集 + 祖先覆盖',
             evidence: `loaded=${loaded}/${n}, covered=${covered}/${n} (${(covRatio*100).toFixed(0)}%), idealZ=${iz}（covered 应接近 100%）`
+          });
+        }
+
+        // TileCache zoom-back
+        {
+          const pc = vectorLayer && vectorLayer._rootTile && vectorLayer._rootTile._payloadCache;
+          const st = pc && pc.stats;
+          const ok = !!st && st.hits > 0;
+          items.push({
+            ok,
+            title: '⑨ TileCache 缩放回退命中',
+            evidence: st
+              ? `size=${st.size}/${st.maxSize}, hits=${st.hits}, misses=${st.misses}, rate=${(st.hitRate*100).toFixed(0)}%（放大再缩回应出现 hits）`
+              : 'payloadCache 未挂在 root'
           });
         }
 
