@@ -224,11 +224,10 @@ export function LODEvaluate(
 			return LODAction.create;
 		}
 	} else {
-		// Keep one extra level so parent can cover while ideal children load
-		const coverOk = hasCover ? tile.z > targetZ! + 1 : distRatio > threshold;
-		// Drop deep out-of-view subtrees, but keep shallow loaded tiles for pan-back
-		// and anything still needed for ideal cover.
-		const keepForPan = tile.loaded && hasCover && tile.z <= targetZ! + 1;
+		// Non-leaf at or above ideal z: drop children. Leftover z=14 under
+		// z=13 would otherwise keep showing after zooming back from 14 → 13.54.
+		const coverOk = hasCover ? tile.z >= targetZ! : distRatio > threshold;
+		const keepForPan = tile.loaded && hasCover && tile.z < targetZ!;
 		const outOfView =
 			!tile.inFrustum &&
 			tile.z >= minLevel &&

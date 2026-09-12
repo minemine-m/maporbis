@@ -24,12 +24,21 @@ describe("LODEvaluate uses floor(coveringZoom) as target", () => {
 	});
 
 	it("does not remove z=target+0 parent while children load", () => {
-		const parent = new Tile(0, 0, 12);
-		parent.add(new Tile(0, 0, 13));
+		const parent = new Tile(0, 0, 11);
+		parent.add(new Tile(0, 0, 12));
 		(parent as any).inFrustum = true;
 		const action = LODEvaluate(parent, 0, 15, 1, 12.47);
-		// z=12 is not > target+1 (13), so keep
+		// z=11 < target 12, keep children
 		expect(action).toBe(LODAction.none);
+	});
+
+	it("removes leftover children at/above ideal z after zoom-out", () => {
+		// Was at zoom 14 (z=13 has z=14 kids); back to 13.54 → target 13
+		const parent = new Tile(0, 0, 13);
+		parent.add(new Tile(0, 0, 14));
+		(parent as any).inFrustum = true;
+		const action = LODEvaluate(parent, 0, 15, 1, 13.54);
+		expect(action).toBe(LODAction.remove);
 	});
 });
 
