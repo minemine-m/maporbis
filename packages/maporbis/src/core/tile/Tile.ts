@@ -985,6 +985,20 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			mat.polygonOffsetUnits = factor;
 			mat.needsUpdate = true;
 		});
+		this._syncMaterialVisibility();
+	}
+
+	/**
+	 * New/cached materials default to visible=true. Until SourceCache marks
+	 * showing, a just-loaded tile would draw under its parent and at the
+	 * wrong LOD — the pitch "sharp/blur patches" and edge z-fight.
+	 */
+	private _syncMaterialVisibility(): void {
+		if (!Array.isArray(this.material)) return;
+		const show = this._isVisible;
+		this.material.forEach((mat) => {
+			if (mat) mat.visible = show;
+		});
 	}
 
 	/**
