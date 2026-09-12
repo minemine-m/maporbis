@@ -15,6 +15,7 @@ import {
 	Vector3,
 } from "three";
 import { ICompositeLoader } from "../../loaders";
+import { TileCache } from "../../loaders/TileCache";
 import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
 
 const MAX_RETRY_COUNT = 3;
@@ -179,6 +180,20 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 	/** Vector Data 矢量数据 */
 	public _vectorData: any = null;
+	/** Optional payload LRU on the tree root (set by TileLayer) */
+	public _payloadCache: TileCache | null = null;
+
+	private _rootCache(): TileCache | null {
+		let t: Tile = this;
+		while (t.parent && (t.parent as any).isTile) {
+			t = t.parent as Tile;
+		}
+		return t._payloadCache;
+	}
+
+	private _cacheKey(): string {
+		return `${this.z}/${this.x}/${this.y}`;
+	}
 	/**
 		* Set data only mode (do not create Mesh, only return data)
 		* 设置为数据模式（不创建Mesh，只返回数据）
@@ -798,6 +813,39 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			);
 		}
 
+		// Memory cache hit: restore payload without network
+		const cache = this._rootCache();
+		if (cache) {
+			const hit = cache.get(z, x, y);
+			if (hit) {
+				cache.delete(z, x, y);
+				try {
+					if (this._dataMode) {
+						(this as any)._vectorData = (hit.geometry as any)?.userData || {};
+					} else if (hit.geometry) {
+						this.geometry = hit.geometry;
+						this.material = hit.materials ?? [];
+						this.maxZ = (this.geometry as any)?.boundingBox?.max.z || 0;
+						this._applyRasterDepthBias();
+					}
+					this._transitionTo(TileState.Loaded);
+					this._retryCount = 0;
+					if (Tile.debugSchedule) {
+						console.log(`[Schedule] cache-hit z${z}/${x}/${y}`);
+					}
+					const done = this._onLoadComplete;
+					this._onLoadComplete = null;
+					if (done) {
+						try { done(); } catch { /* ignore */ }
+					}
+					Tile._drainLoadQueue();
+					return this;
+				} catch {
+					/* fall through to network */
+				}
+			}
+		}
+
 		try {
 			// 如果是数据模式，只获取数据不创建Mesh
 			if (this._dataMode) {
@@ -1141,7 +1189,27 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			// Transition to Unloaded state 转换到 Unloaded 状态
 			this._transitionTo(TileState.Unloaded);
 			this.dispatchEvent({ type: "unload" });
-			loader?.unload?.(this);
+
+			const cache = this._rootCache();
+			if (cache) {
+				// Keep payload for zoom-back; skip loader.unload (cache owns GPU objects)
+				if (this._dataMode) {
+					cache.set(this.z, this.x, this.y, {
+						materials: [],
+						geometry: { userData: (this as any)._vectorData } as any,
+					});
+					(this as any)._vectorData = null;
+				} else {
+					cache.set(this.z, this.x, this.y, {
+						materials: (Array.isArray(this.material) ? this.material : [this.material]).filter(Boolean) as any,
+						geometry: this.geometry as any,
+					});
+					this.geometry = undefined as any;
+					this.material = [] as any;
+				}
+			} else {
+				loader?.unload?.(this);
+			}
 		}
 		// remove all children recursively
 		this.children.forEach(child => child._disposeResources(true, loader));

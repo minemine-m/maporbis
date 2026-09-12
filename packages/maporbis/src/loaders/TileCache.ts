@@ -127,7 +127,16 @@ export class TileCache {
         }
 
         if (oldestKey) {
+            const entry = this._cache.get(oldestKey);
             this._cache.delete(oldestKey);
+            // Free GPU resources when payload leaves the cache
+            try {
+                entry?.data.geometry?.dispose?.();
+                const mats = entry?.data.materials;
+                if (Array.isArray(mats)) mats.forEach((m: any) => m?.dispose?.());
+            } catch {
+                /* ignore */
+            }
         }
     }
 

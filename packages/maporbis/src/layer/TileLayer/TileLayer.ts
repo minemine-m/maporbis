@@ -4,6 +4,7 @@ import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
 import { Tile, TileSourceCache } from "../../core/tile";
+import { TileCache } from "../../loaders/TileCache";
 import { computeCoveringZoomLevel } from "../../core/tile/util";
 import { ICompositeLoader } from "../../loaders";
 import { Layer, LayerOptions } from "../Layer";
@@ -212,6 +213,8 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
         this._rootTile = new Tile();
         this._rootTile.matrixAutoUpdate = true;
         this._rootTile.receiveShadow = options.receiveShadow ?? false;
+        // LRU payload cache for zoom-back (reuse loaders.TileCache)
+        this._rootTile._payloadCache = new TileCache(128);
         // this._rootTile.scale.set(this.projection.mapWidth, this.projection.mapHeight, this.projection.mapDepth);
         // console.log(this.projection.mapWidth, this.projection.mapHeight, 100000);
         this._rootTile.scale.set(this.projection.mapWidth, this.projection.mapHeight, 1);
