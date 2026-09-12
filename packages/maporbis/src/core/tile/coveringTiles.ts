@@ -39,6 +39,7 @@ const _frustum = new Frustum();
 const _projView = new Matrix4();
 const _box = new Box3();
 const _camPos = new Vector3();
+const _fwd = new Vector3();
 const _corner = new Vector3();
 const _identity = new Matrix4();
 
@@ -162,19 +163,25 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 	camera.getWorldPosition(_camPos);
 
 	const camDist = opts.cameraToCenterDistance;
+	camera.getWorldDirection(_fwd);
+	// Near top-down (within ~20° of looking straight down): uniform z for the
+	// whole viewport. Distance LOD only when the view is meaningfully pitched.
+	const nearTopDown = _fwd.y < -0.94;
 	const distLodOn =
-		useDistanceLod && typeof camDist === "number" && camDist > 1;
+		useDistanceLod && typeof camDist === "number" && camDist > 1 && !nearTopDown;
 
 	/**
-	 * Mapbox-style distance split, in world units:
-	 *   distToSplit = (1 << (targetZ - z)) * camDist * 0.502
-	 * Near tiles refine to targetZ; far/pitched tiles stop earlier.
+	 * Pitched-only distance split (top-down uses uniform z above):
+	 *   distToSplit = (1 << (targetZ - z)) * camDist * 0.55
+	 * Near look-at tiles (~camDist) refine to targetZ; far tiles (~1.3×+)
+	 * step down. 0.502 Mapbox factor is for tile-space, not Euclidean world.
 	 */
+	const DIST_K = 0.55;
 	const shouldSplit = (z: number, box: Box3): boolean => {
 		if (z >= targetZ) return false;
 		if (!distLodOn) return true;
 		const distSq = closestAabbDistanceSq(box, _camPos);
-		const distToSplit = (1 << (targetZ - z)) * camDist! * 0.502;
+		const distToSplit = (1 << (targetZ - z)) * camDist! * DIST_K;
 		return distSq < distToSplit * distToSplit;
 	};
 
