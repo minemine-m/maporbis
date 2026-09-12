@@ -6,6 +6,7 @@ import {
 	computeCoveringZoomLevel,
 	computeIdealTileSet,
 	countIdealCovered,
+	createChildren,
 	hasLoadedCover,
 } from "./util";
 import { computeCoveringTilesDFS } from "./coveringTiles";
@@ -68,6 +69,47 @@ function childKeysOf(key: string): string[] {
 		keyOf(cz, cx, cy + 1),
 		keyOf(cz, cx + 1, cy + 1),
 	];
+}
+
+/**
+ * Mapbox _addTile: create missing nodes along the path root → (z,x,y).
+ * LOD may not have refined that branch yet; ideal still needs a node to load.
+ */
+function ensureTilePath(
+	root: Tile,
+	z: number,
+	x: number,
+	y: number,
+	loader: ICompositeLoader
+): Tile | null {
+	if (!root?.isTile) return null;
+	if (z <= 0) return root;
+
+	let node: Tile = root;
+	for (let level = 1; level <= z; level++) {
+		const shift = z - level;
+		const cx = x >> shift;
+		const cy = y >> shift;
+		let child = node.children.find(
+			(c: any) => c?.isTile && c.z === level && c.x === cx && c.y === cy
+		) as Tile | undefined;
+
+		if (!child) {
+			// Create the full quad (same as LOD create)
+			const kids = createChildren(loader, node.x, node.y, node.z);
+			if (!kids.length) return null;
+			node.add(...kids);
+			for (const k of kids) {
+				(k as any)._initTile?.();
+				(k as any).inFrustum = (node as any).inFrustum;
+				root.dispatchEvent({ type: "tile-created", tile: k });
+			}
+			child = kids.find((k) => k.x === cx && k.y === cy);
+		}
+		if (!child) return null;
+		node = child;
+	}
+	return node;
 }
 
 /**
@@ -295,6 +337,15 @@ export class TileSourceCache {
 			);
 		}
 		this._idealKeys = this._ideal ? new Set(this._ideal.keys) : new Set();
+
+		// Mapbox _addTile: ideal keys must exist as tree nodes before load/retain
+		if (this._idealKeys.size > 0) {
+			for (const key of this._idealKeys) {
+				const [z, x, y] = parseKey(key);
+				if (z < ctx.minLevel || z > ctx.maxLevel) continue;
+				ensureTilePath(ctx.root, z, x, y, ctx.loader);
+			}
+		}
 
 		const loadedKeys = new Set<string>();
 		const byKey = new Map<string, Tile>();
