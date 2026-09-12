@@ -214,8 +214,16 @@ export function LODEvaluate(
 	if (tile.isLeaf) {
 		// Root (z=0) must always refine when in frustum; it has no parent to set showing.
 		const forceRefine = tile.z === 0 || tile.z < minLevel;
-		const coverOk = hasCover ? tile.z < targetZ! : distRatio < threshold;
 		const needsIdeal = isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealTiles);
+		// When SourceCache provides a (possibly mixed-z) ideal set, only build
+		// the path to those tiles. coverOk would force uniform targetZ and
+		// re-fetch far/pitched tiles at the near-camera zoom.
+		const hasIdealSet = !!idealTiles && idealTiles.size > 0;
+		const coverOk = hasIdealSet
+			? false
+			: hasCover
+				? tile.z < targetZ!
+				: distRatio < threshold;
 		if (
 			tile.inFrustum &&
 			tile.z < maxLevel &&

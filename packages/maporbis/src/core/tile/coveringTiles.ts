@@ -162,16 +162,19 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 	camera.getWorldPosition(_camPos);
 
 	const camDist = opts.cameraToCenterDistance;
-	const zoomSplitDistance =
-		useDistanceLod && typeof camDist === "number" && camDist > 0
-			? (camDist / Math.max(tileSize, 1)) * 0.502
-			: 0;
+	const distLodOn =
+		useDistanceLod && typeof camDist === "number" && camDist > 1;
 
+	/**
+	 * Mapbox-style distance split, in world units:
+	 *   distToSplit = (1 << (targetZ - z)) * camDist * 0.502
+	 * Near tiles refine to targetZ; far/pitched tiles stop earlier.
+	 */
 	const shouldSplit = (z: number, box: Box3): boolean => {
 		if (z >= targetZ) return false;
-		if (!useDistanceLod || zoomSplitDistance <= 0) return true;
+		if (!distLodOn) return true;
 		const distSq = closestAabbDistanceSq(box, _camPos);
-		const distToSplit = (1 << (targetZ - z)) * zoomSplitDistance;
+		const distToSplit = (1 << (targetZ - z)) * camDist! * 0.502;
 		return distSq < distToSplit * distToSplit;
 	};
 

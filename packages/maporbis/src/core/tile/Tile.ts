@@ -15,7 +15,7 @@ import {
 	Vector3,
 } from "three";
 import { ICompositeLoader } from "../../loaders";
-import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate, IdealTileSet } from "./util";
+import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -961,9 +961,18 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			// Get distance to camera
 			tile.distToCamera = getDistance(tile, cameraWorldPosition);
 
-			// Deferred load: tile entered frustum after it was created
+			// Deferred load: tile entered frustum after it was created.
+			// When a mixed-z ideal set exists, only load ideal tiles or their
+			// path — not every deep leftover in the frustum.
+			const idealSet = params.idealTiles;
+			const onIdealPath =
+				!idealSet ||
+				idealSet.size === 0 ||
+				idealSet.has(`${tile.z}/${tile.x}/${tile.y}`) ||
+				isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealSet);
 			if (
 				tile.inFrustum &&
+				onIdealPath &&
 				!tile.isDummy &&
 				!tile.loaded &&
 				tile.z >= params.minLevel &&

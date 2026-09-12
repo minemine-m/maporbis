@@ -105,8 +105,8 @@ export class TileSourceCache {
 				minLevel: ctx.minLevel,
 				maxLevel: ctx.maxLevel,
 				tileSize: 256,
-				// Uniform z + frustum cull this step; distance LOD needs tile-space units
-				useDistanceLod: false,
+				// Pitch: far tiles stop at lower z (Mapbox distance split)
+				useDistanceLod: true,
 				cameraToCenterDistance: ctx.cameraDistance,
 				rootWorldMatrix: ctx.root.matrixWorld,
 			});
