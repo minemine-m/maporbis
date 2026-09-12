@@ -207,11 +207,14 @@ export function LODEvaluate(
 ): LODAction {
 	const distRatio = getDistRatio(tile);
 	const hasCover = typeof coveringZoom === "number" && Number.isFinite(coveringZoom);
+	// Integer target z — same as SourceCache ideal (floor). Do not refine past
+	// it or cover will wait on z+1 tiles that are not in the ideal load set.
+	const targetZ = hasCover ? Math.floor(coveringZoom!) : undefined;
 
 	if (tile.isLeaf) {
 		// Root (z=0) must always refine when in frustum; it has no parent to set showing.
 		const forceRefine = tile.z === 0 || tile.z < minLevel;
-		const coverOk = hasCover ? tile.z < coveringZoom! : distRatio < threshold;
+		const coverOk = hasCover ? tile.z < targetZ! : distRatio < threshold;
 		const needsIdeal = isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealTiles);
 		if (
 			tile.inFrustum &&
@@ -221,11 +224,11 @@ export function LODEvaluate(
 			return LODAction.create;
 		}
 	} else {
-		// Keep one extra level when using coveringZoom so parent can cover while children load
-		const coverOk = hasCover ? tile.z > coveringZoom! + 1 : distRatio > threshold;
+		// Keep one extra level so parent can cover while ideal children load
+		const coverOk = hasCover ? tile.z > targetZ! + 1 : distRatio > threshold;
 		// Drop deep out-of-view subtrees, but keep shallow loaded tiles for pan-back
 		// and anything still needed for ideal cover.
-		const keepForPan = tile.loaded && hasCover && tile.z <= coveringZoom! + 1;
+		const keepForPan = tile.loaded && hasCover && tile.z <= targetZ! + 1;
 		const outOfView =
 			!tile.inFrustum &&
 			tile.z >= minLevel &&
