@@ -258,6 +258,23 @@ function computeCovered(
 }
 
 /**
+ * If any child is showing, force-hide the parent (bottom-up).
+ * @returns whether this tile is showing after the pass
+ */
+function applyChildrenWinExclusive(tile: Tile): boolean {
+	if (!(tile as any).isTile) return false;
+	const kids = tile.children.filter((c: any) => c?.isTile) as Tile[];
+	let childShowing = false;
+	for (const k of kids) {
+		if (applyChildrenWinExclusive(k)) childShowing = true;
+	}
+	if (childShowing && tile.showing) {
+		tile.showing = false;
+	}
+	return tile.showing;
+}
+
+/**
  * Mapbox SourceCache: ideal cover → retain → covered → visibility + loads.
  * Visibility rule is ONLY: retain && loaded && !covered.
  */
@@ -379,6 +396,11 @@ export class TileSourceCache {
 				this._retainKeys.has(key) && t.loaded && !this._coveredKeys.has(key);
 			t.showing = show;
 		});
+
+		// Children win: never draw parent and child in the same frame.
+		// Retain can leave both visible while a quad is only partly loaded →
+		// coplanar raster z-fight that does not go away if a sibling never loads.
+		applyChildrenWinExclusive(ctx.root);
 
 		// Load missing ideals (tree nodes that already exist)
 		for (const key of this._idealKeys) {

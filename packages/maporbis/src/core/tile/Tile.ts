@@ -923,7 +923,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	private _applyRasterDepthBias(): void {
 		if (this._dataMode || !Array.isArray(this.material)) return;
-		const factor = -this.z * 2;
+		// Large mercator coords need a stronger bias than 1–2 units
+		const factor = -this.z * 8;
 		this.material.forEach((mat) => {
 			if (!mat) return;
 			mat.polygonOffset = true;
