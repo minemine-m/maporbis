@@ -166,12 +166,10 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
     public maxLevel: number = 19;
 
     /**
-     * When true, this layer computes an ideal covering set and uses it for
-     * load priority + ancestor retain. Raster layers leave this false so they
-     * do not fight vector layers over shared Tile schedule state.
-     * 为 true 时本层计算 ideal 覆盖集（矢量层）；栅格层保持 false，避免串层。
+     * Every layer uses SourceCache (Mapbox retain/covered) for load + visibility.
+     * 每层独立 SourceCache；栅格矢量不共享 Tile.showing 写入方。
      */
-    protected _idealRetain = false;
+    protected _idealRetain = true;
     protected _layerIdealTiles: Set<string> = new Set();
     /** Per-layer SourceCache (ideal + retain). Used when _idealRetain is true. */
     protected _sourceCache = new TileSourceCache();
@@ -413,14 +411,28 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 map?.sceneRenderer?.renderer?.domElement?.clientWidth ||
                 (typeof window !== "undefined" ? window.innerWidth : 1200);
 
-            // Ideal covering set via SourceCache (vector layers)
-            let idealKeys: Set<string> | undefined;
+            // LOD tree first, then SourceCache retain/covered owns visibility
             if (this._idealRetain) {
-                // Ensure camera matrices are current before DFS frustum culling
                 camera.updateMatrixWorld();
                 if ((camera as any).isPerspectiveCamera) {
                     (camera as any).updateProjectionMatrix();
                 }
+            }
+
+            const coveringZ = coveringZoom;
+
+            this._rootTile.update({
+                camera,
+                loader: this._loader,
+                minLevel: this.minLevel,
+                maxLevel: this.maxLevel,
+                LODThreshold: this.LODThreshold,
+                interacting: !!(map && map.isInteracting),
+                coveringZoom: coveringZ,
+                idealTiles: this._layerIdealTiles,
+            });
+
+            if (this._idealRetain) {
                 let lookAtProj = { x: 0, y: 0 };
                 if (lookAt && typeof lookAt.x === "number" && typeof map?.worldToPoint === "function") {
                     const p = map.worldToPoint(lookAt as Vector3);
@@ -444,22 +456,10 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     interacting: !!(map && map.isInteracting),
                 });
                 this._layerIdealTiles = snap.idealKeys;
-                idealKeys = this._layerIdealTiles;
                 Tile.setIdealTileSet(snap.ideal);
                 Tile.setIdealLoadedCount(snap.idealLoaded);
                 Tile.setIdealCoveredCount(snap.idealCovered);
             }
-
-            this._rootTile.update({
-                camera,
-                loader: this._loader,
-                minLevel: this.minLevel,
-                maxLevel: this.maxLevel,
-                LODThreshold: this.LODThreshold,
-                interacting: !!(map && map.isInteracting),
-                coveringZoom: this._idealRetain ? this._sourceCache.coveringZoom : coveringZoom,
-                idealTiles: idealKeys,
-            });
 
             // Check tile tree status
             // 检查瓦片树状态

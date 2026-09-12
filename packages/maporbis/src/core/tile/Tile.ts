@@ -719,18 +719,19 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * Visibility / retain:
-	 * - Parent stays visible until every **in-frustum** child has data.
-	 * - Out-of-frustum siblings are deferred; they must not block showing
-	 *   loaded tiles that are on screen (edge of viewport).
-	 * - If parent itself is missing, climb to the nearest loaded ancestor.
+	 * Visibility / retain (called when a child finishes loading).
+	 * No-op: SourceCache retain/covered owns showing when idealTiles is set.
 	 */
+	private _checkVisibility() {
+		return this;
+	}
+
+	/** Legacy hierarchical cover (tests / no-SourceCache path). */
 	private _refreshCoverVisibility() {
 		const children = this.children.filter((child: any) => child?.isTile);
 		if (children.length === 0) return;
 
 		const inView = children.filter((c: any) => c.inFrustum);
-		// Gate on in-frustum children only; fall back to all if none flagged yet
 		const gate: any[] = inView.length > 0 ? inView : children;
 		const allReady = gate.every((c: any) => c.loaded);
 
@@ -744,15 +745,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			child.showing = allReady;
 		});
 
-		if (Tile.debugSchedule) {
-			const loadedCount = gate.filter((c: any) => c.loaded).length;
-			console.log(
-				`[Schedule] retain parent z${this.z}/${this.x}/${this.y} ` +
-				`inView ${loadedCount}/${gate.length} loaded → parent.showing=${this.showing}`
-			);
-		}
-
-		// Parent not ready yet: hold nearest loaded ancestor as cover
 		if (!allReady && !this.loaded) {
 			let anc: Tile | null = this.parent as Tile | null;
 			while (anc && (anc as any).isTile && !(anc as any).loaded) {
@@ -762,17 +754,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				(anc as any).showing = true;
 			}
 		}
-	}
-
-	/**
-	 * Visibility / retain (called when a child finishes loading).
-	 */
-	private _checkVisibility() {
-		const parent = this.parent;
-		if (parent && parent.isTile) {
-			(parent as Tile)._refreshCoverVisibility();
-		}
-		return this;
 	}
 
 	/**
@@ -997,14 +978,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			this._processLODAction(tile, action, newTiles, params);
 		});
 
-		// Re-evaluate parent cover after frustum flags are fresh (pan/zoom).
-		// Out-of-frustum siblings must not keep in-view children hidden.
-		this.traverse(tile => {
-			if (tile.isTile && !tile.isLeaf) {
-				(tile as Tile)._refreshCoverVisibility();
-			}
-		});
-
 		// Re-prioritize queued loads with fresh distances
 		Tile._drainLoadQueue();
 
@@ -1072,8 +1045,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				}
 			});
 		} else if (action === LODAction.remove) {
-			currentTile.showing = true;
-			// unload children tiles
+			// Do not force showing — SourceCache retain decides after dispose
 			currentTile._disposeResources(false, params.loader);
 			this.dispatchEvent({ type: "tile-unload", tile: currentTile });
 		}
