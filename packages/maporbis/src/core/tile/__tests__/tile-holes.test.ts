@@ -318,7 +318,7 @@ describe("SourceCache emptyLoaded + settle showing", () => {
 		expect(showingZ.has(snap.ideal!.z)).toBe(true);
 	});
 
-	it("markDirty + setOnDirty re-runs update via live driver", async () => {
+	it("markDirty + setOnDirty re-runs update via live driver (deferred)", async () => {
 		const root = new Tile(0, 0, 0);
 		const loader = makeRasterLoader();
 		const cache = new TileSourceCache();
@@ -331,6 +331,10 @@ describe("SourceCache emptyLoaded + settle showing", () => {
 		expect(cache.dirty).toBe(false);
 
 		root.dispatchEvent({ type: "tile-loaded", tile: root });
+		expect(cache.dirty).toBe(true);
+		// Driver is deferred (microtask) so cache-hit cannot nest update
+		expect(driven).toBe(0);
+		await Promise.resolve();
 		expect(driven).toBeGreaterThan(0);
 		expect(cache.dirty).toBe(false);
 	});

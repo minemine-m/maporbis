@@ -279,6 +279,8 @@ export class TileSourceCache {
 	private _lastCtx: SourceCacheUpdateContext | null = null;
 	/** Live driver (TileLayer) rebuilds transform ctx and calls update — avoids stale cameraDistance. */
 	private _onDirty: (() => void) | null = null;
+	/** True while update() runs — prevents nested update from cache-hit tile-loaded. */
+	private _inUpdate = false;
 	/** Log showing flips written by this cache (sole writer). */
 	static traceVisibility = false;
 	private readonly _onTileCreated = (e: any) => {
@@ -291,13 +293,12 @@ export class TileSourceCache {
 	};
 	private readonly _onTileLoaded = (_e: any) => {
 		this.markDirty();
-		if (this._onDirty) {
-			this._onDirty();
-		} else if (this._lastCtx) {
-			// Fallback when no live driver (unit tests). Camera-derived fields
-			// in _lastCtx may be stale; TileLayer should setOnDirty.
-			queueMicrotask(() => this.updateIfDirty());
-		}
+		// Always defer: cache-hit path fires tile-loaded synchronously inside
+		// update()'s load phase; a sync driver would nest a full update.
+		queueMicrotask(() => {
+			if (this._onDirty) this._onDirty();
+			else this.updateIfDirty();
+		});
 	};
 	private _snapshot: SourceCacheSnapshot = {
 		coveringZoom: 0,
@@ -439,6 +440,20 @@ export class TileSourceCache {
 	}
 
 	update(ctx: SourceCacheUpdateContext): SourceCacheSnapshot {
+		if (this._inUpdate) {
+			// Re-entrant call (e.g. sync dirty driver mid load): mark and return current snapshot.
+			this._dirty = true;
+			return this._snapshot;
+		}
+		this._inUpdate = true;
+		try {
+			return this._updateInner(ctx);
+		} finally {
+			this._inUpdate = false;
+		}
+	}
+
+	private _updateInner(ctx: SourceCacheUpdateContext): SourceCacheSnapshot {
 		this._bindRoot(ctx.root);
 		this._lastCtx = ctx;
 		this._dirty = false;

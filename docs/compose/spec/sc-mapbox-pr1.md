@@ -37,9 +37,11 @@ commits: 590d23d..590d23d
 ### dirty / 同步 update
 
 - `TileSourceCache.markDirty()` 置位 `_dirty`。
-- `setOnDirty(cb)`：TileLayer 注册 live driver，`tile-loaded` → `markDirty` + 用**当前相机**重建 ctx 后 `layer.update`（避免 stale `cameraDistance`）。
-- 无 driver 时回退 `updateIfDirty()`（微任务复用 `_lastCtx`，仅测试用）。
+- `setOnDirty(cb)`：TileLayer 注册 live driver，用**当前相机**重建 ctx 后 `layer.update`（避免 stale `cameraDistance`）。
+- `tile-loaded` 一律 `queueMicrotask` 后再跑 driver/`updateIfDirty`——cache-hit 在 `update` 载荷阶段同步派发事件，同步 driver 会嵌套 update。
+- `update` 有 `_inUpdate` 守卫：重入时只置 dirty 并返回当前 snapshot。
 - 快照含 `emptyLoaded`（recover 后应为 0，对齐计划 I6）。
+- `TileLayer.dispose` 清空 `setOnDirty`。
 
 ### 调试
 

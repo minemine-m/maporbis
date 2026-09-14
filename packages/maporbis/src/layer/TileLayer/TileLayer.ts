@@ -556,6 +556,7 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
      * 移除根瓦片并清理资源。
      */
     dispose(): void {
+        this._sourceCache.setOnDirty(null);
         this.remove(this._rootTile);
         this._rootTile.reload(this._loader);
     }
