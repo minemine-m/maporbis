@@ -334,6 +334,8 @@
         const vLayer = vectorLayer;
         const pCache = vLayer && vLayer._rootTile && vLayer._rootTile._payloadCache;
         const cStat = pCache && pCache.stats ? pCache.stats : null;
+        const sc = vLayer && vLayer._sourceCache;
+        const flatN = sc && typeof sc.tileCount === 'number' ? sc.tileCount : null;
         statsEl.innerHTML = [
           `map.getZoom(): ${map && map.getZoom ? map.getZoom().toFixed(2) : '-'} · coveringZoom: ${s.coveringZoom != null ? s.coveringZoom.toFixed(2) : '-'}`,
           `矢量 maxLevel: ${vLayer && vLayer.maxLevel} · source.maxLevel: ${vLayer && vLayer.source && vLayer.source.maxLevel}`,
@@ -342,6 +344,9 @@
           `交互中限流: ${s.interacting ? '是 (并发≤' + s.maxConcurrent + ')' : '否 (并发≤' + s.maxConcurrent + ')'}`,
           `下载中: ${s.activeDownloads} / 排队: ${s.loadQueue} (峰值 ${s.maxQueueSeen})`,
           `矢量瓦片树: 总 ${total} · 已加载 ${loaded} · 显示 ${showing} · 视锥内 ${inFrustum}`,
+          flatN != null
+            ? `SourceCache._tiles: ${flatN}（flat 字典，树节点 ${total}）`
+            : `SourceCache._tiles: 不可用（需最新 dist）`,
           cStat
             ? `TileCache: ${cStat.size}/${cStat.maxSize} · 命中 ${cStat.hits} · 未中 ${cStat.misses} · 命中率 ${(cStat.hitRate * 100).toFixed(0)}%`
             : `TileCache: 不可用`,
@@ -378,6 +383,22 @@
             evidence: st
               ? `size=${st.size}/${st.maxSize}, hits=${st.hits}, misses=${st.misses}, rate=${(st.hitRate*100).toFixed(0)}%（放大再缩回应出现 hits）`
               : 'payloadCache 未挂在 root'
+          });
+        }
+
+        // ⑪ flat _tiles 字典
+        {
+          const sc = vectorLayer && vectorLayer._sourceCache;
+          const flatN = sc && typeof sc.tileCount === 'number' ? sc.tileCount : null;
+          let treeN = 0;
+          if (root) root.traverse(t => { if (t.isTile) treeN++; });
+          const ok = typeof flatN === 'number' && flatN >= 1 && flatN >= treeN * 0.5;
+          items.push({
+            ok,
+            title: '⑪ SourceCache flat _tiles（key→Tile 字典）',
+            evidence: typeof flatN === 'number'
+              ? `_tiles=${flatN}, 树节点=${treeN}（字典应 ≥ 树上节点；平移后 _tiles 会随 LOD 增减）`
+              : 'sourceCache.tileCount 不可用 — 请 rebuild dist 并硬刷新'
           });
         }
 
