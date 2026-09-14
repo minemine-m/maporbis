@@ -242,12 +242,44 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 	}
 
 	if (keys.length === 0) return null;
+
+	// Frustum-only DFS under-covers the viewport. Pad one tile on each side.
+	const padded = padKeysOneTile(keys, minLevel, maxLevel);
+	let pminX = Infinity, pmaxX = -Infinity, pminY = Infinity, pmaxY = -Infinity;
+	let pmaxZ = resultZ ?? targetZ;
+	for (const key of padded) {
+		const [z, x, y] = key.split("/").map(Number);
+		if (x < pminX) pminX = x;
+		if (x > pmaxX) pmaxX = x;
+		if (y < pminY) pminY = y;
+		if (y > pmaxY) pmaxY = y;
+		if (z > pmaxZ) pmaxZ = z;
+	}
 	return {
-		z: resultZ ?? targetZ,
-		keys,
-		minX,
-		maxX,
-		minY,
-		maxY,
+		z: pmaxZ,
+		keys: padded,
+		minX: pminX,
+		maxX: pmaxX,
+		minY: pminY,
+		maxY: pmaxY,
 	};
+}
+
+/** Expand each key with 8-neighbors at the same z, clamped to the world. */
+function padKeysOneTile(keys: string[], minLevel: number, maxLevel: number): string[] {
+	const out = new Set(keys);
+	for (const key of keys) {
+		const [z, x, y] = key.split("/").map(Number);
+		if (z < minLevel || z > maxLevel) continue;
+		const n = Math.pow(2, z);
+		for (let dx = -1; dx <= 1; dx++) {
+			for (let dy = -1; dy <= 1; dy++) {
+				const nx = x + dx;
+				const ny = y + dy;
+				if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+				out.add(`${z}/${nx}/${ny}`);
+			}
+		}
+	}
+	return [...out];
 }

@@ -83,8 +83,8 @@ describe("TileSourceCache flat _tiles", () => {
 		expect(cache.getTile(`1/${z1[0].x}/${z1[0].y}`)).toBeUndefined();
 		expect(cache.tileCount).toBe(4);
 
-		// LOD-style dispose: clear remaining children from the scene graph
-		z1.slice(1).forEach((c) => root.remove(c));
+		// Detach ALL children (unloaded one is still on the tree until remove)
+		z1.forEach((c) => root.remove(c));
 		cache.update(ctx(root, loader));
 		expect(cache.tileCount).toBe(1);
 		expect(cache.getTile("0/0/0")).toBe(root);

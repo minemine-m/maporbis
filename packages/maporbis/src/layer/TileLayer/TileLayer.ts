@@ -459,9 +459,12 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     interacting: !!(map && map.isInteracting),
                 });
                 this._layerIdealTiles = snap.idealKeys;
-                Tile.setIdealTileSet(snap.ideal);
-                Tile.setIdealLoadedCount(snap.idealLoaded);
-                Tile.setIdealCoveredCount(snap.idealCovered);
+                // Base layer owns the global ideal set used by queue prune/stats.
+                if ((this as any).isBaseLayer) {
+                    Tile.setIdealTileSet(snap.ideal);
+                    Tile.setIdealLoadedCount(snap.idealLoaded);
+                    Tile.setIdealCoveredCount(snap.idealCovered);
+                }
             }
 
             // Check tile tree status

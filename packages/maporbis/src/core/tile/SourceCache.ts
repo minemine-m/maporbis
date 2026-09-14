@@ -290,6 +290,8 @@ export class TileSourceCache {
 	/** Flat schedule index (Mapbox `_tiles`). Scene tree remains for LOD/transforms. */
 	private _tiles = new Map<string, Tile>();
 	private _root: Tile | null = null;
+	/** Keys showing last frame — sticky underlay while ideals load. */
+	private _lastShowing = new Set<string>();
 	private readonly _onTileCreated = (e: any) => {
 		const t = e?.tile as Tile | undefined;
 		if (t?.isTile) this._register(t);
@@ -381,6 +383,21 @@ export class TileSourceCache {
 		}
 	}
 
+	/**
+	 * Re-register any scene tile missing from the flat map.
+	 * LOD create / ensureTilePath can add nodes that never got a
+	 * tile-created callback — SourceCache then could not show or load them.
+	 */
+	private _resyncFromTree(root: Tile): void {
+		if (!root?.isTile) return;
+		root.traverse((t) => {
+			if (!t.isTile) return;
+			const key = keyOf(t.z, t.x, t.y);
+			if (this._tiles.get(key) !== t) this._tiles.set(key, t);
+		});
+		this._pruneDetached();
+	}
+
 	update(ctx: SourceCacheUpdateContext): SourceCacheSnapshot {
 		this._bindRoot(ctx.root);
 		this._coveringZoom = computeCoveringZoomLevel(
@@ -435,6 +452,7 @@ export class TileSourceCache {
 		}
 
 		this._pruneDetached();
+		this._resyncFromTree(ctx.root);
 
 		const byKey = this._tiles;
 		const loadedKeys = new Set<string>();
@@ -457,18 +475,72 @@ export class TileSourceCache {
 			tile.showing = show;
 		}
 
+		// Sticky underlay: keep last-frame showing tiles while ideals load,
+		// so pan/zoom does not expose skybox before the new set is ready.
+		let idealReady = 0;
+		for (const key of this._idealKeys) {
+			if (loadedKeys.has(key)) idealReady++;
+		}
+		const coverageIncomplete =
+			this._idealKeys.size > 0 && idealReady < this._idealKeys.size;
+		if (coverageIncomplete) {
+			for (const key of this._lastShowing) {
+				const tile = byKey.get(key);
+				if (tile && tile.loaded && tile.inFrustum && !tile.showing) {
+					tile.showing = true;
+				}
+			}
+			// Nearest loaded ancestor per missing ideal (gap ≤ 3 levels)
+			const targetZ = this._ideal ? this._ideal.z : 0;
+			const minUnderlayZ = Math.max(ctx.minLevel, targetZ - 3);
+			for (const key of this._idealKeys) {
+				if (loadedKeys.has(key)) continue;
+				const [iz, ix, iy] = parseKey(key);
+				for (let z = iz - 1; z >= minUnderlayZ; z--) {
+					const s = iz - z;
+					const pk = keyOf(z, ix >> s, iy >> s);
+					const anc = byKey.get(pk);
+					if (anc && anc.loaded) {
+						anc.showing = true;
+						break;
+					}
+				}
+			}
+		}
+
 		// Children win: never draw parent and child in the same frame.
-		// Retain can leave both visible while a quad is only partly loaded →
-		// coplanar raster z-fight that does not go away if a sibling never loads.
 		applyChildrenWinExclusive(ctx.root);
 
-		// Load missing ideals (tree nodes that already exist)
+		// Load missing ideals AND retained cover tiles (Mapbox loads the
+		// whole retain set so ancestors form a basemap while children fetch).
+		const toLoad: { key: string; ideal: boolean }[] = [];
 		for (const key of this._idealKeys) {
-			if (loadedKeys.has(key)) continue;
-			const tile = byKey.get(key);
+			if (!loadedKeys.has(key)) toLoad.push({ key, ideal: true });
+		}
+		for (const key of this._retainKeys) {
+			if (loadedKeys.has(key) || this._idealKeys.has(key)) continue;
+			toLoad.push({ key, ideal: false });
+		}
+		toLoad.sort((a, b) => (a.ideal === b.ideal ? 0 : a.ideal ? -1 : 1));
+		const maxCoverLoads = 48;
+		let coverQueued = 0;
+		for (const { key, ideal } of toLoad) {
+			if (!ideal) {
+				if (coverQueued >= maxCoverLoads) continue;
+				coverQueued++;
+			}
+			const [z, x, y] = parseKey(key);
+			if (z < ctx.minLevel || z > ctx.maxLevel) continue;
+			ensureTilePath(ctx.root, z, x, y, ctx.loader);
+			const tile = this._tiles.get(key);
 			if (tile && !tile.loaded) {
 				Tile.requestLoad(tile, ctx.loader, this._idealKeys);
 			}
+		}
+
+		this._lastShowing.clear();
+		for (const [key, tile] of byKey) {
+			if (tile.showing) this._lastShowing.add(key);
 		}
 
 		let idealLoaded = 0;

@@ -93,9 +93,10 @@ const frustum = new Frustum();
  */
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private static _activeDownloads = 0;
-	private static _maxConcurrentDownloads = 16;
+	/** Shared across raster+vector. 16 starved base imagery under load. */
+	private static _maxConcurrentDownloads = 32;
 	/** Still allow enough bandwidth while panning so edges do not starve */
-	private static _interactingMaxConcurrentDownloads = 12;
+	private static _interactingMaxConcurrentDownloads = 20;
 	private static _interacting = false;
 	/** Priority queue of tiles waiting to start network load (center-first) */
 	private static _loadQueue: Array<{
@@ -153,10 +154,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		const oldState = this._state;
 		this._state = newState;
 
-		// Sync backward-compatible flags 同步向后兼容的标志位
 		if (newState === TileState.Loaded) {
 			this._isLoaded = true;
-		} else if (newState === TileState.Idle || newState === TileState.Loading) {
+		} else if (
+			newState === TileState.Idle ||
+			newState === TileState.Loading ||
+			newState === TileState.Unloaded
+		) {
 			this._isLoaded = false;
 		}
 
@@ -164,11 +168,15 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * Check if tile can start loading
-	 * 检查瓦片是否可以开始加载
+	 * Unloaded must be reloadable — dispose sets Unloaded and the tile is
+	 * often needed again on the next zoom/pan.
 	 */
 	private _canStartLoading(): boolean {
-		return this._state === TileState.Idle || this._state === TileState.Error;
+		return (
+			this._state === TileState.Idle ||
+			this._state === TileState.Error ||
+			this._state === TileState.Unloaded
+		);
 	}
 
 	/**
@@ -506,18 +514,20 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * 平移时剪掉过时请求；ideal 永远保留。
 	 */
 	private static _pruneLoadQueue() {
-		const MAX_QUEUE = 120;
+		const MAX_QUEUE = 160;
 		if (Tile._loadQueue.length === 0) return;
 		const before = Tile._loadQueue.length;
 		const ideals = Tile._idealTiles;
 		Tile._loadQueue = Tile._loadQueue.filter((job) => {
 			const t = job.tile;
 			if (t.z !== 0 && !t.parent) return false;
-			if (t.loaded || t.state === TileState.Unloaded) return false;
+			// Unloaded = released, can reload — keep. Dropping them cancelled
+			// every post-LOD re-request and left permanent holes.
+			if (t.loaded || t.state === TileState.Loading) return false;
 			const key = `${t.z}/${t.x}/${t.y}`;
-			if (ideals.has(key)) return true;
+			if (job.idealTiles?.has(key)) return true;
+			if (Tile._idealTiles.has(key)) return true;
 			if (t.inFrustum) return true;
-			// Non-ideal out-of-frustum: keep only a small tail (recent work)
 			return Tile._loadQueue.length <= 24;
 		});
 		// Abort in-flight non-ideal OOF downloads when queue is still deep
@@ -687,6 +697,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		this.name = `Tile ${z}-${x}-${y}`;
 		this.up.set(0, 0, 1);
 		this.matrixAutoUpdate = false;
+		// Schedule layer already does frustum tests. Three's mesh frustumCulled
+		// uses stale hierarchical bounds and randomly drops tiles.
+		this.frustumCulled = false;
 		// Ensure tiles are rendered before other overlays (like polygons) to avoid transparency sorting issues
 		// 确保瓦片在其他覆盖物（如多边形）之前渲染，以避免透明度排序问题
 		this.renderOrder = -1;
@@ -956,6 +969,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	/** New tile init */
 	private _initTile() {
+		this.frustumCulled = false;
 		this.updateMatrix();
 		this.updateMatrixWorld();
 		this.sizeInWorld = getTileSize(this);
