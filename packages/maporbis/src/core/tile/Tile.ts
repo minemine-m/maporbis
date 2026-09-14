@@ -794,14 +794,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * Legacy cover path removed: only SourceCache may write `showing` (I1).
-	 * Kept as a no-op so old test call sites fail loudly on behavior, not on missing method.
-	 */
-	private _refreshCoverVisibility() {
-		return;
-	}
-
-	/**
 	 * Asynchronously load tile data with state machine and retry support
 	 * 异步加载瓦片数据，支持状态机和重试
 	 *

@@ -41,6 +41,8 @@ export type SourceCacheSnapshot = {
 	idealLoaded: number;
 	idealCovered: number;
 	retainCount: number;
+	/** Loaded tiles without render payload after recover — must stay 0 (I6). */
+	emptyLoaded: number;
 };
 
 function parseKey(key: string): [number, number, number] {
@@ -258,28 +260,6 @@ function computeCovered(
 }
 
 /**
- * Align with Mapbox `_coveredTiles`: a parent whose four children are
- * retained+loaded is covered and must not draw. When not covered, parent
- * and children may share a frame (polygonOffset by z) — do not require
- * kids.every(showing).
- * @returns whether this tile is showing after the pass
- */
-export function applyAtomicChildHandoff(
-	tile: Tile,
-	covered?: ReadonlySet<string>
-): boolean {
-	if (!(tile as any).isTile) return false;
-	const key = `${tile.z}/${tile.x}/${tile.y}`;
-	if (covered?.has(key) && tile.showing) {
-		tile.showing = false;
-	}
-	for (const c of tile.children as any[]) {
-		if (c?.isTile) applyAtomicChildHandoff(c as Tile, covered);
-	}
-	return tile.showing;
-}
-
-/**
  * Mapbox SourceCache: ideal cover → retain → covered → visibility + loads.
  * Visibility rule is ONLY: retain && loaded && !covered.
  *
@@ -297,6 +277,8 @@ export class TileSourceCache {
 	private _root: Tile | null = null;
 	private _dirty = false;
 	private _lastCtx: SourceCacheUpdateContext | null = null;
+	/** Live driver (TileLayer) rebuilds transform ctx and calls update — avoids stale cameraDistance. */
+	private _onDirty: (() => void) | null = null;
 	/** Log showing flips written by this cache (sole writer). */
 	static traceVisibility = false;
 	private readonly _onTileCreated = (e: any) => {
@@ -309,8 +291,13 @@ export class TileSourceCache {
 	};
 	private readonly _onTileLoaded = (_e: any) => {
 		this.markDirty();
-		// Defer one microtask: avoid re-entering update from inside a load callback.
-		queueMicrotask(() => this.updateIfDirty());
+		if (this._onDirty) {
+			this._onDirty();
+		} else if (this._lastCtx) {
+			// Fallback when no live driver (unit tests). Camera-derived fields
+			// in _lastCtx may be stale; TileLayer should setOnDirty.
+			queueMicrotask(() => this.updateIfDirty());
+		}
 	};
 	private _snapshot: SourceCacheSnapshot = {
 		coveringZoom: 0,
@@ -322,6 +309,7 @@ export class TileSourceCache {
 		idealLoaded: 0,
 		idealCovered: 0,
 		retainCount: 0,
+		emptyLoaded: 0,
 	};
 
 	get idealKeys(): ReadonlySet<string> {
@@ -389,11 +377,19 @@ export class TileSourceCache {
 		this._dirty = true;
 	}
 
+	/** Attach a live update driver so dirty runs rebuild transform from the camera. */
+	setOnDirty(cb: (() => void) | null): void {
+		this._onDirty = cb;
+	}
+
 	get dirty(): boolean {
 		return this._dirty;
 	}
 
-	/** Re-run the last update when dirty (used after tile-loaded). */
+	/**
+	 * Re-run the last update when dirty. Prefer setOnDirty from TileLayer so
+	 * cameraDistance/lookAt/viewport are fresh; this fallback may use stale fields.
+	 */
 	updateIfDirty(): boolean {
 		if (!this._dirty || !this._lastCtx) return false;
 		this.update(this._lastCtx);
@@ -508,6 +504,10 @@ export class TileSourceCache {
 				(tile as any)._transitionTo(TileState.Unloaded);
 			}
 		}
+		let emptyLoaded = 0;
+		for (const tile of byKey.values()) {
+			if (tile.loaded && !tile.hasRenderPayload()) emptyLoaded++;
+		}
 		const loadedKeys = new Set<string>();
 		for (const [key, tile] of byKey) {
 			if (tile.loaded) loadedKeys.add(key);
@@ -528,8 +528,9 @@ export class TileSourceCache {
 			this._setShowing(tile, show, "SourceCache.update");
 		}
 
-		// Sticky underlay: only the nearest loaded ancestor of each missing ideal.
-		// Do not replay the previous frame's entire showing set (second sovereignty).
+		// Sticky underlay: only the nearest loaded ancestor of each missing ideal,
+		// and only if that ancestor is retained (sole rule: retain ∧ loaded ∧ ¬covered).
+		// Do not replay the previous frame's entire showing set.
 		let idealReady = 0;
 		for (const key of this._idealKeys) {
 			if (loadedKeys.has(key)) idealReady++;
@@ -546,7 +547,12 @@ export class TileSourceCache {
 					const s = iz - z;
 					const pk = keyOf(z, ix >> s, iy >> s);
 					const anc = byKey.get(pk);
-					if (anc && anc.loaded && !this._coveredKeys.has(pk)) {
+					if (
+						anc &&
+						anc.loaded &&
+						this._retainKeys.has(pk) &&
+						!this._coveredKeys.has(pk)
+					) {
 						this._setShowing(anc, true, "sticky-ancestor");
 						break;
 					}
@@ -554,8 +560,11 @@ export class TileSourceCache {
 			}
 		}
 
-		// Covered parents must stay hidden even if sticky/handoff ran above.
-		applyAtomicChildHandoff(ctx.root, this._coveredKeys);
+		// Covered parents must stay hidden (Mapbox _coveredTiles). Single write funnel.
+		for (const key of this._coveredKeys) {
+			const tile = byKey.get(key);
+			if (tile) this._setShowing(tile, false, "covered");
+		}
 
 		// Load missing ideals AND retained cover tiles (Mapbox loads the
 		// whole retain set so ancestors form a basemap while children fetch).
@@ -603,6 +612,7 @@ export class TileSourceCache {
 			idealLoaded,
 			idealCovered,
 			retainCount: this._retainKeys.size,
+			emptyLoaded,
 		};
 		return this._snapshot;
 	}

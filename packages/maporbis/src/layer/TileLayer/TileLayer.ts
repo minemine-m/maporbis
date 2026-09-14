@@ -207,10 +207,17 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
         // Create loader
         // 创建加载器
         this._loader = this.createLoader();
-        
+
         // Create root tile
         // 创建根瓦片
         this._rootTile = new Tile();
+        // Live dirty driver: rebuild transform ctx from the current camera (no stale _lastCtx).
+        this._sourceCache.setOnDirty(() => {
+            const cam = this.getMap?.()?.sceneRenderer?.camera as Camera | undefined;
+            if (cam && this._enabled && this._visible) {
+                this.update(cam);
+            }
+        });
         this._rootTile.matrixAutoUpdate = true;
         this._rootTile.receiveShadow = options.receiveShadow ?? false;
         // LRU payload cache for zoom-back (reuse loaders.TileCache)
