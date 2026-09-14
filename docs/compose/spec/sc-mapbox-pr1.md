@@ -1,15 +1,29 @@
 ---
 feature: sc-mapbox-pr1
-status: in-progress
+status: delivered
 updated: 2026-09-14
 branch: feat/sc-mapbox-pr1
-commits: 590d23d..590d23d
+commits: 590d23d..fae5276
 ---
 
 # SourceCache 单一 showing 写入方（PR-1）
 
 ## Report
 
+**What was built** — `Tile.showing` 的生产写入收敛到 `TileSourceCache._setShowing` 单点。规则为 `retain ∧ loaded ∧ ¬covered`（对齐 Mapbox `_isIdRenderable`）。删除 `Tile._revealIfIdeal` 与 `_refreshCoverVisibility`；去掉 `lastShowing` 整集粘滞；covered 父级在 update 内隐藏；sticky 仅保留「缺 ideal 的最近 loaded 且 retain 的祖先」。加载完成只 `markDirty`，经 deferred live driver（当前相机重建 ctx）再跑 update；`_inUpdate` 防止 cache-hit 同步重入。快照新增 `emptyLoaded`；`TileSourceCache.traceVisibility` 可记录 showing 翻转。
+
+**Verification** —
+- `npx tsc --noEmit` PASS
+- `npx vitest run` PASS（14 files / 69 tests）
+- `npm run build` PASS
+- 生产代码 grep `.showing =` 仅 `SourceCache.ts` `_setShowing`
+
+**Journey log** —
+1. 主仓 ref 被隔离策略锁定 → 克隆到 `maporbis-pr1` 再切 `feat/sc-mapbox-pr1`。
+2. 首轮评审：stale `_lastCtx`、handoff 旁路 trace、sticky 缺 retain、缺 settle 单测 → 全部修复。
+3. 二轮评审发现 cache-hit 在 update 内同步派发 `tile-loaded` → dirty driver 改为 microtask + `_inUpdate` 守卫。
+4. `emptyLoaded` 计在 recover 之后，本质是不变量探针；检测器应在未来注入脏 tile。
+5. sticky 与主规则同谓词，偏冗余；PR-2+ 可删，依赖 retain-ascent 即可。
 ## [S1] Problem
 
 `Tile.showing` 存在多个生产写入方：`Tile._revealIfIdeal`（加载完成直接点亮）、`SourceCache` 整集 `lastShowing` 粘滞、`applyAtomicChildHandoff`（按 `kids.every(showing)` 隐藏父级）、`Tile._refreshCoverVisibility`（旧 cover）。双主权导致父级不消失、子级不出现、多层硬拼贴、闪一下恢复。
