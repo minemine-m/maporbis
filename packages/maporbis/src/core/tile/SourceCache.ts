@@ -277,6 +277,9 @@ function applyChildrenWinExclusive(tile: Tile): boolean {
 /**
  * Mapbox SourceCache: ideal cover → retain → covered → visibility + loads.
  * Visibility rule is ONLY: retain && loaded && !covered.
+ *
+ * Storage is a flat key→Tile map (`_tiles`), like Mapbox `_tiles`. The scene
+ * graph still holds hierarchy/transforms; this map is the O(1) schedule index.
  */
 export class TileSourceCache {
 	private _ideal: IdealTileSet | null = null;
@@ -284,6 +287,17 @@ export class TileSourceCache {
 	private _retainKeys = new Set<string>();
 	private _coveredKeys = new Set<string>();
 	private _coveringZoom = 0;
+	/** Flat schedule index (Mapbox `_tiles`). Scene tree remains for LOD/transforms. */
+	private _tiles = new Map<string, Tile>();
+	private _root: Tile | null = null;
+	private readonly _onTileCreated = (e: any) => {
+		const t = e?.tile as Tile | undefined;
+		if (t?.isTile) this._register(t);
+	};
+	private readonly _onTileUnload = (e: any) => {
+		const t = e?.tile as Tile | undefined;
+		if (t?.isTile) this._tiles.delete(keyOf(t.z, t.x, t.y));
+	};
 	private _snapshot: SourceCacheSnapshot = {
 		coveringZoom: 0,
 		ideal: null,
@@ -320,7 +334,55 @@ export class TileSourceCache {
 		return this._snapshot;
 	}
 
+	/** Flat tile registry size (debug / stats). */
+	get tileCount(): number {
+		return this._tiles.size;
+	}
+
+	getTile(key: string): Tile | undefined {
+		return this._tiles.get(key);
+	}
+
+	private _register(tile: Tile): void {
+		if (!tile?.isTile) return;
+		this._tiles.set(keyOf(tile.z, tile.x, tile.y), tile);
+	}
+
+	/** Bind root once; seed from existing tree; listen for LOD creates. */
+	private _bindRoot(root: Tile): void {
+		if (this._root === root) return;
+		if (this._root) {
+			this._root.removeEventListener("tile-created", this._onTileCreated);
+			this._root.removeEventListener("tile-unload", this._onTileUnload);
+		}
+		this._root = root;
+		this._tiles.clear();
+		if (!root?.isTile) return;
+		root.addEventListener("tile-created", this._onTileCreated);
+		root.addEventListener("tile-unload", this._onTileUnload);
+		root.traverse((t) => {
+			if (t.isTile) this._register(t);
+		});
+	}
+
+	/**
+	 * Drop entries whose scene node was cleared (LOD remove → Object3D.clear).
+	 * Children do not fire tile-unload; parent does.
+	 */
+	private _pruneDetached(): void {
+		for (const [key, tile] of this._tiles) {
+			if (!tile?.isTile) {
+				this._tiles.delete(key);
+				continue;
+			}
+			if (tile.z === 0) continue;
+			const p = tile.parent as any;
+			if (!p || !p.isTile) this._tiles.delete(key);
+		}
+	}
+
 	update(ctx: SourceCacheUpdateContext): SourceCacheSnapshot {
+		this._bindRoot(ctx.root);
 		this._coveringZoom = computeCoveringZoomLevel(
 			ctx.cameraDistance,
 			ctx.viewportHeight,
@@ -372,14 +434,13 @@ export class TileSourceCache {
 			}
 		}
 
+		this._pruneDetached();
+
+		const byKey = this._tiles;
 		const loadedKeys = new Set<string>();
-		const byKey = new Map<string, Tile>();
-		ctx.root.traverse((t) => {
-			if (!t.isTile) return;
-			const key = keyOf(t.z, t.x, t.y);
-			byKey.set(key, t);
-			if (t.loaded) loadedKeys.add(key);
-		});
+		for (const [key, tile] of byKey) {
+			if (tile.loaded) loadedKeys.add(key);
+		}
 
 		this._retainKeys = updateRetainedTiles(
 			this._idealKeys,
@@ -390,13 +451,11 @@ export class TileSourceCache {
 		this._coveredKeys = computeCovered(this._retainKeys, loadedKeys);
 
 		// Sole visibility rule (Mapbox painter: draw retain tiles with data, skip covered)
-		ctx.root.traverse((t) => {
-			if (!t.isTile) return;
-			const key = keyOf(t.z, t.x, t.y);
+		for (const [key, tile] of byKey) {
 			const show =
-				this._retainKeys.has(key) && t.loaded && !this._coveredKeys.has(key);
-			t.showing = show;
-		});
+				this._retainKeys.has(key) && tile.loaded && !this._coveredKeys.has(key);
+			tile.showing = show;
+		}
 
 		// Children win: never draw parent and child in the same frame.
 		// Retain can leave both visible while a quad is only partly loaded →
