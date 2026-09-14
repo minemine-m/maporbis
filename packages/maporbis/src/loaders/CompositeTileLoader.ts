@@ -5,6 +5,17 @@ import { TileLoaderFactory } from "./TileLoaderFactory";
 import { TileCache } from "./TileCache";
 import { RetryLoader, RetryOptions } from "./RetryLoader";
 
+/** Shared unit plane for flat raster tiles. Tiles only differ by transform. */
+let sharedRasterPlane: PlaneGeometry | null = null;
+export function getSharedRasterPlane(): PlaneGeometry {
+    if (!sharedRasterPlane) {
+        sharedRasterPlane = new PlaneGeometry();
+        sharedRasterPlane.addGroup(0, Infinity, 0);
+        sharedRasterPlane.userData.sharedRasterPlane = true;
+    }
+    return sharedRasterPlane;
+}
+
 /**
  * 综合瓦片加载器
  * @class CompositeTileLoader
@@ -93,9 +104,11 @@ export class CompositeTileLoader implements ICompositeLoader {
         ]);
 
         if (geometry && materials) {
-            // 为每个材质添加几何体组 (Group)
-            for (let i = 0; i < materials.length; i++) {
-                geometry.addGroup(0, Infinity, i);
+            // Shared raster plane already has its group; per-tile geometries need groups.
+            if (!(geometry as any).userData?.sharedRasterPlane) {
+                for (let i = 0; i < materials.length; i++) {
+                    geometry.addGroup(0, Infinity, i);
+                }
             }
             // Do not put live GPU objects into the LRU here. The tile owns
             // geometry/materials while showing; payload-cache transfer happens
@@ -119,7 +132,7 @@ export class CompositeTileLoader implements ICompositeLoader {
             (materials as Material).dispose();
         }
 
-        if (geometry) {
+        if (geometry && !(geometry as any).userData?.sharedRasterPlane) {
             geometry.dispose();
         }
     }
@@ -141,8 +154,8 @@ export class CompositeTileLoader implements ICompositeLoader {
             return this.loadFromSource(this.vtSource, context, TileLoaderFactory.getMeshLoader(this.vtSource));
         }
         
-        // 3. 默认返回平面
-        return new PlaneGeometry();
+        // 3. 默认返回共享平面（仅 transform 区分瓦片）
+        return getSharedRasterPlane();
     }
 
     /**
@@ -210,7 +223,7 @@ export class CompositeTileLoader implements ICompositeLoader {
             return await loadWithRetry.load(context);
         } catch (err) {
             console.error(`[CompositeTileLoader] Geometry load failed for source ${source.dataType}:`, err);
-            return new PlaneGeometry(); // Fallback
+            return getSharedRasterPlane(); // Fallback
         }
     }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BufferGeometry, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
-import { TileSourceCache } from "../SourceCache";
+import { TileSourceCache, applyAtomicChildHandoff } from "../SourceCache";
 import { TileCache } from "../../../loaders/TileCache";
 import { createChildren } from "../util";
 import { Camera } from "three";
@@ -180,5 +180,52 @@ describe("tile holes: empty Loaded / payload cache poisoning", () => {
 		await (child as any)._loadData(loader);
 		expect(child.loaded).toBe(false);
 		expect(child.hasRenderPayload()).toBe(false);
+	});
+});
+
+describe("atomic LOD child handoff", () => {
+	function makeLoadedShowing(t: Tile) {
+		t.geometry = new PlaneGeometry(1, 1);
+		t.material = [new MeshBasicMaterial()];
+		(t as any)._transitionTo(TileState.Loaded);
+		t.showing = true;
+		return t;
+	}
+
+	it("keeps parent showing while only some children are showing", () => {
+		const parent = new Tile(0, 0, 5);
+		const kids = [
+			new Tile(0, 0, 6),
+			new Tile(1, 0, 6),
+			new Tile(0, 1, 6),
+			new Tile(1, 1, 6),
+		];
+		parent.add(...kids);
+		parent.showing = true;
+		makeLoadedShowing(kids[0]);
+		// other three not showing
+
+		applyAtomicChildHandoff(parent);
+
+		expect(parent.showing).toBe(true);
+		expect(kids[0].showing).toBe(true);
+	});
+
+	it("hides parent only after all children are showing", () => {
+		const parent = new Tile(0, 0, 5);
+		const kids = [
+			new Tile(0, 0, 6),
+			new Tile(1, 0, 6),
+			new Tile(0, 1, 6),
+			new Tile(1, 1, 6),
+		];
+		parent.add(...kids);
+		parent.showing = true;
+		kids.forEach(makeLoadedShowing);
+
+		applyAtomicChildHandoff(parent);
+
+		expect(parent.showing).toBe(false);
+		kids.forEach((k) => expect(k.showing).toBe(true));
 	});
 });

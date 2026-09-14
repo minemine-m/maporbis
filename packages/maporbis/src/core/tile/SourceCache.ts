@@ -258,17 +258,21 @@ function computeCovered(
 }
 
 /**
- * If any child is showing, force-hide the parent (bottom-up).
+ * Hide a parent only after every child is showing (atomic LOD handoff).
+ * Partial children must leave the parent visible so missing quadrants
+ * do not expose skybox — Mapbox keeps the parent until it is covered.
  * @returns whether this tile is showing after the pass
  */
-function applyChildrenWinExclusive(tile: Tile): boolean {
+export function applyAtomicChildHandoff(tile: Tile): boolean {
 	if (!(tile as any).isTile) return false;
 	const kids = tile.children.filter((c: any) => c?.isTile) as Tile[];
-	let childShowing = false;
+	if (kids.length === 0) return tile.showing;
+	let allKidsShowing = true;
 	for (const k of kids) {
-		if (applyChildrenWinExclusive(k)) childShowing = true;
+		applyAtomicChildHandoff(k);
+		if (!k.showing) allKidsShowing = false;
 	}
-	if (childShowing && tile.showing) {
+	if (allKidsShowing && tile.showing) {
 		tile.showing = false;
 	}
 	return tile.showing;
@@ -515,8 +519,8 @@ export class TileSourceCache {
 			}
 		}
 
-		// Children win: never draw parent and child in the same frame.
-		applyChildrenWinExclusive(ctx.root);
+		// Atomic child handoff: parent stays until all children are showing.
+		applyAtomicChildHandoff(ctx.root);
 
 		// Load missing ideals AND retained cover tiles (Mapbox loads the
 		// whole retain set so ancestors form a basemap while children fetch).
