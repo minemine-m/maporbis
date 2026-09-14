@@ -258,22 +258,23 @@ function computeCovered(
 }
 
 /**
- * Hide a parent only after every child is showing (atomic LOD handoff).
- * Partial children must leave the parent visible so missing quadrants
- * do not expose skybox — Mapbox keeps the parent until it is covered.
+ * Align with Mapbox `_coveredTiles`: a parent whose four children are
+ * retained+loaded is covered and must not draw. When not covered, parent
+ * and children may share a frame (polygonOffset by z) — do not require
+ * kids.every(showing).
  * @returns whether this tile is showing after the pass
  */
-export function applyAtomicChildHandoff(tile: Tile): boolean {
+export function applyAtomicChildHandoff(
+	tile: Tile,
+	covered?: ReadonlySet<string>
+): boolean {
 	if (!(tile as any).isTile) return false;
-	const kids = tile.children.filter((c: any) => c?.isTile) as Tile[];
-	if (kids.length === 0) return tile.showing;
-	let allKidsShowing = true;
-	for (const k of kids) {
-		applyAtomicChildHandoff(k);
-		if (!k.showing) allKidsShowing = false;
-	}
-	if (allKidsShowing && tile.showing) {
+	const key = `${tile.z}/${tile.x}/${tile.y}`;
+	if (covered?.has(key) && tile.showing) {
 		tile.showing = false;
+	}
+	for (const c of tile.children as any[]) {
+		if (c?.isTile) applyAtomicChildHandoff(c as Tile, covered);
 	}
 	return tile.showing;
 }
@@ -294,8 +295,10 @@ export class TileSourceCache {
 	/** Flat schedule index (Mapbox `_tiles`). Scene tree remains for LOD/transforms. */
 	private _tiles = new Map<string, Tile>();
 	private _root: Tile | null = null;
-	/** Keys showing last frame — sticky underlay while ideals load. */
-	private _lastShowing = new Set<string>();
+	private _dirty = false;
+	private _lastCtx: SourceCacheUpdateContext | null = null;
+	/** Log showing flips written by this cache (sole writer). */
+	static traceVisibility = false;
 	private readonly _onTileCreated = (e: any) => {
 		const t = e?.tile as Tile | undefined;
 		if (t?.isTile) this._register(t);
@@ -303,6 +306,11 @@ export class TileSourceCache {
 	private readonly _onTileUnload = (e: any) => {
 		const t = e?.tile as Tile | undefined;
 		if (t?.isTile) this._tiles.delete(keyOf(t.z, t.x, t.y));
+	};
+	private readonly _onTileLoaded = (_e: any) => {
+		this.markDirty();
+		// Defer one microtask: avoid re-entering update from inside a load callback.
+		queueMicrotask(() => this.updateIfDirty());
 	};
 	private _snapshot: SourceCacheSnapshot = {
 		coveringZoom: 0,
@@ -360,15 +368,47 @@ export class TileSourceCache {
 		if (this._root) {
 			this._root.removeEventListener("tile-created", this._onTileCreated);
 			this._root.removeEventListener("tile-unload", this._onTileUnload);
+			this._root.removeEventListener("tile-loaded", this._onTileLoaded);
 		}
 		this._root = root;
 		this._tiles.clear();
 		if (!root?.isTile) return;
 		root.addEventListener("tile-created", this._onTileCreated);
 		root.addEventListener("tile-unload", this._onTileUnload);
+		root.addEventListener("tile-loaded", this._onTileLoaded);
 		root.traverse((t) => {
 			if (t.isTile) this._register(t);
 		});
+	}
+
+	/**
+	 * Load completion (or other cache-affecting change) must re-run update
+	 * so showing is decided solely here — never flipped in Tile._loadData.
+	 */
+	markDirty(): void {
+		this._dirty = true;
+	}
+
+	get dirty(): boolean {
+		return this._dirty;
+	}
+
+	/** Re-run the last update when dirty (used after tile-loaded). */
+	updateIfDirty(): boolean {
+		if (!this._dirty || !this._lastCtx) return false;
+		this.update(this._lastCtx);
+		return true;
+	}
+
+	private _setShowing(tile: Tile, show: boolean, label: string): void {
+		if (tile.showing === show) return;
+		if (TileSourceCache.traceVisibility) {
+			const key = keyOf(tile.z, tile.x, tile.y);
+			console.log(
+				`[SC:vis] ${key} showing ${tile.showing}→${show} by ${label}`
+			);
+		}
+		tile.showing = show;
 	}
 
 	/**
@@ -404,6 +444,8 @@ export class TileSourceCache {
 
 	update(ctx: SourceCacheUpdateContext): SourceCacheSnapshot {
 		this._bindRoot(ctx.root);
+		this._lastCtx = ctx;
+		this._dirty = false;
 		this._coveringZoom = computeCoveringZoomLevel(
 			ctx.cameraDistance,
 			ctx.viewportHeight,
@@ -483,11 +525,11 @@ export class TileSourceCache {
 		for (const [key, tile] of byKey) {
 			const show =
 				this._retainKeys.has(key) && tile.loaded && !this._coveredKeys.has(key);
-			tile.showing = show;
+			this._setShowing(tile, show, "SourceCache.update");
 		}
 
-		// Sticky underlay: keep last-frame showing tiles while ideals load,
-		// so pan/zoom does not expose skybox before the new set is ready.
+		// Sticky underlay: only the nearest loaded ancestor of each missing ideal.
+		// Do not replay the previous frame's entire showing set (second sovereignty).
 		let idealReady = 0;
 		for (const key of this._idealKeys) {
 			if (loadedKeys.has(key)) idealReady++;
@@ -495,13 +537,6 @@ export class TileSourceCache {
 		const coverageIncomplete =
 			this._idealKeys.size > 0 && idealReady < this._idealKeys.size;
 		if (coverageIncomplete) {
-			for (const key of this._lastShowing) {
-				const tile = byKey.get(key);
-				if (tile && tile.loaded && tile.inFrustum && !tile.showing) {
-					tile.showing = true;
-				}
-			}
-			// Nearest loaded ancestor per missing ideal (gap ≤ 3 levels)
 			const targetZ = this._ideal ? this._ideal.z : 0;
 			const minUnderlayZ = Math.max(ctx.minLevel, targetZ - 3);
 			for (const key of this._idealKeys) {
@@ -511,16 +546,16 @@ export class TileSourceCache {
 					const s = iz - z;
 					const pk = keyOf(z, ix >> s, iy >> s);
 					const anc = byKey.get(pk);
-					if (anc && anc.loaded) {
-						anc.showing = true;
+					if (anc && anc.loaded && !this._coveredKeys.has(pk)) {
+						this._setShowing(anc, true, "sticky-ancestor");
 						break;
 					}
 				}
 			}
 		}
 
-		// Atomic child handoff: parent stays until all children are showing.
-		applyAtomicChildHandoff(ctx.root);
+		// Covered parents must stay hidden even if sticky/handoff ran above.
+		applyAtomicChildHandoff(ctx.root, this._coveredKeys);
 
 		// Load missing ideals AND retained cover tiles (Mapbox loads the
 		// whole retain set so ancestors form a basemap while children fetch).
@@ -547,11 +582,6 @@ export class TileSourceCache {
 			if (tile && !tile.loaded) {
 				Tile.requestLoad(tile, ctx.loader, this._idealKeys);
 			}
-		}
-
-		this._lastShowing.clear();
-		for (const [key, tile] of byKey) {
-			if (tile.showing) this._lastShowing.add(key);
 		}
 
 		let idealLoaded = 0;

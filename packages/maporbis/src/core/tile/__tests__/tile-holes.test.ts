@@ -192,7 +192,7 @@ describe("atomic LOD child handoff", () => {
 		return t;
 	}
 
-	it("keeps parent showing while only some children are showing", () => {
+	it("allows parent+child when not covered (polygonOffset path)", () => {
 		const parent = new Tile(0, 0, 5);
 		const kids = [
 			new Tile(0, 0, 6),
@@ -203,15 +203,16 @@ describe("atomic LOD child handoff", () => {
 		parent.add(...kids);
 		parent.showing = true;
 		makeLoadedShowing(kids[0]);
-		// other three not showing
+		// other three not showing → parent is NOT covered
 
-		applyAtomicChildHandoff(parent);
+		const covered = new Set<string>();
+		applyAtomicChildHandoff(parent, covered);
 
 		expect(parent.showing).toBe(true);
 		expect(kids[0].showing).toBe(true);
 	});
 
-	it("hides parent only after all children are showing", () => {
+	it("hides parent when covered (four children retain+loaded)", () => {
 		const parent = new Tile(0, 0, 5);
 		const kids = [
 			new Tile(0, 0, 6),
@@ -223,9 +224,37 @@ describe("atomic LOD child handoff", () => {
 		parent.showing = true;
 		kids.forEach(makeLoadedShowing);
 
-		applyAtomicChildHandoff(parent);
+		const covered = new Set(["5/0/0"]);
+		applyAtomicChildHandoff(parent, covered);
 
 		expect(parent.showing).toBe(false);
 		kids.forEach((k) => expect(k.showing).toBe(true));
+	});
+});
+
+describe("load completion does not write showing (I1/I3)", () => {
+	beforeEach(() => {
+		Tile.setIdealTileSet(null);
+		Tile.interacting = false;
+	});
+
+	it("cache-hit and network load leave showing=false until SourceCache.update", async () => {
+		const root = new Tile(0, 0, 0);
+		const cache = new TileCache(8);
+		root._payloadCache = cache;
+		const child = new Tile(0, 0, 1);
+		root.add(child);
+		const loader = makeRasterLoader();
+		await (child as any)._loadData(loader);
+		expect(child.loaded).toBe(true);
+		expect(child.showing).toBe(false);
+	});
+
+	it("only SourceCache production path assigns tile.showing in src/core/tile", async () => {
+		// Grep-equivalent guard: Tile has no _revealIfIdeal; _refreshCoverVisibility is no-op
+		const t = new Tile(0, 0, 1);
+		expect((t as any)._revealIfIdeal).toBeUndefined();
+		(t as any)._refreshCoverVisibility();
+		expect(t.showing).toBe(false);
 	});
 });

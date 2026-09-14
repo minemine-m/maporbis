@@ -223,18 +223,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		);
 	}
 
-	/**
-	 * Reveal a just-loaded ideal tile immediately. Layer.update may be
-	 * interval-throttled (or paused); waiting for the next schedule pass
-	 * left loaded tiles with material.visible=false → skybox holes.
-	 */
-	private _revealIfIdeal(): void {
-		const key = `${this.z}/${this.x}/${this.y}`;
-		if (Tile._idealTiles && Tile._idealTiles.has(key) && this.hasRenderPayload()) {
-			this.showing = true;
-		}
-	}
-
 	private _cacheKey(): string {
 		return `${this.z}/${this.x}/${this.y}`;
 	}
@@ -805,34 +793,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return this;
 	}
 
-	/** Legacy hierarchical cover (tests / no-SourceCache path). */
+	/**
+	 * Legacy cover path removed: only SourceCache may write `showing` (I1).
+	 * Kept as a no-op so old test call sites fail loudly on behavior, not on missing method.
+	 */
 	private _refreshCoverVisibility() {
-		const children = this.children.filter((child: any) => child?.isTile);
-		if (children.length === 0) return;
-
-		const inView = children.filter((c: any) => c.inFrustum);
-		const gate: any[] = inView.length > 0 ? inView : children;
-		const allReady = gate.every((c: any) => c.loaded);
-
-		if (allReady) {
-			if (this.showing) Tile._statRetainReleaseCount++;
-		} else {
-			Tile._statRetainHoldCount++;
-		}
-		this.showing = !allReady;
-		children.forEach((child: any) => {
-			child.showing = allReady;
-		});
-
-		if (!allReady && !this.loaded) {
-			let anc: Tile | null = this.parent as Tile | null;
-			while (anc && (anc as any).isTile && !(anc as any).loaded) {
-				anc = (anc as any).parent as Tile | null;
-			}
-			if (anc && (anc as any).isTile) {
-				(anc as any).showing = true;
-			}
-		}
+		return;
 	}
 
 	/**
@@ -877,7 +843,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						if (Tile.debugSchedule) {
 							console.log(`[Schedule] cache-hit z${z}/${x}/${y}`);
 						}
-						this._revealIfIdeal();
 						const done = this._onLoadComplete;
 						this._onLoadComplete = null;
 						if (done) {
@@ -973,7 +938,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
-				this._revealIfIdeal();
 			}
 		} catch (error) {
 			const isAbort =
