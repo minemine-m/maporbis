@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { BufferGeometry, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
 import { TileSourceCache } from "../SourceCache";
+import { TileCache } from "../../../loaders/TileCache";
 import { createChildren } from "../util";
 import { Camera } from "three";
 
@@ -12,6 +14,21 @@ function makeLoader() {
 		})),
 		unload: vi.fn(),
 		cache: { get: () => undefined, set: () => undefined, clear: () => undefined },
+	} as any;
+}
+
+function makeRasterLoader(payload?: () => { geometry: any; materials: any[] }) {
+	return {
+		load: vi.fn(async () =>
+			payload
+				? payload()
+				: {
+						geometry: new PlaneGeometry(1, 1),
+						materials: [new MeshBasicMaterial()],
+				  }
+		),
+		unload: vi.fn(),
+		cache: null,
 	} as any;
 }
 
@@ -71,5 +88,97 @@ describe("tile holes: Unloaded reload + SourceCache registry", () => {
 		});
 		expect(cache.tileCount).toBe(5);
 		expect(cache.getTile("1/0/0")).toBeDefined();
+	});
+});
+
+describe("tile holes: empty Loaded / payload cache poisoning", () => {
+	beforeEach(() => {
+		Tile.setIdealTileSet(null);
+		Tile.interacting = false;
+	});
+
+	it("never-loaded dispose does not write empty payload into cache", () => {
+		const root = new Tile(0, 0, 0);
+		const cache = new TileCache(8);
+		root._payloadCache = cache;
+		const child = new Tile(0, 0, 1);
+		root.add(child);
+		const loader = makeRasterLoader();
+		(child as any)._disposeResources(true, loader);
+		expect(child.loaded).toBe(false);
+		expect(cache.has(1, 0, 0)).toBe(false);
+		expect(child.hasRenderPayload()).toBe(false);
+	});
+
+	it("re-dispose does not wipe a cached real payload", async () => {
+		const root = new Tile(0, 0, 0);
+		const cache = new TileCache(8);
+		root._payloadCache = cache;
+		const child = new Tile(0, 0, 1);
+		root.add(child);
+		const loader = makeRasterLoader();
+		await (child as any)._loadData(loader);
+		expect(child.loaded).toBe(true);
+		expect(child.hasRenderPayload()).toBe(true);
+
+		(child as any)._disposeResources(true, loader);
+		expect(cache.has(1, 0, 0)).toBe(true);
+		// second dispose (already empty) must not overwrite with placeholder
+		(child as any)._disposeResources(true, loader);
+		const hit = cache.get(1, 0, 0);
+		expect(hit).toBeTruthy();
+		expect(hit!.geometry).toBeTruthy();
+		expect((hit!.geometry as any).attributes?.position).toBeTruthy();
+		expect(hit!.materials?.length).toBe(1);
+	});
+
+	it("empty cache hit falls through to network instead of marking Loaded", async () => {
+		const root = new Tile(0, 0, 0);
+		const cache = new TileCache(8);
+		root._payloadCache = cache;
+		// Poison: previous bug wrote placeholder + empty materials
+		cache.set(1, 0, 0, {
+			materials: [],
+			geometry: new BufferGeometry(),
+		} as any);
+		const child = new Tile(0, 0, 1);
+		root.add(child);
+		const loader = makeRasterLoader();
+		await (child as any)._loadData(loader);
+		expect(loader.load).toHaveBeenCalled();
+		expect(child.loaded).toBe(true);
+		expect(child.hasRenderPayload()).toBe(true);
+		expect(cache.has(1, 0, 0)).toBe(false);
+	});
+
+	it("cache hit with real payload restores without network", async () => {
+		const root = new Tile(0, 0, 0);
+		const cache = new TileCache(8);
+		root._payloadCache = cache;
+		const a = new Tile(0, 0, 1);
+		root.add(a);
+		const loader = makeRasterLoader();
+		await (a as any)._loadData(loader);
+		(a as any)._disposeResources(true, loader);
+
+		const b = new Tile(0, 0, 1);
+		root.add(b);
+		await (b as any)._loadData(loader);
+		expect(loader.load).toHaveBeenCalledTimes(1);
+		expect(b.loaded).toBe(true);
+		expect(b.hasRenderPayload()).toBe(true);
+	});
+
+	it("empty loader payload is not marked Loaded", async () => {
+		const root = new Tile(0, 0, 0);
+		const child = new Tile(0, 0, 1);
+		root.add(child);
+		const loader = makeRasterLoader(() => ({
+			geometry: new BufferGeometry(),
+			materials: [],
+		}));
+		await (child as any)._loadData(loader);
+		expect(child.loaded).toBe(false);
+		expect(child.hasRenderPayload()).toBe(false);
 	});
 });

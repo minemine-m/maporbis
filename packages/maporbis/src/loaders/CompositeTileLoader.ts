@@ -97,11 +97,9 @@ export class CompositeTileLoader implements ICompositeLoader {
             for (let i = 0; i < materials.length; i++) {
                 geometry.addGroup(0, Infinity, i);
             }
-
-            // Store in cache 存入缓存
-            if (this.cache) {
-                this.cache.set(z, x, y, { geometry, materials });
-            }
+            // Do not put live GPU objects into the LRU here. The tile owns
+            // geometry/materials while showing; payload-cache transfer happens
+            // on dispose. Caching shared refs lets eviction dispose in-use tiles.
         }
 
         return { geometry, materials };

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Camera } from "three";
+import { Camera, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
 import { TileSourceCache } from "../SourceCache";
 import { createChildren } from "../util";
@@ -30,6 +30,9 @@ describe("TileSourceCache.update", () => {
 		const z1 = createChildren(loader, 0, 0, 0);
 		root.add(...z1);
 		z1.forEach((t) => {
+			// Real payload so SourceCache does not treat them as empty-Loaded holes
+			t.geometry = new PlaneGeometry(1, 1);
+			t.material = [new MeshBasicMaterial()];
 			(parentTick(t) as any)._transitionTo(TileState.Loaded);
 		});
 

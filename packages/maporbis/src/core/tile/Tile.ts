@@ -199,6 +199,42 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return t._payloadCache;
 	}
 
+	/** Shared empty placeholder geometry — never cache or dispose it. */
+	private static _isPlaceholderGeometry(geo: any): boolean {
+		return !geo || geo === defaultGeometry || !(geo as any).attributes?.position;
+	}
+
+	private static _payloadMaterials(materials: any): Material[] {
+		const list = Array.isArray(materials) ? materials : materials ? [materials] : [];
+		return list.filter(Boolean) as Material[];
+	}
+
+	/**
+	 * Raster tiles need a real geometry + at least one material to draw.
+	 * Vector/data-only tiles only need vector payload.
+	 */
+	hasRenderPayload(): boolean {
+		if (this._dataMode) {
+			return !!(this as any)._vectorData;
+		}
+		return (
+			!Tile._isPlaceholderGeometry(this.geometry) &&
+			Tile._payloadMaterials(this.material).length > 0
+		);
+	}
+
+	/**
+	 * Reveal a just-loaded ideal tile immediately. Layer.update may be
+	 * interval-throttled (or paused); waiting for the next schedule pass
+	 * left loaded tiles with material.visible=false → skybox holes.
+	 */
+	private _revealIfIdeal(): void {
+		const key = `${this.z}/${this.x}/${this.y}`;
+		if (Tile._idealTiles && Tile._idealTiles.has(key) && this.hasRenderPayload()) {
+			this.showing = true;
+		}
+	}
+
 	private _cacheKey(): string {
 		return `${this.z}/${this.x}/${this.y}`;
 	}
@@ -819,30 +855,41 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (cache) {
 			const hit = cache.get(z, x, y);
 			if (hit) {
+				// Always drop the entry so a bad hit cannot loop.
 				cache.delete(z, x, y);
-				try {
-					if (this._dataMode) {
-						(this as any)._vectorData = (hit.geometry as any)?.userData || {};
-					} else if (hit.geometry) {
-						this.geometry = hit.geometry;
-						this.material = hit.materials ?? [];
-						this.maxZ = (this.geometry as any)?.boundingBox?.max.z || 0;
-						this._applyRasterDepthBias();
+				const hitMats = Tile._payloadMaterials(hit.materials);
+				const hitGeo = hit.geometry;
+				const okHit = this._dataMode
+					? true
+					: !Tile._isPlaceholderGeometry(hitGeo) && hitMats.length > 0;
+				if (okHit) {
+					try {
+						if (this._dataMode) {
+							(this as any)._vectorData = (hitGeo as any)?.userData || {};
+						} else {
+							this.geometry = hitGeo;
+							this.material = hitMats;
+							this.maxZ = (this.geometry as any)?.boundingBox?.max.z || 0;
+							this._applyRasterDepthBias();
+						}
+						this._transitionTo(TileState.Loaded);
+						this._retryCount = 0;
+						if (Tile.debugSchedule) {
+							console.log(`[Schedule] cache-hit z${z}/${x}/${y}`);
+						}
+						this._revealIfIdeal();
+						const done = this._onLoadComplete;
+						this._onLoadComplete = null;
+						if (done) {
+							try { done(); } catch { /* ignore */ }
+						}
+						Tile._drainLoadQueue();
+						return this;
+					} catch {
+						/* fall through to network */
 					}
-					this._transitionTo(TileState.Loaded);
-					this._retryCount = 0;
-					if (Tile.debugSchedule) {
-						console.log(`[Schedule] cache-hit z${z}/${x}/${y}`);
-					}
-					const done = this._onLoadComplete;
-					this._onLoadComplete = null;
-					if (done) {
-						try { done(); } catch { /* ignore */ }
-					}
-					Tile._drainLoadQueue();
-					return this;
-				} catch {
-					/* fall through to network */
+				} else if (Tile.debugSchedule) {
+					console.log(`[Schedule] cache-hit-empty z${z}/${x}/${y} → reload`);
 				}
 			}
 		}
@@ -910,14 +957,23 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					this._onLoadComplete = null;
 					return this;
 				}
-				this.material = meshData.materials;
+				this.material = Tile._payloadMaterials(meshData.materials);
 				this.geometry = meshData.geometry;
+				if (Tile._isPlaceholderGeometry(this.geometry) || this.material.length === 0) {
+					// Do not mark Loaded without a drawable payload — that creates skybox holes.
+					this.geometry = defaultGeometry as any;
+					this.material = [] as any;
+					this._transitionTo(TileState.Error);
+					this._onLoadComplete = null;
+					return this;
+				}
 				this.maxZ = this.geometry.boundingBox?.max.z || 0;
 				this._applyRasterDepthBias();
 
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
+				this._revealIfIdeal();
 			}
 		} catch (error) {
 			const isAbort =
@@ -1224,6 +1280,11 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			this.dispatchEvent({ type: "unload" });
 
 			const cache = this._rootCache();
+			const mats = Tile._payloadMaterials(this.material);
+			const geo = this.geometry;
+			const canCache = !this._dataMode &&
+				!Tile._isPlaceholderGeometry(geo) &&
+				mats.length > 0;
 			if (cache) {
 				// Keep payload for zoom-back; skip loader.unload (cache owns GPU objects)
 				if (this._dataMode) {
@@ -1232,16 +1293,24 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						geometry: { userData: (this as any)._vectorData } as any,
 					});
 					(this as any)._vectorData = null;
-				} else {
+				} else if (canCache) {
+					// Transfer ownership of real GPU payload only.
+					// Never write placeholder/empty entries — a later cache hit
+					// would mark the tile Loaded with nothing to draw (skybox hole),
+					// and a re-dispose would wipe a good cache slot.
 					cache.set(this.z, this.x, this.y, {
-						materials: (Array.isArray(this.material) ? this.material : [this.material]).filter(Boolean) as any,
-						geometry: this.geometry as any,
+						materials: mats as any,
+						geometry: geo as any,
 					});
-					this.geometry = undefined as any;
-					this.material = [] as any;
 				}
+				this.geometry = defaultGeometry as any;
+				this.material = [] as any;
 			} else {
-				loader?.unload?.(this);
+				if (canCache) {
+					loader?.unload?.(this);
+				}
+				this.geometry = defaultGeometry as any;
+				this.material = [] as any;
 			}
 		}
 		// remove all children recursively

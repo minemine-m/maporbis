@@ -1,5 +1,5 @@
 import { Camera, PerspectiveCamera, Vector3 } from "three";
-import { Tile } from "./Tile";
+import { Tile, TileState } from "./Tile";
 import { ICompositeLoader } from "../../loaders";
 import {
 	IdealTileSet,
@@ -455,6 +455,13 @@ export class TileSourceCache {
 		this._resyncFromTree(ctx.root);
 
 		const byKey = this._tiles;
+		// Recover "Loaded but nothing to draw" tiles — they would be counted
+		// as coverage and leave a skybox hole. Force Unloaded so they reload.
+		for (const tile of byKey.values()) {
+			if (tile.loaded && !tile.hasRenderPayload()) {
+				(tile as any)._transitionTo(TileState.Unloaded);
+			}
+		}
 		const loadedKeys = new Set<string>();
 		for (const [key, tile] of byKey) {
 			if (tile.loaded) loadedKeys.add(key);
