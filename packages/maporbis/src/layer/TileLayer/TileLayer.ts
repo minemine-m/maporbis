@@ -436,16 +436,19 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
 
             const coveringZ = coveringZoom;
 
-            this._rootTile.update({
-                camera,
-                loader: this._loader,
-                minLevel: this.minLevel,
-                maxLevel: this.maxLevel,
-                LODThreshold: this.LODThreshold,
-                interacting: !!(map && map.isInteracting),
-                coveringZoom: coveringZ,
-                idealTiles: this._layerIdealTiles,
-            });
+            // PR-2: SourceCache owns structure. Do not run LOD create/remove.
+            if (!this._idealRetain) {
+                this._rootTile.update({
+                    camera,
+                    loader: this._loader,
+                    minLevel: this.minLevel,
+                    maxLevel: this.maxLevel,
+                    LODThreshold: this.LODThreshold,
+                    interacting: !!(map && map.isInteracting),
+                    coveringZoom: coveringZ,
+                    idealTiles: this._layerIdealTiles,
+                });
+            }
 
             if (this._idealRetain) {
                 let lookAtProj = { x: 0, y: 0 };

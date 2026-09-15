@@ -41,7 +41,7 @@ describe("TileSourceCache flat _tiles", () => {
 		Tile.setIdealCoveredCount(0);
 	});
 
-	it("seeds from existing tree and keeps registry after update", () => {
+	it("seeds from existing tree; releases non-retain extras (PR-2)", () => {
 		const root = new Tile(0, 0, 0);
 		const loader = makeLoader();
 		const z1 = createChildren(loader, 0, 0, 0);
@@ -50,9 +50,8 @@ describe("TileSourceCache flat _tiles", () => {
 
 		const cache = new TileSourceCache();
 		cache.update(ctx(root, loader));
-		// root + 4 children (maxLevel=0 does not build deeper)
-		expect(cache.tileCount).toBe(5);
-		expect(cache.getTile("1/0/0")).toBeDefined();
+		// maxLevel=0: only root is ideal/structural; z1 extras are released
+		expect(cache.tileCount).toBe(1);
 		expect(cache.getTile("0/0/0")).toBe(root);
 	});
 
@@ -76,15 +75,7 @@ describe("TileSourceCache flat _tiles", () => {
 		const z1 = createChildren(loader, 0, 0, 0);
 		root.add(...z1);
 		const cache = new TileSourceCache();
-		cache.update(ctx(root, loader));
-		expect(cache.tileCount).toBe(5);
-
-		root.dispatchEvent({ type: "tile-unload", tile: z1[0] });
-		expect(cache.getTile(`1/${z1[0].x}/${z1[0].y}`)).toBeUndefined();
-		expect(cache.tileCount).toBe(4);
-
-		// Detach ALL children (unloaded one is still on the tree until remove)
-		z1.forEach((c) => root.remove(c));
+		// maxLevel 0 → extras released immediately (PR-2)
 		cache.update(ctx(root, loader));
 		expect(cache.tileCount).toBe(1);
 		expect(cache.getTile("0/0/0")).toBe(root);

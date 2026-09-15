@@ -1168,9 +1168,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				}
 			});
 		} else if (action === LODAction.remove) {
-			// Do not force showing — SourceCache retain decides after dispose
-			currentTile._disposeResources(false, params.loader);
-			this.dispatchEvent({ type: "tile-unload", tile: currentTile });
+			// PR-2: SourceCache owns release. LOD must not dispose subtrees —
+			// that wiped tiles still in retain (pitch thrash / holes).
+			// No-op: structure lives until SourceCache releases ∉ retain.
 		}
 		return this;
 	}
@@ -1219,6 +1219,48 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	// 	this.clear();
 	// 	return this;
 	// }
+
+	/**
+	 * Shallow payload release for SourceCache (PR-2). Does NOT recurse into
+	 * children — retained descendants must keep their scene parents and data.
+	 */
+	releasePayloadForCache(loader?: ICompositeLoader): void {
+		Tile._purgeQueue(this);
+		this._abortController?.abort();
+		this._abortController = null;
+		this._onLoadComplete = null;
+		if (!this.isTile || this.isDummy) return;
+		if (!this.loaded && this.state === TileState.Idle) return;
+
+		this._transitionTo(TileState.Unloaded);
+		this.dispatchEvent({ type: "unload" });
+
+		const cache = this._rootCache();
+		const mats = Tile._payloadMaterials(this.material);
+		const geo = this.geometry;
+		const canCache =
+			!this._dataMode &&
+			!Tile._isPlaceholderGeometry(geo) &&
+			mats.length > 0;
+		if (cache) {
+			if (this._dataMode) {
+				cache.set(this.z, this.x, this.y, {
+					materials: [],
+					geometry: { userData: (this as any)._vectorData } as any,
+				});
+				(this as any)._vectorData = null;
+			} else if (canCache) {
+				cache.set(this.z, this.x, this.y, {
+					materials: mats as any,
+					geometry: geo as any,
+				});
+			}
+		} else if (canCache) {
+			loader?.unload?.(this);
+		}
+		this.geometry = defaultGeometry as any;
+		this.material = [] as any;
+	}
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
 		// Cancel in-flight / queued work for this tile

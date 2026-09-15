@@ -581,6 +581,46 @@ export class TileSourceCache {
 			if (tile) this._setShowing(tile, false, "covered");
 		}
 
+		// PR-2 release: ∉ retain and ∉ structural ideal-path → shallow unload.
+		// Keep scene parent shells that still have tile children (needed for transforms).
+		// Deepest first.
+		{
+			const structural = new Set<string>();
+			for (const key of this._idealKeys) {
+				const [z0, x0, y0] = parseKey(key);
+				for (let z = 0; z <= z0; z++) {
+					const s = z0 - z;
+					structural.add(keyOf(z, x0 >> s, y0 >> s));
+				}
+			}
+			// Never drop the scene root
+			if (ctx.root?.isTile) {
+				structural.add(keyOf(ctx.root.z, ctx.root.x, ctx.root.y));
+			}
+			const toRelease: Tile[] = [];
+			for (const [key, tile] of byKey) {
+				if (this._retainKeys.has(key)) continue;
+				if (structural.has(key)) continue;
+				toRelease.push(tile);
+			}
+			toRelease.sort((a, b) => b.z - a.z);
+			for (const tile of toRelease) {
+				const key = keyOf(tile.z, tile.x, tile.y);
+				if (this._retainKeys.has(key) || structural.has(key)) continue;
+				this._setShowing(tile, false, "release");
+				tile.releasePayloadForCache(ctx.loader);
+				const hasTileChild = tile.children.some((c: any) => c?.isTile);
+				if (!hasTileChild && tile.parent) {
+					tile.parent.remove(tile);
+					byKey.delete(key);
+					if (this._root) {
+						this._root.dispatchEvent({ type: "tile-unload", tile });
+					}
+				}
+				// Parent shell with children: keep in map for resync/transforms
+			}
+		}
+
 		// Load missing ideals AND retained cover tiles (Mapbox loads the
 		// whole retain set so ancestors form a basemap while children fetch).
 		const toLoad: { key: string; ideal: boolean }[] = [];
