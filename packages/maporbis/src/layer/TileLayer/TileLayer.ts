@@ -175,6 +175,11 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
     /** Per-layer SourceCache (ideal + retain). Used when _idealRetain is true. */
     protected _sourceCache = new TileSourceCache();
 
+    /** Public access for demos/diagnostics (sole showing writer). */
+    get sourceCache(): TileSourceCache {
+        return this._sourceCache;
+    }
+
     /**
      * Create a new BaseTileLayer instance.
      * 创建一个新的 BaseTileLayer 实例。

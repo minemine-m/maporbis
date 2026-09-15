@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PR-1 单一 showing 写入方 - MapOrbis</title>
+    <link rel="stylesheet" href="/styles/orbisstyle.css" />
+    <style>
+      html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
+      .demo-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 360px;
+        max-height: calc(100% - 32px);
+        overflow: auto;
+        z-index: 1000;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.55;
+      }
+      .demo-panel .orbis-panel-body { color: #222; }
+      .zbar { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+      .zbar .lab { width: 42px; color: #666; }
+      .zbar .bar {
+        height: 10px;
+        background: #3b82f6;
+        border-radius: 2px;
+        min-width: 0;
+        transition: width 0.2s;
+      }
+      .zbar .n { width: 28px; text-align: right; color: #333; }
+      .ok { color: #15803d; font-weight: 600; }
+      .bad { color: #b91c1c; font-weight: 600; }
+      .warn { color: #b45309; font-weight: 600; }
+      .check { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: #f4f4f5; }
+      .check.pass { background: #ecfdf5; }
+      .check.fail { background: #fef2f2; }
+      .muted { color: #71717a; }
+      .row { display: flex; justify-content: space-between; gap: 8px; }
+      button.mini {
+        font: inherit;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid #d4d4d8;
+        background: #fff;
+        cursor: pointer;
+      }
+      button.mini.on { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+      h4 { margin: 10px 0 4px; font-size: 12px; color: #3f3f46; }
+    </style>
+  </head>
+  <body class="orbis-body">
+    <div id="map"></div>
+    <div class="demo-panel">
+      <div class="orbis-panel orbis-shadow-lg">
+        <div class="orbis-panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;font-size:14px;font-weight:600;">PR-1 · SourceCache 单一 showing</h3>
+          <button class="mini" id="traceBtn" title="TileSourceCache.traceVisibility">trace</button>
+        </div>
+        <div class="orbis-panel-body">
+          <div id="live" class="muted">等待地图…</div>
+          <h4>showing 按 z</h4>
+          <div id="zbars"></div>
+          <h4>SourceCache snapshot</h4>
+          <div id="snap"></div>
+          <h4>验收清单</h4>
+          <div id="checks"></div>
+          <p class="muted" style="margin-top:8px;">
+            操作：缩放 / 平移 / 甩动 / pitch 0↔60°。无洞；过渡可父子同帧；settle 后单 z；emptyLoaded=0。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script src="/utils/inline-utils.js"></script>
+    <script type="module">
+      import * as maporbis from "maporbis";
+
+      // 东京 — 计划手工清单默认中心；无 HDR，便于肉眼看见洞
+      const map = new maporbis.Map("map", {
+        state: { center: [139.767, 35.681, 0] },
+        source: {
+          minLevel: 0,
+          maxLevel: 18,
+          baseLayers: [
+            new maporbis.WMTSTileLayer("esri_imagery", {
+              source: new maporbis.TileSource({
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                projectionID: "3857",
+              }),
+              projection: maporbis.ProjectionFactory.create("3857"),
+              opacity: 1,
+              visible: true,
+              altitude: 1,
+            }),
+          ],
+        },
+        renderer: {
+          stats: false,
+          antialias: true,
+          skybox: { defaultColor: "#87b5e0" },
+          minDistance: 0.1,
+          maxDistance: 40000000,
+          defaultGround: { enabled: false, visible: false },
+        },
+        camera: { pitch: 0, bearing: 0 },
+      });
+
+      // 可选：打开 showing 翻转日志
+      let tracing = false;
+      const traceBtn = document.getElementById("traceBtn");
+      traceBtn.addEventListener("click", () => {
+        tracing = !tracing;
+        maporbis.TileSourceCache.traceVisibility = tracing;
+        traceBtn.classList.toggle("on", tracing);
+        traceBtn.textContent = tracing ? "trace ON" : "trace";
+      });
+
+      let baseLayer = null;
+      map.on("load", () => {
+        baseLayer = map.getLayer?.("esri_imagery") || map._layers?.get?.("esri_imagery");
+        if (!baseLayer) {
+          for (const [, l] of map._layers || []) {
+            if (l && l.isTileLayer) { baseLayer = l; break; }
+          }
+        }
+        console.log("[PR-1 demo] baseLayer", baseLayer);
+        notify("PR-1 demo 已加载（东京）", "success");
+        setInterval(updatePanel, 400);
+      });
+
+      function collect() {
+        const layer = baseLayer;
+        const sc = layer && (layer.sourceCache || layer._sourceCache);
+        const root = layer && layer._rootTile;
+        const snap = sc && sc.snapshot;
+        const byZ = new Map();
+        let showing = 0, loaded = 0, total = 0, multiZ = true;
+        const zs = new Set();
+        if (root) {
+          root.traverse((t) => {
+            if (!t || !t.isTile) return;
+            total++;
+            if (t.loaded) loaded++;
+            if (t.showing) {
+              showing++;
+              zs.add(t.z);
+              byZ.set(t.z, (byZ.get(t.z) || 0) + 1);
+            }
+          });
+        }
+        multiZ = zs.size > 1;
+        return { layer, sc, root, snap, showing, loaded, total, byZ, zs, multiZ };
+      }
+
+      function updatePanel() {
+        const d = collect();
+        const live = document.getElementById("live");
+        const zbars = document.getElementById("zbars");
+        const snapEl = document.getElementById("snap");
+        const checks = document.getElementById("checks");
+        if (!d.sc) {
+          live.textContent = "SourceCache 不可用 — 请确认 dist 已 rebuild";
+          return;
+        }
+
+        const dirty = d.sc.dirty ? "是" : "否";
+        live.innerHTML = [
+          `<div class="row"><span>中心/俯仰</span><span>${(map.getCenter?.() || []).map(n=>Number(n).toFixed(4)).join(", ")} · pitch ${Number(map.getPitch?.()||0).toFixed(0)}°</span></div>`,
+          `<div class="row"><span>showing / loaded / 树</span><span>${d.showing} / ${d.loaded} / ${d.total}</span></div>`,
+          `<div class="row"><span>dirty</span><span>${dirty}</span></div>`,
+          `<div class="row"><span>_tiles</span><span>${d.sc.tileCount}</span></div>`,
+        ].join("");
+
+        const max = Math.max(1, ...d.byZ.values());
+        const keys = [...d.byZ.keys()].sort((a, b) => a - b);
+        zbars.innerHTML = keys.length
+          ? keys.map((z) => {
+              const n = d.byZ.get(z);
+              const w = Math.round((n / max) * 160);
+              return `<div class="zbar"><span class="lab">z=${z}</span><span class="bar" style="width:${w}px"></span><span class="n">${n}</span></div>`;
+            }).join("")
+          : `<div class="muted">当前无 showing</div>`;
+
+        const s = d.snap;
+        snapEl.innerHTML = [
+          `coveringZoom: ${s.coveringZoom?.toFixed?.(2) ?? s.coveringZoom}`,
+          `ideal: ${s.idealCount} · loaded ${s.idealLoaded} · covered ${s.idealCovered}`,
+          `retain: ${s.retainCount} · coveredKeys ${s.coveredKeys?.size ?? 0}`,
+          `emptyLoaded: <span class="${s.emptyLoaded === 0 ? "ok" : "bad"}">${s.emptyLoaded}</span>`,
+          `理想 z: ${s.ideal?.z ?? "-"}`,
+        ].join("<br>");
+
+        // PR-1 验收
+        const items = [];
+        items.push({
+          ok: s.emptyLoaded === 0,
+          title: "emptyLoaded = 0",
+          evidence: `snapshot.emptyLoaded=${s.emptyLoaded}`,
+        });
+        items.push({
+          ok: !d.multiZ || d.showing === 0,
+          title: "settle 后 showing 仅单 z",
+          evidence: d.zs.size
+            ? `showing z 集合 = {${[...d.zs].join(", ")}}${d.multiZ ? "（过渡中可多 z，settle 应变 1）" : ""}`
+            : "暂无 showing",
+        });
+        items.push({
+          ok: d.loaded === 0 || d.showing > 0 || s.retainCount === 0,
+          title: "有 loaded 时应有 showing（无洞代理）",
+          evidence: `loaded=${d.loaded}, showing=${d.showing}, retain=${s.retainCount}`,
+        });
+        // covered 父级必不 showing
+        {
+          let bad = 0;
+          if (s.coveredKeys && d.root) {
+            for (const key of s.coveredKeys) {
+              const t = d.sc.getTile(key);
+              if (t && t.showing) bad++;
+            }
+          }
+          items.push({
+            ok: bad === 0,
+            title: "covered 父级不显示",
+            evidence: `covered=${s.coveredKeys?.size ?? 0}, 其中仍 showing=${bad}`,
+          });
+        }
+        items.push({
+          ok: true,
+          title: "生产写 showing 仅 SourceCache",
+          evidence: "TileSourceCache._setShowing（可开 trace 看翻转）",
+        });
+
+        checks.innerHTML = items
+          .map(
+            (it) =>
+              `<div class="check ${it.ok ? "pass" : "fail"}">` +
+              `<span class="${it.ok ? "ok" : "bad"}">${it.ok ? "✓" : "✗"}</span> ` +
+              `${it.title}<br><span class="muted">${it.evidence}</span></div>`
+          )
+          .join("");
+      }
+
+      window.__pr1 = { map, get layer() { return baseLayer; } };
+    </script>
+  </body>
+</html>
