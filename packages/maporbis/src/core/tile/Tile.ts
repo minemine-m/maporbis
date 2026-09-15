@@ -16,7 +16,7 @@ import {
 } from "three";
 import { ICompositeLoader } from "../../loaders";
 import { TileCache } from "../../loaders/TileCache";
-import { createChildren, getDistance, getTileSize, LODAction, LODEvaluate, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
+import { getDistance, getTileSize, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -768,24 +768,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	}
 
 	/**
-	 * LOD (Level of Detail).
-	 * LOD（细节层次）。
-	 * @param params - The tile loader. 瓦片加载器。
-	 * @returns this
-	 */
-	protected _updateLOD(params: TileUpdateParams) {
-		// Always refine LOD structure; network concurrency is handled by the load queue.
-		let newTiles: Tile[] = [];
-		const { loader, minLevel, maxLevel, LODThreshold, coveringZoom, idealTiles } = params;
-		const action = LODEvaluate(this, minLevel, maxLevel, LODThreshold, coveringZoom, idealTiles);
-		if (action === LODAction.create) {
-			newTiles = createChildren(loader, this.x, this.y, this.z);
-			this.add(...newTiles);
-		}
-		return { action, newTiles };
-	}
-
-	/**
 	 * Visibility / retain (called when a child finishes loading).
 	 * No-op: SourceCache retain/covered owns showing when idealTiles is set.
 	 */
@@ -1093,10 +1075,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				Tile._statEnterFrustumCount++;
 				Tile._enqueueLoad(tile, params.loader, params.idealTiles);
 			}
-
-			// LOD
-			const { action, newTiles } = tile._updateLOD(params);
-			this._processLODAction(tile, action, newTiles, params);
+			// PR-3: no LOD create/remove. Structure is owned by SourceCache.ensureTilePath.
 		});
 
 		// Re-prioritize queued loads with fresh distances
@@ -1104,75 +1083,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 		this._checkReadyState();
 
-		return this;
-	}
-
-	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
-		if (action === LODAction.create) {
-			// Parent cover load only when SourceCache is not driving (no ideal set).
-			const hasIdealSet = !!params.idealTiles && params.idealTiles.size > 0;
-			if (
-				!hasIdealSet &&
-				!currentTile.isDummy &&
-				currentTile.z >= params.minLevel &&
-				!currentTile.loaded &&
-				currentTile._canStartLoading() &&
-				!Tile._isQueued(currentTile)
-			) {
-				if (!currentTile._onLoadComplete) {
-					const parentForEvent = this;
-					currentTile._onLoadComplete = () => {
-						currentTile._checkVisibility();
-						parentForEvent.dispatchEvent({ type: "tile-loaded", tile: currentTile });
-					};
-				}
-				Tile._statParentPrefetchCount++;
-				if (Tile.debugSchedule) {
-					console.log(
-						`[Schedule] parent-prefetch z${currentTile.z}/${currentTile.x}/${currentTile.y} ` +
-						`(cover while children load)`
-					);
-				}
-				Tile._enqueueLoad(currentTile, params.loader, params.idealTiles);
-			}
-
-			// Init children, then enqueue in-frustum loads by distance (center first)
-			newTiles?.forEach(newTile => {
-				newTile._initTile();
-				// At far zoom, coveringZoom may be < minLevel — still load ancestors
-				// so the world is not a single tile + skybox (issue: min zoom empty).
-				const minLoad = Math.min(
-					params.minLevel,
-					Math.max(0, Math.floor(params.coveringZoom ?? params.minLevel))
-				);
-				newTile._isVirtualTile = newTile.z < minLoad;
-				newTile.distToCamera = currentTile.distToCamera;
-				// Inherit frustum so this-frame enqueue is not pruned as out-of-view
-				(newTile as any).inFrustum = currentTile.inFrustum;
-				this.dispatchEvent({ type: "tile-created", tile: newTile });
-				// SourceCache loads ideals/cover when an ideal set exists.
-				if (!newTile.isDummy && !hasIdealSet) {
-					newTile._onLoadComplete = () => {
-						newTile._checkVisibility();
-						this.dispatchEvent({ type: "tile-loaded", tile: newTile });
-					};
-					if (currentTile.inFrustum) {
-						Tile._enqueueLoad(newTile, params.loader, params.idealTiles);
-					} else {
-						Tile._statDeferCount++;
-						if (Tile.debugSchedule) {
-							console.log(
-								`[Schedule] defer load z${newTile.z}/${newTile.x}/${newTile.y} (parent out of frustum)`
-							);
-						}
-					}
-				}
-			});
-		} else if (action === LODAction.remove) {
-			// PR-2: SourceCache owns release. LOD must not dispose subtrees —
-			// that wiped tiles still in retain (pitch thrash / holes).
-			// No-op: structure lives until SourceCache releases ∉ retain.
-		}
 		return this;
 	}
 
