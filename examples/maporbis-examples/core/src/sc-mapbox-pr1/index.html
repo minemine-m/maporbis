@@ -199,13 +199,27 @@
           title: "emptyLoaded = 0",
           evidence: `snapshot.emptyLoaded=${s.emptyLoaded}`,
         });
-        items.push({
-          ok: !d.multiZ || d.showing === 0,
-          title: "settle 后 showing 仅单 z",
-          evidence: d.zs.size
-            ? `showing z 集合 = {${[...d.zs].join(", ")}}${d.multiZ ? "（过渡中可多 z，settle 应变 1）" : ""}`
-            : "暂无 showing",
-        });
+        // Pitched distance LOD: near high-z + far low-z is a legal ideal mix.
+        // Single-z is required only near top-down (pitch ≲ 15°).
+        {
+          const pitch = Number(map.getPitch?.() || 0);
+          const nearTopDown = pitch < 15;
+          const legalMulti = !nearTopDown && d.zs.size > 1;
+          const ok = d.zs.size <= 1 || legalMulti || d.showing === 0;
+          items.push({
+            ok,
+            title: nearTopDown
+              ? "俯仰≈0 时 settle 单 z"
+              : "倾斜允许多 z（距离 LOD）",
+            evidence: `pitch=${pitch.toFixed(0)}°, showing z={${[...d.zs].join(", ") || "-"}}${
+              legalMulti
+                ? "（近高远低，合法）"
+                : d.zs.size > 1
+                  ? "（俯仰≈0 仍多 z → 异常）"
+                  : ""
+            }`,
+          });
+        }
         items.push({
           ok: d.loaded === 0 || d.showing > 0 || s.retainCount === 0,
           title: "有 loaded 时应有 showing（无洞代理）",
