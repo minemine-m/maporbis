@@ -1065,15 +1065,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			// Get distance to camera
 			tile.distToCamera = getDistance(tile, cameraWorldPosition);
 
-			// Deferred load: tile entered frustum after it was created.
-			// When a mixed-z ideal set exists, only load ideal tiles or their
-			// path — not every deep leftover in the frustum.
+			// Deferred load: exact ideal keys only when SourceCache drives.
+			// Ancestors-of-ideals used to enqueue the whole z-1..z-N chain.
 			const idealSet = params.idealTiles;
 			const onIdealPath =
 				!idealSet ||
 				idealSet.size === 0 ||
-				idealSet.has(`${tile.z}/${tile.x}/${tile.y}`) ||
-				isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, idealSet);
+				idealSet.has(`${tile.z}/${tile.x}/${tile.y}`);
 			if (
 				tile.inFrustum &&
 				onIdealPath &&
@@ -1111,8 +1109,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private _processLODAction(currentTile: Tile, action: LODAction, newTiles: Tile[] | undefined, params: TileUpdateParams) {
 		if (action === LODAction.create) {
-			// Mapbox-style: ensure the parent has data so it can cover while children load
+			// Parent cover load only when SourceCache is not driving (no ideal set).
+			const hasIdealSet = !!params.idealTiles && params.idealTiles.size > 0;
 			if (
+				!hasIdealSet &&
 				!currentTile.isDummy &&
 				currentTile.z >= params.minLevel &&
 				!currentTile.loaded &&
@@ -1150,7 +1150,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// Inherit frustum so this-frame enqueue is not pruned as out-of-view
 				(newTile as any).inFrustum = currentTile.inFrustum;
 				this.dispatchEvent({ type: "tile-created", tile: newTile });
-				if (!newTile.isDummy) {
+				// SourceCache loads ideals/cover when an ideal set exists.
+				if (!newTile.isDummy && !hasIdealSet) {
 					newTile._onLoadComplete = () => {
 						newTile._checkVisibility();
 						this.dispatchEvent({ type: "tile-loaded", tile: newTile });

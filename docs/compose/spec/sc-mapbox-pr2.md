@@ -3,55 +3,78 @@ feature: sc-mapbox-pr2
 status: in-progress
 updated: 2026-09-15
 branch: feat/sc-mapbox-pr2
-commits: 1809b2c..1809b2c
+commits: 1809b2c..50f14c6
 ---
 
-# SourceCache 收编 add / release（PR-2）
+# SourceCache 收编 add / release（PR-2 重做）
 
 ## Report
 
 ## [S1] Problem
 
-PR-1 后 showing 只由 SourceCache 写，但结构仍双主权：`TileLayer` 每帧先 `rootTile.update`，LOD `create/remove` 会 dispose 子树；倾斜/缩放时 SourceCache 仍 retain 的瓦片被 LOD 拆掉 → 洞、抖动、渲染异常。`_tiles` 可能无限膨胀。
+PR-1 后 showing 只由 SourceCache 写，但结构仍双主权：LOD create/remove 会 dispose 子树，retain 的瓦片被拆掉 → 洞。骨架 `50f14c6` 已收编 add/release，但加载/underlay/settle 契约未钉死，后续热修互相打架。
+
+用户选定契约：**严格 Mapbox**。
 
 ## [S2] Design
 
-### 单一结构主权
+### 主权
 
-- `_idealRetain=true`（默认）时 **不调用** `rootTile.update`。
-- 建树仅：`ensureTilePath` / `_addTile`（按 ideal 与 retain 需要）。
-- `LODAction.remove` **空操作**（不 dispose、不 clear 子树）。
+- `_idealRetain=true` 时 TileLayer **不**调用 `rootTile.update`（无 LOD create/remove）。
+- 建树仅 `ensureTilePath`（缺啥建啥，不重复整叉）。
+- `LODAction.remove` 空操作。
+- showing 唯一写：`SourceCache._setShowing`。
+
+### retain（Mapbox `_updateRetainedTiles`）
+
+```
+retain =
+    ideal
+  ∪ 已加载且能盖住 missing ideal 的子级（topmost loaded descendant）
+  ∪ missing ideal 的最近已加载祖先（underlay，只 retain 已有节点）
+  ∪ missing ideal 的直接父级（若未加载，仅此一层，供网络请求）
+```
+
+**禁止**：对已加载 ideal 再向上预取 z-1..z-N；禁止每帧 warm 祖先链。
+
+### covered / showing
+
+- `covered`：四个直接子均 `retain ∧ loaded`。
+- `showing = retain ∧ loaded ∧ ¬covered`。
+- **in-flight**（有 missing ideal）：允许父 underlay / 子 cover 与 ideal 同帧（不挖洞）。
+- **settled**（ideal 全 loaded）：`showing` 仅 `z === ideal.z`（pitch 0 单 z）。
+
+### 网络加载
+
+仅请求：
+
+1. missing ideals（最高优先）
+2. retain 中未加载的节点 —— 按上面 retain 定义，未加载非 ideal 最多是 **直接父级一层**
+
+平移同级、放大更细、缩小更粗；不拉无关祖先链。
 
 ### release
 
-- 每帧 `update` 末尾：对 `key ∈ _tiles` 且 `key ∉ retain`：
-  1. abort 在途 load（若有）
-  2. 仅卸载 **自身** payload（不递归 clear 仍 retain 的子节点）
-  3. `parent.remove(tile)` 从场景摘除
-  4. 发 `tile-unload`
-  5. `_tiles.delete(key)`
-- retain 由 ideal ∪ 盖洞父级 ∪ 盖洞子级保证 → 不释放 ideal 路径上的祖先。
+每帧 update 末：`key ∈ _tiles ∧ key ∉ retain ∧ key ∉ structural(ideal 路径祖先)`：
 
-### TileLayer
+1. `_setShowing(false)`
+2. `releasePayloadForCache`（浅，不递归）
+3. 无 tile 子则 `parent.remove` + `tile-unload` + `_tiles.delete`
+4. 有子壳保留（变换用）
 
-- 只跑 `sourceCache.update`；相机矩阵先 `updateMatrixWorld`。
+### dirty
 
-### 验收相关
-
-- `_tiles.size` 与 retain 量级一致
-- 缩放回退再前进：无「整棵子树被 LOD 拆掉」的随机空洞
-- payload cache 仍可命中
+`tile-loaded` → `markDirty` + `queueMicrotask` live driver（当前相机重建 ctx）。`_inUpdate` 防嵌套。
 
 ## [S3] Out of Scope
 
-- Fade
-- 扁平变换（PR-4）
-- 矢量事件迁移（PR-5）
-- 删除 LODEvaluate 代码本体（PR-3 可清）
+- Fade、扁平变换（PR-4）、矢量事件（PR-5）、删除 LODEvaluate 本体（PR-3）
+- 多级祖先预取、distance LOD 混 z
 
 ## Tasks
 
-- [x] T1: LODAction.remove 不再 dispose — acceptance: remove 路径不调用 _disposeResources (covers: S2)
-- [x] T2: TileLayer 仅 sourceCache.update — acceptance: _idealRetain 时不调用 rootTile.update (covers: S2)
-- [x] T3: SourceCache release ∉ retain 且 ∉ 结构路径；保留有子节点的壳 — acceptance: 单测 + _tiles 不无限膨胀 (covers: S2; depends: T1)
-- [x] T4: tsc + vitest + build — acceptance: PASS 72 tests (covers: S2; depends: T1–T3)
+- [x] T1: retain 改为 Mapbox 四条并集（无多级 warm）— acceptance: 单测 ideal z=2 时网络不请求 z0 (covers: S2)
+- [x] T2: settled 仅 ideal.z；in-flight 允许 underlay/cover — acceptance: 全 loaded 单 z；冷父级缩小时子级仍 showing (covers: S2)
+- [x] T3: ensureTilePath 不重复整叉；LOD 有 ideal 时不 enqueue 祖先 — acceptance: 无重复 z/x/y 场景节点 (covers: S2)
+- [x] T4: release ∉ retain∪structural；浅释放 — acceptance: SourceCache.release 单测 (covers: S2; depends: T1)
+- [x] T5: tsc + vitest + build — acceptance: PASS 66 tests (covers: S2; depends: T1–T4)

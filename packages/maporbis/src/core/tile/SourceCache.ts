@@ -97,14 +97,17 @@ function ensureTilePath(
 		) as Tile | undefined;
 
 		if (!child) {
-			// Create the full quad (same as LOD create)
+			// Create only missing siblings (never a second copy of the same z/x/y).
 			const kids = createChildren(loader, node.x, node.y, node.z);
 			if (!kids.length) return null;
-			node.add(...kids);
 			for (const k of kids) {
+				const exists = node.children.find(
+					(c: any) => c?.isTile && c.z === k.z && c.x === k.x && c.y === k.y
+				);
+				if (exists) continue;
+				node.add(k);
 				(k as any)._initTile?.();
 				(k as any).inFrustum = (node as any).inFrustum;
-				// Must notify layers on load — VectorTileLayer listens on root tile-loaded
 				if (!(k as any)._onLoadComplete) {
 					const forEvent = root;
 					(k as any)._onLoadComplete = () => {
@@ -113,7 +116,9 @@ function ensureTilePath(
 				}
 				root.dispatchEvent({ type: "tile-created", tile: k });
 			}
-			child = kids.find((k) => k.x === cx && k.y === cy);
+			child = node.children.find(
+				(c: any) => c?.isTile && c.z === level && c.x === cx && c.y === cy
+			) as Tile | undefined;
 		}
 		if (!child) return null;
 		node = child;
@@ -143,6 +148,7 @@ function updateRetainedTiles(
 	}
 
 	const minCoveringZoom = Math.max(maxZoom - MAX_OVERZOOMING, minLevel);
+	void minCoveringZoom;
 	const maxCoveringZoom = Math.max(maxZoom + MAX_UNDERZOOMING, minLevel);
 
 	const missing = new Set<string>();
@@ -198,7 +204,8 @@ function updateRetainedTiles(
 		if (needed) retain.add(topKey);
 	}
 
-	// For each missing ideal: children cover or parent ascent
+	// Missing ideal: immediate parent (network underlay) + nearest already-loaded
+	// ancestor (paint underlay). No multi-level warm-up of unloaded nodes.
 	for (const id of idealKeys) {
 		if (loadedKeys.has(id)) continue;
 		const kids = childKeysOf(id);
@@ -207,34 +214,15 @@ function updateRetainedTiles(
 		}
 
 		const [z0, x0, y0] = parseKey(id);
-		let x = x0;
-		let y = y0;
-		let parentWasRequested = byKey.get(id)?.state === "loading" || byKey.get(id)?.loaded;
-		// wasRequested ≈ tile exists in tree (already asked or loading/loaded/error)
-		const idealTile = byKey.get(id);
-		parentWasRequested = !!idealTile && idealTile.state !== "idle";
-
-		const checked = new Set<string>();
-		for (let pz = z0 - 1; pz >= minCoveringZoom; --pz) {
-			x >>= 1;
-			y >>= 1;
-			const pk = keyOf(pz, x, y);
-			if (checked.has(pk)) break;
-			checked.add(pk);
-
-			let t = byKey.get(pk);
-			if (!t && parentWasRequested) {
-				// parent path was already asked — do not invent nodes here;
-				// tree LOD will create them. Still retain the key for priority.
+		const minAncZ = Math.max(minLevel, z0 - MAX_UNDERZOOMING);
+		for (let pz = z0 - 1; pz >= minAncZ; pz--) {
+			const s = z0 - pz;
+			const pk = keyOf(pz, x0 >> s, y0 >> s);
+			if (loadedKeys.has(pk)) {
 				retain.add(pk);
-				parentWasRequested = true;
-				continue;
+				break;
 			}
-			if (t) {
-				retain.add(pk);
-				parentWasRequested = t.state !== "idle";
-				if (t.loaded) break;
-			}
+			if (pz === z0 - 1) retain.add(pk);
 		}
 	}
 
@@ -477,9 +465,9 @@ export class TileSourceCache {
 				minLevel: ctx.minLevel,
 				maxLevel: ctx.maxLevel,
 				tileSize: 256,
-				// Pitched-only distance LOD (coveringTiles skips near top-down).
-				// Near look-at keeps targetZ; far tiles step down. Top-down stays uniform.
-				useDistanceLod: true,
+				// Uniform-z ideal for PR-2. Mixed-z distance LOD needs the old
+				// LOD scene builder (PR-3/4). Top-down pitch 0 must settle single-z.
+				useDistanceLod: false,
 				cameraToCenterDistance: ctx.cameraDistance,
 				rootWorldMatrix: ctx.root.matrixWorld,
 			});
@@ -579,6 +567,17 @@ export class TileSourceCache {
 		for (const key of this._coveredKeys) {
 			const tile = byKey.get(key);
 			if (tile) this._setShowing(tile, false, "covered");
+		}
+
+		// Settled: paint only ideal.z. Warm-ancestor retain must not linger
+		// as a multi-z collage at pitch 0. In-flight keeps underlay/cover.
+		if (this._ideal && Number.isFinite(this._ideal.z) && !coverageIncomplete) {
+			const targetZ = this._ideal.z;
+			for (const [key, tile] of byKey) {
+				if (tile.showing && parseKey(key)[0] !== targetZ) {
+					this._setShowing(tile, false, "settle-single-z");
+				}
+			}
 		}
 
 		// PR-2 release: ∉ retain and ∉ structural ideal-path → shallow unload.

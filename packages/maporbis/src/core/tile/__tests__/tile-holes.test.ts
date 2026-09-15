@@ -339,4 +339,62 @@ describe("SourceCache emptyLoaded + settle showing", () => {
 		expect(driven).toBeGreaterThan(0);
 		expect(cache.dirty).toBe(false);
 	});
+
+	it("does not request a multi-level ancestor chain", async () => {
+		const root = new Tile(0, 0, 0);
+		const loader = makeRasterLoader();
+		const cache = new TileSourceCache();
+		cache.update(ctxFor(root, loader, 2));
+		const requested = loader.load.mock.calls.map(
+			(c: any[]) => `${c[0].z}/${c[0].x}/${c[0].y}`
+		);
+		const zs = new Set(requested.map((k: string) => +k.split("/")[0]));
+		expect(zs.has(2)).toBe(true);
+		expect(zs.has(0)).toBe(false);
+		for (const z of zs) expect(z).toBeGreaterThanOrEqual(1);
+	});
+
+	it("zoom-in keeps a loaded ancestor showing (no skybox hole)", async () => {
+		const root = new Tile(0, 0, 0);
+		const loader = makeRasterLoader();
+		const cache = new TileSourceCache();
+		cache.update(ctxFor(root, loader, 0));
+		await (root as any)._loadData(loader);
+		await cache.update(ctxFor(root, loader, 0));
+		expect(root.showing).toBe(true);
+
+		const snap = cache.update(ctxFor(root, loader, 1));
+		expect(snap.ideal!.z).toBe(1);
+		expect(snap.idealLoaded).toBe(0);
+		expect(root.showing).toBe(true);
+	});
+
+	it("zoom-out with cold parent keeps loaded children as cover", async () => {
+		const root = new Tile(0, 0, 0);
+		const loader = makeRasterLoader();
+		const cache = new TileSourceCache();
+		cache.update(ctxFor(root, loader, 1));
+		const tiles: Tile[] = [];
+		root.traverse((t) => {
+			if ((t as any).isTile) tiles.push(t as Tile);
+		});
+		for (const t of tiles) {
+			if (!t.loaded) await (t as any)._loadData(loader);
+		}
+		await cache.update(ctxFor(root, loader, 1));
+		(root as any).releasePayloadForCache(loader);
+		expect(root.loaded).toBe(false);
+
+		const snapCold = cache.update(ctxFor(root, loader, 0));
+		expect(snapCold.idealLoaded).toBe(0);
+		const cover = tiles.filter((t) => t.z === 1 && t.showing);
+		expect(cover.length).toBeGreaterThan(0);
+
+		await (root as any)._loadData(loader);
+		const snapWarm = cache.update(ctxFor(root, loader, 0));
+		expect(snapWarm.idealLoaded).toBe(1);
+		const finer = tiles.filter((t) => t.z > 0 && t.showing);
+		expect(finer.length).toBe(0);
+		expect(root.showing).toBe(true);
+	});
 });
