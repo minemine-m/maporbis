@@ -1,14 +1,24 @@
 ---
 feature: sc-mapbox-pr2
-status: in-progress
+status: delivered
 updated: 2026-09-15
 branch: feat/sc-mapbox-pr2
-commits: 1809b2c..50f14c6
+commits: 50f14c6..HEAD
 ---
 
 # SourceCache 收编 add / release（PR-2 重做）
 
 ## Report
+
+**What was built** — PR-2 在 `50f14c6` 骨架上按严格 Mapbox 契约重做。`_idealRetain=true` 时 TileLayer 不再跑 LOD `rootTile.update`；结构仅由 `ensureTilePath` 建、SourceCache release 收。retain = ideal ∪ 盖 missing 的已加载子级 ∪ missing 的最近已加载祖先 ∪ missing 的未加载直接父级一层。网络只拉 missing ideal + 那一层父级。settled 时 showing 仅 `ideal.z`；in-flight 允许 underlay/cover，不挖天空盒。SourceCache 请求的瓦片标记 `inFrustum`，避免队列 prune 丢掉 underlay。
+
+**Verification** — `vitest src/core/tile` PASS 66；`tsc --noEmit` PASS；`npm run build` PASS。独立评审 9 条 acceptance 全过；唯一非阻断项（`inFrustum` 未刷新导致 prune）已在交付前修掉。
+
+**Journey log**
+- 骨架后的连环热修互相打架（warm 祖先链 ↔ 漏底 ↔ 多 z 请求），根因是契约未钉死就打补丁。
+- 重做前 `git reset --hard 50f14c6`，在干净底座上一次实现四条 retain 并集 + settle 单 z。
+- `_idealRetain` 跳过 LOD 后 `Tile.inFrustum` 永不刷新，queue prune 会误杀 underlay load——SourceCache request 时显式置 true。
+- 不要对已加载 ideal 做多级祖先预取：那是上次「平移也拉 z5–z8」的来源。
 
 ## [S1] Problem
 
@@ -51,7 +61,7 @@ retain =
 1. missing ideals（最高优先）
 2. retain 中未加载的节点 —— 按上面 retain 定义，未加载非 ideal 最多是 **直接父级一层**
 
-平移同级、放大更细、缩小更粗；不拉无关祖先链。
+平移同级、放大更细、缩小更粗；不拉无关祖先链。SourceCache `requestLoad` 前将 `inFrustum=true`，防止 prune 误杀 underlay。
 
 ### release
 

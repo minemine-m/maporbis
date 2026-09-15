@@ -147,8 +147,6 @@ function updateRetainedTiles(
 		if (z > maxZoom) maxZoom = z;
 	}
 
-	const minCoveringZoom = Math.max(maxZoom - MAX_OVERZOOMING, minLevel);
-	void minCoveringZoom;
 	const maxCoveringZoom = Math.max(maxZoom + MAX_UNDERZOOMING, minLevel);
 
 	const missing = new Set<string>();
@@ -643,6 +641,9 @@ export class TileSourceCache {
 			ensureTilePath(ctx.root, z, x, y, ctx.loader);
 			const tile = this._tiles.get(key);
 			if (tile && !tile.loaded) {
+				// SourceCache no longer runs LOD frustum tests. Mark needed
+				// tiles so _pruneLoadQueue does not drop parent-underlay jobs.
+				(tile as any).inFrustum = true;
 				Tile.requestLoad(tile, ctx.loader, this._idealKeys);
 			}
 		}
