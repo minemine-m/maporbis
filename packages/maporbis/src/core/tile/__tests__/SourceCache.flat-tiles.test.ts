@@ -69,6 +69,28 @@ describe("TileSourceCache flat _tiles", () => {
 		expect(cache.getTile("1/0/0")).toBeDefined();
 	});
 
+	it("ensureTilePath creates flat root children (PR-4 redo)", () => {
+		const root = new Tile(0, 0, 0);
+		root.scale.set(40075016, 40075016, 1);
+		root.updateMatrix();
+		root.updateMatrixWorld(true);
+		const loader = makeLoader();
+		const cache = new TileSourceCache();
+		const c = { ...ctx(root, loader), maxLevel: 1 };
+		cache.update(c as any);
+		// After update, any z=1 tiles must be direct children of root, not nested
+		const z1 = root.children.filter((ch: any) => ch?.isTile && ch.z === 1);
+		for (const t of z1) {
+			expect(t.parent).toBe(root);
+		}
+		// No tile has a tile parent other than root
+		root.traverse((t) => {
+			if (!t.isTile || t === root) return;
+			expect((t.parent as any).isTile).toBe(true);
+			expect(t.parent).toBe(root);
+		});
+	});
+
 	it("unregisters on tile-unload and prunes detached children", () => {
 		const root = new Tile(0, 0, 0);
 		const loader = makeLoader();

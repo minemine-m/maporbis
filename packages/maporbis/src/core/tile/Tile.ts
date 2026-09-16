@@ -17,6 +17,7 @@ import {
 import { ICompositeLoader } from "../../loaders";
 import { TileCache } from "../../loaders/TileCache";
 import { getDistance, getTileSize, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
+import { computeTileRootLocal } from "./tileTransform";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -968,6 +969,18 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		}
 
 		return this;
+	}
+
+	/**
+	 * Flat Mapbox-style transform: tile is a direct child of root in root-local
+	 * unit space (before root scale mapW/mapH). y=0 is the top row (+v).
+	 */
+	public setTileTransform(z: number, x: number, y: number): void {
+		const local = computeTileRootLocal(z, x, y);
+		this.position.set(local.u, local.v, 0);
+		this.scale.set(local.su, local.sv, 1);
+		this.matrixAutoUpdate = false;
+		this.updateMatrix();
 	}
 
 	/** New tile init */

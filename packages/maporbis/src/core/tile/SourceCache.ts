@@ -6,7 +6,6 @@ import {
 	computeCoveringZoomLevel,
 	computeIdealTileSet,
 	countIdealCovered,
-	createChildren,
 	hasLoadedCover,
 } from "./util";
 import { computeCoveringTilesDFS } from "./coveringTiles";
@@ -77,8 +76,9 @@ function childKeysOf(key: string): string[] {
 }
 
 /**
- * Mapbox _addTile: create missing nodes along the path root → (z,x,y).
- * LOD may not have refined that branch yet; ideal still needs a node to load.
+ * Mapbox _addTile: create the (z,x,y) node if missing.
+ * Flat PR-4 redo: tile is a direct child of root with setTileTransform
+ * (no createChildren sibling quads, no hierarchical ±0.25 chain).
  */
 function ensureTilePath(
 	root: Tile,
@@ -90,43 +90,24 @@ function ensureTilePath(
 	if (!root?.isTile) return null;
 	if (z <= 0) return root;
 
-	let node: Tile = root;
-	for (let level = 1; level <= z; level++) {
-		const shift = z - level;
-		const cx = x >> shift;
-		const cy = y >> shift;
-		let child = node.children.find(
-			(c: any) => c?.isTile && c.z === level && c.x === cx && c.y === cy
-		) as Tile | undefined;
+	const existing = root.children.find(
+		(c: any) => c?.isTile && c.z === z && c.x === x && c.y === y
+	) as Tile | undefined;
+	if (existing) return existing;
 
-		if (!child) {
-			// Create only missing siblings (never a second copy of the same z/x/y).
-			const kids = createChildren(loader, node.x, node.y, node.z);
-			if (!kids.length) return null;
-			for (const k of kids) {
-				const exists = node.children.find(
-					(c: any) => c?.isTile && c.z === k.z && c.x === k.x && c.y === k.y
-				);
-				if (exists) continue;
-				node.add(k);
-				(k as any)._initTile?.();
-				(k as any).inFrustum = (node as any).inFrustum;
-				if (!(k as any)._onLoadComplete) {
-					const forEvent = root;
-					(k as any)._onLoadComplete = () => {
-						forEvent.dispatchEvent({ type: "tile-loaded", tile: k });
-					};
-				}
-				root.dispatchEvent({ type: "tile-created", tile: k });
-			}
-			child = node.children.find(
-				(c: any) => c?.isTile && c.z === level && c.x === cx && c.y === cy
-			) as Tile | undefined;
-		}
-		if (!child) return null;
-		node = child;
+	const tile = new Tile(x, y, z);
+	tile.setTileTransform(z, x, y);
+	root.add(tile);
+	(tile as any)._initTile?.();
+	(tile as any).inFrustum = (root as any).inFrustum;
+	if (!(tile as any)._onLoadComplete) {
+		const forEvent = root;
+		(tile as any)._onLoadComplete = () => {
+			forEvent.dispatchEvent({ type: "tile-loaded", tile });
+		};
 	}
-	return node;
+	root.dispatchEvent({ type: "tile-created", tile });
+	return tile;
 }
 
 /**
