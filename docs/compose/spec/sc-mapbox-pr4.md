@@ -1,14 +1,24 @@
 ---
 feature: sc-mapbox-pr4
-status: designed
+status: delivered
 updated: 2026-09-16
 branch: feat/sc-mapbox-pr4-redo
-commits: 
+commits: 531edd0..7065e51
 ---
 
 # 扁平变换 redo（真 Mapbox 坐标）
 
 ## Report
+
+**What was built** — 在当前 master（含 feel 调度）上重做扁平变换：`tileTransform` 单位空间公式 + `Tile.setTileTransform`；`ensureTilePath` 只创建缺失 `(z,x,y)` 为 root 直接子级，生产路径不再 `createChildren`。与层级连乘对拍 z0–14 误差 &lt; 1e-3。Review 后移除 `_loadPriority` 对 `parent.children` 的空间兄弟假设（扁平下 parent 恒为 root）。
+
+**Verification** — `vitest src/core/tile` 73 PASS；`npm run build` PASS；demo：`nested=0`，pitch 下 `emptyLoaded=0`、ideal 6/6。
+
+**Journey log**
+- 旧 `feat/sc-mapbox-pr4` 只作公式/对拍参考，SourceCache 与 feel 分叉不可整支 merge。
+- 扁平后 release 的 `hasTileChild` 对 z&gt;0 恒 false；prune 靠 parent==null。
+- `tile.parent.children` 不能再当空间兄弟集；优先级只用 z/x/y 键与距离带。
+- covering 本地 AABB 与 `computeTileRootLocal` 同为 y=0 上、+v，须锁步。
 
 ## [S1] Problem
 
@@ -50,6 +60,6 @@ su = sv = 1 / 2^z
 
 ## Tasks
 
-- [ ] T1: tileTransform + Tile.setTileTransform + 对拍单测 z0–14 — acceptance: vitest parity PASS (covers: S2)
-- [ ] T2: ensureTilePath 扁平 root 子级 — acceptance: 新建瓦片 world 与公式一致；生产不再调用 createChildren (covers: S2; depends: T1)
-- [ ] T3: release/prune 适配扁平 + 全量 vitest/tsc/build — acceptance: holes/release/feel 全 PASS (covers: S2; depends: T2)
+- [x] T1: tileTransform + Tile.setTileTransform + 对拍单测 z0–14 — acceptance: vitest parity PASS (covers: S2)
+- [x] T2: ensureTilePath 扁平 root 子级 — acceptance: flat-tiles 测试 parent===root；生产无 createChildren (covers: S2; depends: T1)
+- [x] T3: vitest 73 + build + demo nested=0 emptyLoaded=0 (covers: S2; depends: T2)

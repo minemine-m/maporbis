@@ -468,13 +468,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (typeof idealMaxZ === "number" && tile.z < idealMaxZ) {
 			return Math.min(0.01 + dNorm, 0.099);
 		}
-		const parent = tile.parent as Tile | null;
-		if (parent && (parent as any).isTile && tile.inFrustum) {
-			const sibs = parent.children.filter((c: any) => c.isTile);
-			if (parent.showing && sibs.some((c: any) => !c.loaded)) {
-				return 1;
-			}
-		}
+		// Flat PR-4: scene parent is always root — do not use parent.children
+		// as a spatial sibling set (that is O(all tiles) and semantically wrong).
 		return 2 + tile.distToCamera;
 	}
 

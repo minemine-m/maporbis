@@ -593,7 +593,7 @@ export class TileSourceCache {
 		}
 
 		// PR-2 release: ∉ retain and ∉ structural ideal-path → shallow unload.
-		// Keep scene parent shells that still have tile children (needed for transforms).
+		// Flat PR-4: tiles are root children; hasTileChild is always false for z>0.
 		// Deepest first.
 		{
 			const structural = new Set<string>();
