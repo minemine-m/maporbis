@@ -3,7 +3,7 @@ feature: sc-mapbox-feel
 status: delivered
 updated: 2026-09-16
 branch: fix/tile-schedule-cache
-commits: 10070d9..working-tree
+commits: 10070d9..ddca4f3
 ---
 
 # 调度观感：少要张 + 中心先下 + 缩放不露底
