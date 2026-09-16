@@ -217,8 +217,11 @@ export class Map extends Handlerable(
     /**
      * Update interval (ms)
      * 更新间隔（毫秒）
+     * 16ms ≈ 60fps so SourceCache schedule tracks the camera; 100ms left skybox holes.
      */
-    public updateInterval = 100;
+    public updateInterval = 16;
+    /** Force per-frame layer updates until this timestamp (post-interaction settle). */
+    private _flushUntilMs = 0;
     
     /**
      * Min zoom level
@@ -698,6 +701,11 @@ export class Map extends Handlerable(
         // When control interaction ends, if actual zoom happened, trigger zoomend
         // 控制器交互结束时，如果本次确实有缩放，则触发 zoomend
         this.on('moveend', () => {
+            // Always flush schedule on interaction end — interval gate may have
+            // just been reset, leaving ideals unretained until the next tick.
+            this.flushLayerUpdates();
+            this._flushUntilMs = performance.now() + 250;
+
             if (!this._isZooming) return;
 
             this._isZooming = false;
@@ -1274,13 +1282,29 @@ export class Map extends Handlerable(
     }
 
     /**
+     * Force an immediate layer update pass, bypassing updateInterval.
+     * 强制立即更新所有图层，绕过 updateInterval 节流。
+     */
+    public flushLayerUpdates(): void {
+        const cam = this.sceneRenderer?.camera;
+        if (!cam) return;
+        this._layers.forEach((layer) => {
+            if (layer.enabled && layer.visible) {
+                layer.update(cam);
+            }
+        });
+        this._animationClock.start();
+    }
+
+    /**
      * Update map and layers.
      * 更新地图和图层
      */
     public render(camera: Camera) {
         if (!this.autoUpdate) return;
         const elapseTime = this._animationClock.getElapsedTime();
-        if (elapseTime > this.updateInterval / 1000) {
+        const inFlushWindow = performance.now() < this._flushUntilMs;
+        if (inFlushWindow || elapseTime > this.updateInterval / 1000) {
             // console.log(`Map update loop. Layers count: ${this._layers.size}`);
             // Update all layers
             this._layers.forEach(layer => {

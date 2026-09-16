@@ -450,14 +450,22 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	/**
 	 * Load priority (lower = sooner).
-	 * 0: ideal covering tile
-	 * 1: in-frustum sibling blocking a showing parent
-	 * 2+: distance
+	 * Band [0,1): underlay coarse parents first, then ideals (coarser z first,
+	 * then near→far). ≥1: sibling blockers, then distance.
 	 */
 	private static _loadPriority(tile: Tile, idealTiles?: Set<string>): number {
 		const key = `${tile.z}/${tile.x}/${tile.y}`;
-		if (idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key)) {
-			return 0;
+		const isIdeal = idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key);
+		const d = Number.isFinite(tile.distToCamera) ? tile.distToCamera : 0;
+		const dNorm = Math.min(d / 1e12, 0.009);
+		const idealMaxZ = Tile._idealTileSet?.z;
+		if (isIdeal) {
+			// Lower z (coarser) sorts first — far skyline covers more pixels.
+			return Math.min(0.1 + tile.z * 0.01 + dNorm, 0.999);
+		}
+		// Non-ideal retain underlay (parents / far coarse): paint basemap first.
+		if (typeof idealMaxZ === "number" && tile.z < idealMaxZ) {
+			return Math.min(0.01 + dNorm, 0.099);
 		}
 		const parent = tile.parent as Tile | null;
 		if (parent && (parent as any).isTile && tile.inFrustum) {
@@ -795,7 +803,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (cache) {
 			const hit = cache.get(z, x, y);
 			if (hit) {
-				// Always drop the entry so a bad hit cannot loop.
+				// Exclusive handoff: drop the entry so LRU evict cannot dispose
+				// GPU objects still bound to a live tile.
 				cache.delete(z, x, y);
 				const hitMats = Tile._payloadMaterials(hit.materials);
 				const hitGeo = hit.geometry;

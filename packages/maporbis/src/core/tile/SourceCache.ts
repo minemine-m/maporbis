@@ -11,6 +11,9 @@ import {
 } from "./util";
 import { computeCoveringTilesDFS } from "./coveringTiles";
 
+const _camWorldPos = new Vector3();
+const _tileWorldPos = new Vector3();
+
 /** Mapbox SourceCache.maxOverzooming / maxUnderzooming */
 const MAX_OVERZOOMING = 10;
 const MAX_UNDERZOOMING = 3;
@@ -463,9 +466,9 @@ export class TileSourceCache {
 				minLevel: ctx.minLevel,
 				maxLevel: ctx.maxLevel,
 				tileSize: 256,
-				// Uniform-z ideal for PR-2. Mixed-z distance LOD needs the old
-				// LOD scene builder (PR-3/4). Top-down pitch 0 must settle single-z.
-				useDistanceLod: false,
+				// Pitched distance LOD (Mapbox): near tiles at targetZ, far/skyline
+				// step down. Top-down is forced uniform inside computeCoveringTilesDFS.
+				useDistanceLod: true,
 				cameraToCenterDistance: ctx.cameraDistance,
 				rootWorldMatrix: ctx.root.matrixWorld,
 			});
@@ -520,6 +523,26 @@ export class TileSourceCache {
 			loadedKeys,
 			ctx.minLevel
 		);
+
+		// SourceCache mode never runs rootTile.update — write distToCamera here
+		// so load priority can be center-first within the ideal set.
+		{
+			ctx.camera.getWorldPosition(_camWorldPos);
+			for (const key of this._idealKeys) {
+				const tile = byKey.get(key);
+				if (!tile) continue;
+				tile.getWorldPosition(_tileWorldPos);
+				tile.distToCamera = _tileWorldPos.distanceTo(_camWorldPos);
+			}
+			for (const key of this._retainKeys) {
+				if (this._idealKeys.has(key)) continue;
+				const tile = byKey.get(key);
+				if (!tile) continue;
+				tile.getWorldPosition(_tileWorldPos);
+				tile.distToCamera = _tileWorldPos.distanceTo(_camWorldPos);
+			}
+		}
+
 		this._coveredKeys = computeCovered(this._retainKeys, loadedKeys);
 
 		// Sole visibility rule (Mapbox painter: draw retain tiles with data, skip covered)
@@ -567,13 +590,23 @@ export class TileSourceCache {
 			if (tile) this._setShowing(tile, false, "covered");
 		}
 
-		// Settled: paint only ideal.z. Warm-ancestor retain must not linger
-		// as a multi-z collage at pitch 0. In-flight keeps underlay/cover.
+		// Settled uniform-z only: when every ideal key shares one z (top-down /
+		// no distance LOD). Mixed-z pitch ideals must keep showing all levels.
 		if (this._ideal && Number.isFinite(this._ideal.z) && !coverageIncomplete) {
-			const targetZ = this._ideal.z;
-			for (const [key, tile] of byKey) {
-				if (tile.showing && parseKey(key)[0] !== targetZ) {
-					this._setShowing(tile, false, "settle-single-z");
+			let minZ = Infinity;
+			let maxZ = -Infinity;
+			for (const key of this._idealKeys) {
+				const z = parseKey(key)[0];
+				if (z < minZ) minZ = z;
+				if (z > maxZ) maxZ = z;
+			}
+			const uniformZ = minZ === maxZ;
+			if (uniformZ) {
+				const targetZ = maxZ;
+				for (const [key, tile] of byKey) {
+					if (tile.showing && parseKey(key)[0] !== targetZ) {
+						this._setShowing(tile, false, "settle-single-z");
+					}
 				}
 			}
 		}
@@ -598,12 +631,16 @@ export class TileSourceCache {
 			for (const [key, tile] of byKey) {
 				if (this._retainKeys.has(key)) continue;
 				if (structural.has(key)) continue;
+				// Incomplete coverage: keep loaded payloads as underlay continuity.
+				// Release only empty shells so zoom/pitch does not punch holes.
+				if (coverageIncomplete && tile.loaded) continue;
 				toRelease.push(tile);
 			}
 			toRelease.sort((a, b) => b.z - a.z);
 			for (const tile of toRelease) {
 				const key = keyOf(tile.z, tile.x, tile.y);
 				if (this._retainKeys.has(key) || structural.has(key)) continue;
+				if (coverageIncomplete && tile.loaded) continue;
 				this._setShowing(tile, false, "release");
 				tile.releasePayloadForCache(ctx.loader);
 				const hasTileChild = tile.children.some((c: any) => c?.isTile);

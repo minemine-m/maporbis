@@ -226,7 +226,7 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
         this._rootTile.matrixAutoUpdate = true;
         this._rootTile.receiveShadow = options.receiveShadow ?? false;
         // LRU payload cache for zoom-back (reuse loaders.TileCache)
-        this._rootTile._payloadCache = new TileCache(128);
+        this._rootTile._payloadCache = new TileCache(512);
         // this._rootTile.scale.set(this.projection.mapWidth, this.projection.mapHeight, this.projection.mapDepth);
         // console.log(this.projection.mapWidth, this.projection.mapHeight, 100000);
         this._rootTile.scale.set(this.projection.mapWidth, this.projection.mapHeight, 1);

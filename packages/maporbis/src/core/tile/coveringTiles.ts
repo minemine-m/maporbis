@@ -42,9 +42,6 @@ const _camPos = new Vector3();
 const _fwd = new Vector3();
 const _corner = new Vector3();
 const _identity = new Matrix4();
-const _unproj = new Vector3();
-const _rayDir = new Vector3();
-const _invRoot = new Matrix4();
 
 /**
  * World AABB for XYZ tile.
@@ -246,45 +243,11 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 
 	if (keys.length === 0) return null;
 
-	// DFS can return disjoint clumps after a pan. Fill holes inside the
-	// bounding box at the dominant zoom so the viewport rectangle is solid.
-	const zCount = new Map<number, number>();
-	for (const key of keys) {
-		const z = +key.split("/")[0];
-		zCount.set(z, (zCount.get(z) || 0) + 1);
-	}
-	let fillZ = resultZ ?? targetZ;
-	let best = 0;
-	for (const [z, c] of zCount) {
-		if (c > best) {
-			best = c;
-			fillZ = z;
-		}
-	}
-	fillZ = Math.min(Math.max(fillZ, minLevel), maxLevel);
-	const nFill = Math.pow(2, fillZ);
+	// DFS frustum keys only (Mapbox-like). No bbox rectangle fill or 8-neighbor pad.
 	const keySet = new Set(keys);
-	let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
-	for (const key of keys) {
-		const [z, x, y] = key.split("/").map(Number);
-		if (z !== fillZ) continue;
-		if (x < bx0) bx0 = x;
-		if (x > bx1) bx1 = x;
-		if (y < by0) by0 = y;
-		if (y > by1) by1 = y;
-	}
-	if (bx0 !== Infinity && bx1 - bx0 < 32 && by1 - by0 < 32) {
-		for (let x = Math.max(0, bx0 - 1); x <= Math.min(nFill - 1, bx1 + 1); x++) {
-			for (let y = Math.max(0, by0 - 1); y <= Math.min(nFill - 1, by1 + 1); y++) {
-				keySet.add(`${fillZ}/${x}/${y}`);
-			}
-		}
-	}
-
-	const padded = padKeysOneTile([...keySet], minLevel, maxLevel);
 	let pminX = Infinity, pmaxX = -Infinity, pminY = Infinity, pmaxY = -Infinity;
-	let pmaxZ = fillZ;
-	for (const key of padded) {
+	let pmaxZ = resultZ ?? targetZ;
+	for (const key of keys) {
 		const [z, x, y] = key.split("/").map(Number);
 		if (x < pminX) pminX = x;
 		if (x > pmaxX) pmaxX = x;
@@ -294,7 +257,7 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 	}
 	return {
 		z: pmaxZ,
-		keys: padded,
+		keys: [...keySet],
 		minX: pminX,
 		maxX: pmaxX,
 		minY: pminY,
@@ -302,77 +265,3 @@ export function computeCoveringTilesDFS(opts: CoveringTilesDfsOptions): IdealTil
 	};
 }
 
-/** Expand each key with 8-neighbors at the same z, clamped to the world. */
-function padKeysOneTile(keys: string[], minLevel: number, maxLevel: number): string[] {
-	const out = new Set(keys);
-	for (const key of keys) {
-		const [z, x, y] = key.split("/").map(Number);
-		if (z < minLevel || z > maxLevel) continue;
-		const n = Math.pow(2, z);
-		for (let dx = -1; dx <= 1; dx++) {
-			for (let dy = -1; dy <= 1; dy++) {
-				const nx = x + dx;
-				const ny = y + dy;
-				if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
-				out.add(`${z}/${nx}/${ny}`);
-			}
-		}
-	}
-	return [...out];
-}
-
-/**
- * Project viewport NDC samples onto the ground plane (world Y=0 after
- * root rotation) and return the tile AABB at targetZ. Used to fill DFS
- * gaps — frustum DFS can leave disjoint clumps after a pan.
- */
-function viewportGroundTileAabb(
-	camera: Camera,
-	rootWorldMatrix: Matrix4 | undefined,
-	mapWidth: number,
-	mapHeight: number,
-	targetZ: number
-): { minX: number; maxX: number; minY: number; maxY: number } | null {
-	const n = Math.pow(2, targetZ);
-	const samples: Array<[number, number]> = [
-		[-1, -1], [0, -1], [1, -1],
-		[-1, 0], [0, 0], [1, 0],
-		[-1, 1], [0, 1], [1, 1],
-		[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7],
-	];
-	camera.getWorldPosition(_camPos);
-	let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-	let hits = 0;
-	for (const [sx, sy] of samples) {
-		_unproj.set(sx, sy, 0.5);
-		_unproj.unproject(camera);
-		_rayDir.copy(_unproj).sub(_camPos);
-		if (Math.abs(_rayDir.y) < 1e-10) continue;
-		const t = -_camPos.y / _rayDir.y;
-		if (!(t > 0) || !Number.isFinite(t)) continue;
-		_unproj.copy(_camPos).addScaledVector(_rayDir, t);
-		// world → tile local (root: scale mapW/mapH then rotX -90° → world (x,0,-z))
-		let lx: number, ly: number;
-		if (rootWorldMatrix) {
-			_invRoot.copy(rootWorldMatrix).invert();
-			_corner.copy(_unproj).applyMatrix4(_invRoot);
-			lx = _corner.x;
-			ly = _corner.y;
-		} else {
-			lx = _unproj.x / mapWidth;
-			ly = _unproj.y / mapHeight;
-		}
-		const tx = Math.floor((lx + 0.5) * n);
-		const ty = Math.floor((0.5 - ly) * n);
-		if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-		const cx = Math.min(Math.max(tx, 0), n - 1);
-		const cy = Math.min(Math.max(ty, 0), n - 1);
-		if (cx < minX) minX = cx;
-		if (cx > maxX) maxX = cx;
-		if (cy < minY) minY = cy;
-		if (cy > maxY) maxY = cy;
-		hits++;
-	}
-	if (hits < 4 || minX === Infinity) return null;
-	return { minX, maxX, minY, maxY };
-}

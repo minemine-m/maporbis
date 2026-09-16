@@ -64,6 +64,8 @@ describe("computeCoveringTilesDFS", () => {
 		expect(set!.keys[0]).toMatch(new RegExp(`^${z0}/`));
 		// Top-down should be a modest viewport set, not the whole world
 		expect(set!.keys.length).toBeLessThan(200);
+		// No 8-neighbor pad: close to MapLibre-scale covering, not 2–5× inflated
+		expect(set!.keys.length).toBeLessThan(40);
 	});
 
 	it("clamps to maxLevel", () => {
