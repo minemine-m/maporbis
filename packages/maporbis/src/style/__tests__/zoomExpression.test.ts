@@ -60,7 +60,8 @@ describe("styleSpec zoom + range", () => {
 	it("resolves width by zoom", () => {
 		const z12 = toPaintRules(style, 12);
 		expect(z12).toHaveLength(1);
-		expect((z12[0].paint as any).width).toBeCloseTo(2);
+		// linear: z10=1 → z15=4 ⇒ z12 = 1 + 0.4*3 = 2.2
+		expect((z12[0].paint as any).width).toBeCloseTo(2.2);
 
 		const z18 = toPaintRules(style, 18);
 		expect(z18).toHaveLength(1);
