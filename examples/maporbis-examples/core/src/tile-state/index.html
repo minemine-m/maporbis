@@ -432,7 +432,7 @@
 
       // Update active downloads display
       setInterval(() => {
-        activeDownloadsEl.textContent = maporbis.Tile.downloadThreads;
+        activeDownloadsEl.textContent = maporbis.TileLoadScheduler.downloadThreads;
       }, 200);
 
       // Retry config sliders

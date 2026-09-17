@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Camera, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import { TileSourceCache } from "../SourceCache";
 import { TileCache } from "../../../loaders/TileCache";
 
@@ -34,8 +35,8 @@ function ctx(root: Tile, loader: any, maxLevel: number) {
 
 describe("feel: center-first priority", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("ideal tiles get distance-based priority (near < far)", () => {
@@ -44,38 +45,38 @@ describe("feel: center-first priority", () => {
 		near.distToCamera = 10;
 		far.distToCamera = 1000;
 		const ideals = new Set(["1/0/0", "1/1/0"]);
-		const pn = (Tile as any)._loadPriority(near, ideals);
-		const pf = (Tile as any)._loadPriority(far, ideals);
+		const pn = TileLoadScheduler.loadPriority(near, ideals);
+		const pf = TileLoadScheduler.loadPriority(far, ideals);
 		expect(pn).toBeLessThan(pf);
 		expect(pn).toBeLessThan(1);
 		expect(pf).toBeLessThan(1);
 	});
 
 	it("coarser ideal tiles sort before finer ones (skyline underpaint)", () => {
-		Tile.setIdealTileSet({ z: 16, keys: ["14/0/0", "16/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
+		TileLoadScheduler.setIdealTileSet({ z: 16, keys: ["14/0/0", "16/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
 		const coarse = new Tile(0, 0, 14);
 		const fine = new Tile(0, 0, 16);
 		coarse.distToCamera = 5000;
 		fine.distToCamera = 100;
 		const ideals = new Set(["14/0/0", "16/0/0"]);
-		const pc = (Tile as any)._loadPriority(coarse, ideals);
-		const pf = (Tile as any)._loadPriority(fine, ideals);
+		const pc = TileLoadScheduler.loadPriority(coarse, ideals);
+		const pf = TileLoadScheduler.loadPriority(fine, ideals);
 		expect(pc).toBeLessThan(pf);
-		Tile.setIdealTileSet(null);
+		TileLoadScheduler.setIdealTileSet(null);
 	});
 
 	it("non-ideal underlay (lower z) loads before fine ideals' distant siblings but after? band < 0.1", () => {
-		Tile.setIdealTileSet({ z: 16, keys: ["16/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
+		TileLoadScheduler.setIdealTileSet({ z: 16, keys: ["16/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
 		const underlay = new Tile(1, 0, 15); // not ideal, z < 16
 		underlay.distToCamera = 8000;
 		const fineIdeal = new Tile(2, 0, 16);
 		fineIdeal.distToCamera = 50;
-		const pu = (Tile as any)._loadPriority(underlay, new Set(["16/0/0"]));
-		const pf = (Tile as any)._loadPriority(fineIdeal, new Set(["16/0/0"]));
+		const pu = TileLoadScheduler.loadPriority(underlay, new Set(["16/0/0"]));
+		const pf = TileLoadScheduler.loadPriority(fineIdeal, new Set(["16/0/0"]));
 		// Underlay paints first so the skyline is never empty
 		expect(pu).toBeLessThan(0.1);
 		expect(pu).toBeLessThan(pf);
-		Tile.setIdealTileSet(null);
+		TileLoadScheduler.setIdealTileSet(null);
 	});
 
 	it("non-ideal remains behind every ideal", () => {
@@ -84,16 +85,16 @@ describe("feel: center-first priority", () => {
 		const other = new Tile(0, 0, 1);
 		other.distToCamera = 1;
 		const ideals = new Set(["2/0/0"]);
-		const pi = (Tile as any)._loadPriority(ideal, ideals);
-		const po = (Tile as any)._loadPriority(other, ideals);
+		const pi = TileLoadScheduler.loadPriority(ideal, ideals);
+		const po = TileLoadScheduler.loadPriority(other, ideals);
 		expect(pi).toBeLessThan(po);
 	});
 });
 
 describe("feel: incomplete coverage holds loaded tiles", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("loaded non-retain tiles survive update while an ideal is missing", async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Camera, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import { TileSourceCache } from "../SourceCache";
 import { createChildren } from "../util";
 
@@ -19,9 +20,9 @@ import { vi } from "vitest";
 
 describe("TileSourceCache.update", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.setIdealLoadedCount(0);
-		Tile.setIdealCoveredCount(0);
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.setIdealLoadedCount(0);
+		TileLoadScheduler.setIdealCoveredCount(0);
 	});
 
 	it("computes ideal set and retain covering missing ideals via ancestors", () => {

@@ -297,11 +297,11 @@
       };
 
       setInterval(() => {
-        if (!maporbis.Tile || !maporbis.Tile.getScheduleStats) {
-          statsEl.textContent = 'Tile.getScheduleStats 不可用（请确认已 build 最新 dist）';
+        if (!maporbis.TileLoadScheduler || !maporbis.TileLoadScheduler.getScheduleStats) {
+          statsEl.textContent = 'TileLoadScheduler.getScheduleStats 不可用（请确认已 build 最新 dist）';
           return;
         }
-        const s = maporbis.Tile.getScheduleStats();
+        const s = maporbis.TileLoadScheduler.getScheduleStats();
         const root = vectorLayer && vectorLayer._rootTile;
         let total = 0, loaded = 0, showing = 0, inFrustum = 0;
         let sampleFormat = '-', sampleCoord = '-', mvtLocalTiles = 0;

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Camera } from "three";
 import { Tile, TileState } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import { TileSourceCache } from "../SourceCache";
 import { createChildren } from "../util";
 
@@ -36,9 +37,9 @@ function ctx(root: Tile, loader: any) {
 
 describe("TileSourceCache flat _tiles", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.setIdealLoadedCount(0);
-		Tile.setIdealCoveredCount(0);
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.setIdealLoadedCount(0);
+		TileLoadScheduler.setIdealCoveredCount(0);
 	});
 
 	it("seeds from existing tree; releases non-retain extras (PR-2)", () => {
@@ -97,7 +98,7 @@ describe("TileSourceCache flat _tiles", () => {
 		const z1 = createChildren(loader, 0, 0, 0);
 		root.add(...z1);
 		const cache = new TileSourceCache();
-		// maxLevel 0 â†’ extras released immediately (PR-2)
+		// maxLevel 0 â†?extras released immediately (PR-2)
 		cache.update(ctx(root, loader));
 		expect(cache.tileCount).toBe(1);
 		expect(cache.getTile("0/0/0")).toBe(root);

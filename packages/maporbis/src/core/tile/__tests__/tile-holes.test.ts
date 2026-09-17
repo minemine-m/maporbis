@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BufferGeometry, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import { TileSourceCache } from "../SourceCache";
 import { TileCache } from "../../../loaders/TileCache";
 import { createChildren } from "../util";
@@ -34,8 +35,8 @@ function makeRasterLoader(payload?: () => { geometry: any; materials: any[] }) {
 
 describe("tile holes: Unloaded reload + SourceCache registry", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("Unloaded tiles can start loading again", () => {
@@ -70,7 +71,7 @@ describe("tile holes: Unloaded reload + SourceCache registry", () => {
 		// LOD-style create without going through ensureTilePath events
 		const kids = createChildren(loader, 0, 0, 0);
 		root.add(...kids);
-		// do NOT dispatch tile-created â€” simulates missed callback
+		// do NOT dispatch tile-created â€?simulates missed callback
 		cache.update({
 			root,
 			camera: new Camera(),
@@ -94,8 +95,8 @@ describe("tile holes: Unloaded reload + SourceCache registry", () => {
 
 describe("tile holes: empty Loaded / payload cache poisoning", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("never-loaded dispose does not write empty payload into cache", () => {
@@ -233,7 +234,7 @@ describe("covered hide via SourceCache.update", () => {
 			const t = cache.getTile(key);
 			if (t) expect(t.showing).toBe(false);
 		}
-		// Settle: no multi-z hard collage â€” showing tiles share one z
+		// Settle: no multi-z hard collage â€?showing tiles share one z
 		const showingZ = new Set<number>();
 		root.traverse((t) => {
 			if ((t as any).isTile && (t as Tile).showing) showingZ.add((t as Tile).z);
@@ -244,8 +245,8 @@ describe("covered hide via SourceCache.update", () => {
 
 describe("load completion does not write showing (I1/I3)", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("cache-hit and network load leave showing=false until SourceCache.update", async () => {
@@ -269,8 +270,8 @@ describe("load completion does not write showing (I1/I3)", () => {
 
 describe("SourceCache emptyLoaded + settle showing", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	function ctxFor(root: Tile, loader: any, maxLevel = 2) {

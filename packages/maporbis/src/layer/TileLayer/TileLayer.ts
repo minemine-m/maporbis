@@ -3,7 +3,7 @@ import { Camera, Vector3 } from "three";
 import { ISource } from "../../sources";
 import { MapProjection as IProjection } from "../../projection";
 import { ITileLayer } from "./interfaces/ITileLayer";
-import { Tile, TileSourceCache } from "../../core/tile";
+import { Tile, TileSourceCache, TileLoadScheduler } from "../../core/tile";
 import { TileCache } from "../../loaders/TileCache";
 import { computeCoveringZoomLevel } from "../../core/tile/util";
 import { ICompositeLoader } from "../../loaders";
@@ -476,9 +476,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 this._layerIdealTiles = snap.idealKeys;
                 // Base layer owns the global ideal set used by queue prune/stats.
                 if ((this as any).isBaseLayer) {
-                    Tile.setIdealTileSet(snap.ideal);
-                    Tile.setIdealLoadedCount(snap.idealLoaded);
-                    Tile.setIdealCoveredCount(snap.idealCovered);
+                    TileLoadScheduler.setIdealTileSet(snap.ideal);
+                    TileLoadScheduler.setIdealLoadedCount(snap.idealLoaded);
+                    TileLoadScheduler.setIdealCoveredCount(snap.idealCovered);
                 }
             }
 

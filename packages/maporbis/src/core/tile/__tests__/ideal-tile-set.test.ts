@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Tile } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import {
 	IdealTileSet,
 	computeIdealTileSet,
@@ -38,7 +39,7 @@ describe("ideal cover (self or ancestor)", () => {
 	});
 
 	it("uses loaded ancestor when ideal tile missing", () => {
-		// ideal 13/5/5 → ancestors 12/2/2, 11/1/1
+		// ideal 13/5/5 �?ancestors 12/2/2, 11/1/1
 		const loaded = new Set(["12/2/2"]);
 		expect(hasLoadedCover(loaded, 13, 5, 5)).toBe(true);
 		expect(countIdealCovered(["13/5/5", "13/9/9"], loaded)).toBe(1);
@@ -54,8 +55,8 @@ describe("ideal cover (self or ancestor)", () => {
 
 describe("Tile ideal tile set", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.setIdealLoadedCount(0);
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.setIdealLoadedCount(0);
 	});
 
 	it("tracks ideal keys and loaded count", () => {
@@ -67,18 +68,18 @@ describe("Tile ideal tile set", () => {
 			minY: 1,
 			maxY: 2,
 		};
-		Tile.setIdealTileSet(set);
-		expect(Tile.idealTileCount).toBe(3);
-		expect(Tile.isIdealTile(new Tile(1, 1, 13))).toBe(true);
-		expect(Tile.isIdealTile(new Tile(9, 9, 13))).toBe(false);
-		Tile.setIdealLoadedCount(2);
-		expect(Tile.idealLoadedCount).toBe(2);
-		expect(Tile.getScheduleStats().idealLoadedCount).toBe(2);
+		TileLoadScheduler.setIdealTileSet(set);
+		expect(TileLoadScheduler.idealTileCount).toBe(3);
+		expect(TileLoadScheduler.isIdealTile(new Tile(1, 1, 13))).toBe(true);
+		expect(TileLoadScheduler.isIdealTile(new Tile(9, 9, 13))).toBe(false);
+		TileLoadScheduler.setIdealLoadedCount(2);
+		expect(TileLoadScheduler.idealLoadedCount).toBe(2);
+		expect(TileLoadScheduler.getScheduleStats().idealLoadedCount).toBe(2);
 	});
 
 	it("clears ideal set on null", () => {
-		Tile.setIdealTileSet({ z: 5, keys: ["5/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
-		Tile.setIdealTileSet(null);
-		expect(Tile.idealTileCount).toBe(0);
+		TileLoadScheduler.setIdealTileSet({ z: 5, keys: ["5/0/0"], minX: 0, maxX: 0, minY: 0, maxY: 0 });
+		TileLoadScheduler.setIdealTileSet(null);
+		expect(TileLoadScheduler.idealTileCount).toBe(0);
 	});
 });

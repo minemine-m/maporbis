@@ -29,7 +29,7 @@ import {
     getLocalInfoFromWorld,
     getLocalInfoFromScreen
 } from "./utils";
-import { Tile } from "../core/tile";
+import { Tile, TileLoadScheduler } from "../core/tile";
 
 /**
  * Map source configuration options (tile layers and data levels).
@@ -789,7 +789,7 @@ export class Map extends Handlerable(
         const maxViewZoom = this._maxZoom;
 
         // Camera-driven covering zoom (continuous, matches mainstream XYZ scale)
-        const cover = Tile.coveringZoom;
+        const cover = TileLoadScheduler.coveringZoom;
         if (typeof cover === "number" && Number.isFinite(cover) && cover > 0) {
             // Below data max: view zoom == covering zoom (clamped)
             if (cover <= maxDataZoom) {

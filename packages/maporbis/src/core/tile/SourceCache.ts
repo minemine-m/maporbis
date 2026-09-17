@@ -1,5 +1,6 @@
 import { Camera, PerspectiveCamera, Vector3 } from "three";
 import { Tile, TileState } from "./Tile";
+import { TileLoadScheduler } from "./TileLoadScheduler";
 import { ICompositeLoader } from "../../loaders";
 import {
 	IdealTileSet,
@@ -660,9 +661,9 @@ export class TileSourceCache {
 			const tile = this._tiles.get(key);
 			if (tile && !tile.loaded) {
 				// SourceCache no longer runs LOD frustum tests. Mark needed
-				// tiles so _pruneLoadQueue does not drop parent-underlay jobs.
+				// tiles so prune does not drop parent-underlay jobs.
 				(tile as any).inFrustum = true;
-				Tile.requestLoad(tile, ctx.loader, this._idealKeys);
+				TileLoadScheduler.enqueue(tile, ctx.loader, this._idealKeys);
 			}
 		}
 

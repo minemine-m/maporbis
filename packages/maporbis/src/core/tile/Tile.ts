@@ -16,8 +16,9 @@ import {
 } from "three";
 import { ICompositeLoader } from "../../loaders";
 import { TileCache } from "../../loaders/TileCache";
-import { getDistance, getTileSize, IdealTileSet, isAncestorOfAnyIdeal } from "./util";
+import { getDistance, getTileSize, IdealTileSet } from "./util";
 import { computeTileRootLocal } from "./tileTransform";
+import { TileLoadScheduler } from "./TileLoadScheduler";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -93,21 +94,6 @@ const frustum = new Frustum();
  * 继承自带有BufferGeometry和Material的Mesh类。
  */
 export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
-	private static _activeDownloads = 0;
-	/** Shared across raster+vector. 16 starved base imagery under load. */
-	private static _maxConcurrentDownloads = 32;
-	/** Still allow enough bandwidth while panning so edges do not starve */
-	private static _interactingMaxConcurrentDownloads = 20;
-	private static _interacting = false;
-	/** Priority queue of tiles waiting to start network load (center-first) */
-	private static _loadQueue: Array<{
-		tile: Tile;
-		loader: ICompositeLoader;
-		priority: number;
-		idealTiles?: Set<string>;
-	}> = [];
-	/** Tiles with in-flight network loads (for abort on pan) */
-	private static _loadingTiles = new Set<Tile>();
 	// Data mode switch 数据模式开关
 	private _dataMode: boolean = false;
 	private _abortController: AbortController | null = null;
@@ -253,114 +239,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	public getVectorData(): any {
 		return (this as any)._vectorData;
 	}
-	/**
-	 * Number of download threads.
-	 * 下载线程数
-	 */
-	public static get downloadThreads() {
-		return Tile._activeDownloads;
-	}
-
-	/**
-	 * Get max concurrent downloads.
-	 * 获取最大并发下载数
-	 */
-	public static get maxConcurrentDownloads(): number {
-		return Tile._maxConcurrentDownloads;
-	}
-
-	/**
-	 * Set max concurrent downloads.
-	 * 设置最大并发下载数
-	 */
-	public static set maxConcurrentDownloads(value: number) {
-		Tile._maxConcurrentDownloads = Math.max(1, value);
-	}
-
-	/** Whether map interaction throttling is active */
-	public static set interacting(value: boolean) {
-		Tile._interacting = value;
-	}
-
-	public static get interacting(): boolean {
-		return Tile._interacting;
-	}
-
-	/** Effective concurrency limit (lower while interacting) */
-	public static get effectiveMaxConcurrentDownloads(): number {
-		return Tile._interacting
-			? Math.min(Tile._interactingMaxConcurrentDownloads, Tile._maxConcurrentDownloads)
-			: Tile._maxConcurrentDownloads;
-	}
-
-	public static get loadQueueSize(): number {
-		return Tile._loadQueue.length;
-	}
-
-	/**
-	 * Schedule snapshot for demos / debugging.
-	 * 调度快照，供演示与调试读取。
-	 */
-	public static getScheduleStats(): {
-		activeDownloads: number;
-		maxConcurrent: number;
-		loadQueue: number;
-		interacting: boolean;
-		abortCount: number;
-		deferCount: number;
-		enterFrustumCount: number;
-		parentPrefetchCount: number;
-		retainHoldCount: number;
-		retainReleaseCount: number;
-		maxQueueSeen: number;
-		avgLoadedDist: number;
-		loadedDistMin: number;
-		loadedDistMax: number;
-		coveringZoom: number;
-		idealTileCount: number;
-		idealTileZ: number | null;
-		idealMinZ: number | null;
-		idealMaxZ: number | null;
-		idealLoadedCount: number;
-		idealCoveredCount: number;
-	} {
-		let idealMinZ: number | null = null;
-		let idealMaxZ: number | null = null;
-		if (Tile._idealTiles.size > 0) {
-			for (const key of Tile._idealTiles) {
-				const z = +key.split("/")[0];
-				if (!Number.isFinite(z)) continue;
-				if (idealMinZ === null || z < idealMinZ) idealMinZ = z;
-				if (idealMaxZ === null || z > idealMaxZ) idealMaxZ = z;
-			}
-		}
-		return {
-			activeDownloads: Tile._activeDownloads,
-			maxConcurrent: Tile.effectiveMaxConcurrentDownloads,
-			loadQueue: Tile._loadQueue.length,
-			interacting: Tile._interacting,
-			abortCount: Tile._statAbortCount,
-			deferCount: Tile._statDeferCount,
-			enterFrustumCount: Tile._statEnterFrustumCount,
-			parentPrefetchCount: Tile._statParentPrefetchCount,
-			retainHoldCount: Tile._statRetainHoldCount,
-			retainReleaseCount: Tile._statRetainReleaseCount,
-			maxQueueSeen: Tile._statMaxQueue,
-			avgLoadedDist:
-				Tile._statLoadedDistCount > 0
-					? Tile._statLoadedDistSum / Tile._statLoadedDistCount
-					: 0,
-			loadedDistMin: Tile._statLoadedDistMin === Infinity ? 0 : Tile._statLoadedDistMin,
-			loadedDistMax: Tile._statLoadedDistMax,
-			coveringZoom: Tile._coveringZoom,
-			idealTileCount: Tile._idealTiles.size,
-			idealTileZ: Tile._idealTileSet ? Tile._idealTileSet.z : null,
-			idealMinZ,
-			idealMaxZ,
-			idealLoadedCount: Tile._idealLoadedCount,
-			idealCoveredCount: Tile._idealCoveredCount,
-		};
-	}
 
 	/** Count tiles in a layer tree (debug). */
 	public static countTree(root: Tile): number {
@@ -371,218 +249,13 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		return n;
 	}
 
-	public static get coveringZoom(): number {
-		return Tile._coveringZoom;
-	}
-
-	public static get idealTileCount(): number {
-		return Tile._idealTiles.size;
-	}
-
-	public static get idealTileSet(): IdealTileSet | null {
-		return Tile._idealTileSet;
-	}
-
-	public static isIdealTile(tile: Tile): boolean {
-		return Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`);
-	}
-
-	/**
-	 * Keep queued work that is ideal, or an ancestor of an ideal tile (parent cover).
-	 * Drop the rest — obsolete after camera moved.
-	 */
-	private static _isNeededForIdealCover(tile: Tile): boolean {
-		if (Tile._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`)) return true;
-		if (!Tile._idealTileSet) return true; // no ideal info — keep everything
-		// Mixed-z distance LOD: ideals are not all at one z. Ancestor check is
-		// per-key (isAncestorOfAnyIdeal), not via IdealTileSet.z.
-		return isAncestorOfAnyIdeal(tile.z, tile.x, tile.y, Tile._idealTiles);
-	}
-
-	public static setIdealTileSet(set: IdealTileSet | null) {
-		// Stats/demo only. Do NOT purge the shared queue here —
-		// raster and vector layers share Tile._loadQueue; purging with one
-		// layer's ideal set drops the other layer's requests.
-		Tile._idealTileSet = set;
-		Tile._idealTiles = set ? new Set(set.keys) : new Set();
-	}
-
-	public static setIdealLoadedCount(n: number) {
-		Tile._idealLoadedCount = n;
-	}
-
-	public static get idealLoadedCount(): number {
-		return Tile._idealLoadedCount;
-	}
-
-	public static setIdealCoveredCount(n: number) {
-		Tile._idealCoveredCount = n;
-	}
-
-	public static get idealCoveredCount(): number {
-		return Tile._idealCoveredCount;
-	}
-
-	/** Toggle verbose schedule logs (create/load/abort/retain) */
-	public static debugSchedule = false;
-
-	// ---- Verification counters (demo checklist) ----
-	private static _statAbortCount = 0;
-	private static _statDeferCount = 0;
-	private static _statEnterFrustumCount = 0;
-	private static _statParentPrefetchCount = 0;
-	private static _statRetainHoldCount = 0;
-	private static _statRetainReleaseCount = 0;
-	private static _statMaxQueue = 0;
-	private static _statLoadedDistSum = 0;
-	private static _statLoadedDistCount = 0;
-	private static _statLoadedDistMin = Infinity;
-	private static _statLoadedDistMax = 0;
-	private static _coveringZoom = 0;
-	private static _idealTiles: Set<string> = new Set();
-	private static _idealTileSet: IdealTileSet | null = null;
-	private static _idealLoadedCount = 0;
-	private static _idealCoveredCount = 0;
-
-	/**
-	 * Enqueue a tile load by camera distance (center tiles first).
-	 * Ideal tiles (covering set) load before non-ideal.
-	 * 按相机距离入队；ideal 集内的瓦片优先。
-	 */
-	/**
-	 * Load priority (lower = sooner).
-	 * Band [0,1): underlay coarse parents first, then ideals (coarser z first,
-	 * then near→far). ≥1: sibling blockers, then distance.
-	 */
-	private static _loadPriority(tile: Tile, idealTiles?: Set<string>): number {
-		const key = `${tile.z}/${tile.x}/${tile.y}`;
-		const isIdeal = idealTiles ? idealTiles.has(key) : Tile._idealTiles.has(key);
-		const d = Number.isFinite(tile.distToCamera) ? tile.distToCamera : 0;
-		const dNorm = Math.min(d / 1e12, 0.009);
-		const idealMaxZ = Tile._idealTileSet?.z;
-		if (isIdeal) {
-			// Lower z (coarser) sorts first — far skyline covers more pixels.
-			return Math.min(0.1 + tile.z * 0.01 + dNorm, 0.999);
-		}
-		// Non-ideal retain underlay (parents / far coarse): paint basemap first.
-		if (typeof idealMaxZ === "number" && tile.z < idealMaxZ) {
-			return Math.min(0.01 + dNorm, 0.099);
-		}
-		// Flat PR-4: scene parent is always root — do not use parent.children
-		// as a spatial sibling set (that is O(all tiles) and semantically wrong).
-		return 2 + tile.distToCamera;
-	}
-
-	/**
-	 * Public API for SourceCache: enqueue a tile load with optional ideal keys.
-	 * Always attaches tile-loaded → root so vector/raster layers can render.
-	 */
+	/** Thin alias: scheduling lives on TileLoadScheduler. */
 	public static requestLoad(
 		tile: Tile,
 		loader: ICompositeLoader,
 		idealTiles?: Set<string>
 	): void {
-		if (!tile || !loader) return;
-		if (!tile._canStartLoading()) return;
-		if (!tile._onLoadComplete) {
-			let root: Tile = tile;
-			while (root.parent && (root.parent as any).isTile) {
-				root = root.parent as Tile;
-			}
-			const forEvent = root;
-			tile._onLoadComplete = () => {
-				forEvent.dispatchEvent({ type: "tile-loaded", tile });
-			};
-		}
-		if (Tile._isQueued(tile)) return;
-		Tile._enqueueLoad(tile, loader, idealTiles);
-	}
-
-	private static _enqueueLoad(
-		tile: Tile,
-		loader: ICompositeLoader,
-		idealTiles?: Set<string>
-	) {
-		const priority = Tile._loadPriority(tile, idealTiles);
-		Tile._loadQueue.push({ tile, loader, priority, idealTiles });
-		if (Tile._loadQueue.length > Tile._statMaxQueue) {
-			Tile._statMaxQueue = Tile._loadQueue.length;
-		}
-		if (Tile.debugSchedule) {
-			console.log(
-				`[Schedule] enqueue z${tile.z}/${tile.x}/${tile.y} ` +
-				`dist=${tile.distToCamera.toFixed(0)} queue=${Tile._loadQueue.length}`
-			);
-		}
-		Tile._drainLoadQueue();
-	}
-
-	private static _drainLoadQueue() {
-		if (Tile._loadQueue.length === 0) return;
-		Tile._pruneLoadQueue();
-		for (const job of Tile._loadQueue) {
-			job.priority = Tile._loadPriority(job.tile, job.idealTiles);
-		}
-		Tile._loadQueue.sort((a, b) => a.priority - b.priority);
-		while (
-			Tile._activeDownloads < Tile.effectiveMaxConcurrentDownloads &&
-			Tile._loadQueue.length > 0
-		) {
-			const job = Tile._loadQueue.shift()!;
-			const tile = job.tile;
-			if (tile._canStartLoading()) {
-				void tile._loadData(job.loader);
-			}
-		}
-	}
-
-	/**
-	 * Drop obsolete queued work while panning: disposed tiles, non-ideal
-	 * out-of-frustum work, and cap the queue size. Ideal tiles always stay.
-	 * 平移时剪掉过时请求；ideal 永远保留。
-	 */
-	private static _pruneLoadQueue() {
-		const MAX_QUEUE = 160;
-		if (Tile._loadQueue.length === 0) return;
-		const before = Tile._loadQueue.length;
-		const ideals = Tile._idealTiles;
-		Tile._loadQueue = Tile._loadQueue.filter((job) => {
-			const t = job.tile;
-			if (t.z !== 0 && !t.parent) return false;
-			// Unloaded = released, can reload — keep. Dropping them cancelled
-			// every post-LOD re-request and left permanent holes.
-			if (t.loaded || t.state === TileState.Loading) return false;
-			const key = `${t.z}/${t.x}/${t.y}`;
-			if (job.idealTiles?.has(key)) return true;
-			if (Tile._idealTiles.has(key)) return true;
-			if (t.inFrustum) return true;
-			return Tile._loadQueue.length <= 24;
-		});
-		// Abort in-flight non-ideal OOF downloads when queue is still deep
-		if (Tile._loadQueue.length > 80) {
-			for (const t of Tile._loadingTiles) {
-				if (t.inFrustum) continue;
-				const key = `${t.z}/${t.x}/${t.y}`;
-				if (ideals.has(key)) continue;
-				t._abortController?.abort();
-			}
-		}
-		if (Tile._loadQueue.length > MAX_QUEUE) {
-			Tile._loadQueue.sort((a, b) => a.priority - b.priority);
-			Tile._loadQueue.length = MAX_QUEUE;
-		}
-		if (before !== Tile._loadQueue.length && Tile.debugSchedule) {
-			console.log(`[Schedule] prune queue ${before}→${Tile._loadQueue.length}`);
-		}
-	}
-
-	/** Drop queued loads for tiles that are no longer pending */
-	private static _purgeQueue(tile: Tile) {
-		Tile._loadQueue = Tile._loadQueue.filter((job) => job.tile !== tile);
-	}
-
-	private static _isQueued(tile: Tile): boolean {
-		return Tile._loadQueue.some((job) => job.tile === tile);
+		TileLoadScheduler.enqueue(tile, loader, idealTiles);
 	}
 
 	/** Coordinate of tile 瓦片坐标 */
@@ -819,7 +492,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						}
 						this._transitionTo(TileState.Loaded);
 						this._retryCount = 0;
-						if (Tile.debugSchedule) {
+						if (TileLoadScheduler.debugSchedule) {
 							console.log(`[Schedule] cache-hit z${z}/${x}/${y}`);
 						}
 						const done = this._onLoadComplete;
@@ -827,12 +500,12 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						if (done) {
 							try { done(); } catch { /* ignore */ }
 						}
-						Tile._drainLoadQueue();
+						TileLoadScheduler.drain();
 						return this;
 					} catch {
 						/* fall through to network */
 					}
-				} else if (Tile.debugSchedule) {
+				} else if (TileLoadScheduler.debugSchedule) {
 					console.log(`[Schedule] cache-hit-empty z${z}/${x}/${y} → reload`);
 				}
 			}
@@ -840,18 +513,17 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 		// Transition to Loading state 转换到 Loading 状态
 		this._transitionTo(TileState.Loading);
-		Tile._activeDownloads++;
-		Tile._loadingTiles.add(this);
+		TileLoadScheduler.beginDownload(this);
 
 		// Abort previous request if any
 		this._abortController?.abort();
 		this._abortController = new AbortController();
 		const signal = this._abortController.signal;
 
-		if (Tile.debugSchedule) {
+		if (TileLoadScheduler.debugSchedule) {
 			console.log(
 				`[Schedule] start load z${z}/${x}/${y} ` +
-				`active=${Tile._activeDownloads}/${Tile.effectiveMaxConcurrentDownloads} queue=${Tile._loadQueue.length}`
+				`active=${TileLoadScheduler.downloadThreads}/${TileLoadScheduler.effectiveMaxConcurrentDownloads} queue=${TileLoadScheduler.loadQueueSize}`
 			);
 		}
 
@@ -874,11 +546,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
 				this._retryCount = 0; // Reset retry count on success 成功后重置重试计数
-				Tile._statLoadedDistSum += this.distToCamera;
-				Tile._statLoadedDistCount++;
-				if (this.distToCamera < Tile._statLoadedDistMin) Tile._statLoadedDistMin = this.distToCamera;
-				if (this.distToCamera > Tile._statLoadedDistMax) Tile._statLoadedDistMax = this.distToCamera;
-				if (Tile.debugSchedule) {
+				TileLoadScheduler.noteLoadedDist(this.distToCamera);
+				if (TileLoadScheduler.debugSchedule) {
 					console.log(`[Schedule] loaded z${z}/${x}/${y} (vector) dist=${this.distToCamera.toFixed(0)}`);
 				}
 
@@ -926,8 +595,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 			if (isAbort) {
 				// Cancelled by dispose/refinement — not a failure
-				Tile._statAbortCount++;
-				if (Tile.debugSchedule) {
+				TileLoadScheduler.noteAbort();
+				if (TileLoadScheduler.debugSchedule) {
 					console.log(`[Schedule] abort z${z}/${x}/${y} (cancelled, not an error)`);
 				}
 				this._transitionTo(TileState.Unloaded);
@@ -944,15 +613,14 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 			// Auto retry if within retry limit 如果在重试次数限制内，自动重试
 			if (this._needsRetry()) {
-				Tile._activeDownloads--;
+				TileLoadScheduler.freeDownloadSlotForRetry(this);
 				// Exponential backoff: 100ms, 200ms, 400ms 指数退避
 				const delay = Math.min(100 * Math.pow(2, this._retryCount - 1), 2000);
 				await new Promise(resolve => setTimeout(resolve, delay));
 				return this._loadData(loader);
 			}
 		} finally {
-			Tile._activeDownloads--;
-			Tile._loadingTiles.delete(this);
+			TileLoadScheduler.endDownload(this);
 			this._abortController = null;
 			const done = this._onLoadComplete;
 			this._onLoadComplete = null;
@@ -960,7 +628,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				try { done(); } catch { /* ignore */ }
 			}
 			// Start next queued loads (center-first)
-			Tile._drainLoadQueue();
+			TileLoadScheduler.drain();
 		}
 
 		return this;
@@ -1038,9 +706,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		}
 
 		// Interaction throttle for this frame
-		Tile.interacting = !!params.interacting;
+		TileLoadScheduler.interacting = !!params.interacting;
 		if (typeof params.coveringZoom === "number" && Number.isFinite(params.coveringZoom)) {
-			Tile._coveringZoom = params.coveringZoom;
+			TileLoadScheduler.coveringZoom = params.coveringZoom;
 		}
 
 		// Get camera frustum
@@ -1078,7 +746,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				!tile.loaded &&
 				tile.z >= params.minLevel &&
 				tile._canStartLoading() &&
-				!Tile._isQueued(tile)
+				!TileLoadScheduler.isQueued(tile)
 			) {
 				if (!tile._onLoadComplete) {
 					tile._onLoadComplete = () => {
@@ -1086,17 +754,17 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						this.dispatchEvent({ type: "tile-loaded", tile });
 					};
 				}
-				if (Tile.debugSchedule) {
+				if (TileLoadScheduler.debugSchedule) {
 					console.log(`[Schedule] enter-frustum load z${tile.z}/${tile.x}/${tile.y}`);
 				}
-				Tile._statEnterFrustumCount++;
-				Tile._enqueueLoad(tile, params.loader, params.idealTiles);
+				TileLoadScheduler.noteEnterFrustum();
+				TileLoadScheduler.enqueue(tile, params.loader, params.idealTiles);
 			}
 			// PR-3: no LOD create/remove. Structure is owned by SourceCache.ensureTilePath.
 		});
 
 		// Re-prioritize queued loads with fresh distances
-		Tile._drainLoadQueue();
+		TileLoadScheduler.drain();
 
 		this._checkReadyState();
 
@@ -1153,7 +821,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * children — retained descendants must keep their scene parents and data.
 	 */
 	releasePayloadForCache(loader?: ICompositeLoader): void {
-		Tile._purgeQueue(this);
+		TileLoadScheduler.purge(this);
 		this._abortController?.abort();
 		this._abortController = null;
 		this._onLoadComplete = null;
@@ -1192,10 +860,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
 		// Cancel in-flight / queued work for this tile
-		if (Tile.debugSchedule && (this._abortController || Tile._loadQueue.some(j => j.tile === this))) {
+		if (TileLoadScheduler.debugSchedule && (this._abortController || TileLoadScheduler.isQueued(this))) {
 			console.log(`[Schedule] dispose/abort z${this.z}/${this.x}/${this.y}`);
 		}
-		Tile._purgeQueue(this);
+		TileLoadScheduler.purge(this);
 		this._abortController?.abort();
 		this._abortController = null;
 		this._onLoadComplete = null;

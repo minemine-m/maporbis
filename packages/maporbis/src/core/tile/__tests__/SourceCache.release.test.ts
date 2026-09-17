@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Camera, MeshBasicMaterial, PlaneGeometry } from "three";
 import { Tile, TileState } from "../Tile";
+import { TileLoadScheduler } from "../TileLoadScheduler";
 import { TileSourceCache } from "../SourceCache";
 
 function makeRasterLoader() {
@@ -34,8 +35,8 @@ function ctx(root: Tile, loader: any, maxLevel = 1) {
 
 describe("PR-2 SourceCache release", () => {
 	beforeEach(() => {
-		Tile.setIdealTileSet(null);
-		Tile.interacting = false;
+		TileLoadScheduler.setIdealTileSet(null);
+		TileLoadScheduler.interacting = false;
 	});
 
 	it("does not release retain / ideal path tiles", async () => {
@@ -77,7 +78,7 @@ describe("PR-2 SourceCache release", () => {
 		const before = cache.tileCount;
 		expect(before).toBeGreaterThan(1);
 
-		// Far zoom-out maxLevel 0 â†’ only root ideal; extras should release
+		// Far zoom-out maxLevel 0 â†?only root ideal; extras should release
 		const snap = cache.update(ctx(root, loader, 0));
 		expect(snap.idealKeys.has("0/0/0")).toBe(true);
 		// Non-retain z1 nodes should no longer be in the flat map
@@ -89,7 +90,7 @@ describe("PR-2 SourceCache release", () => {
 	it("LOD remove is a no-op (no subtree dispose)", () => {
 		// Covered by Tile.ts comment + TileLayer skip; smoke: parent still has kids
 		// after calling private remove path indirectly is unit-tested in Tile.update
-		// when ideal set is empty â€” skipped here (integration).
+		// when ideal set is empty â€?skipped here (integration).
 		expect(true).toBe(true);
 	});
 });
