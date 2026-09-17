@@ -1,7 +1,7 @@
 import type { PaintConfig } from "./index";
 import type { PaintRule } from "./Layerstyle";
 import { evaluateFilter, type FilterExpression } from "./filterExpression";
-import { resolveZoomNumber } from "./zoomExpression";
+import { resolveZoomNumber, isZoomExpression } from "./zoomExpression";
 
 export type StyleLayerType = "fill" | "line" | "symbol" | "circle";
 
@@ -57,7 +57,8 @@ export function mapPaintToConfig(layer: StyleLayer, zoom = 0): PaintConfig {
 
 	if (type === "line") {
 		const color = str(paint["line-color"], "#3388ff");
-		const width = numAt(paint["line-width"], zoom, 1);
+		const widthRaw = paint["line-width"];
+		const width = numAt(widthRaw, zoom, 1);
 		const opacity = numAt(paint["line-opacity"], zoom, 1) * (visible ? 1 : 0);
 		const dashArray = Array.isArray(paint["line-dasharray"])
 			? (paint["line-dasharray"] as number[])
@@ -73,6 +74,8 @@ export function mapPaintToConfig(layer: StyleLayer, zoom = 0): PaintConfig {
 			blur: numAt(paint["line-blur"], zoom, 0),
 			gapWidth: numAt(paint["line-gap-width"], zoom, 0),
 			zOffset: numAt(paint["line-z-offset"] ?? (paint["line-elevation-reference"] as number), zoom, 0),
+			// Keep raw zoom fn so renderer can patch linewidth without rebuild.
+			widthExpr: isZoomExpression(widthRaw) ? widthRaw : undefined,
 		} as unknown as PaintConfig;
 	}
 

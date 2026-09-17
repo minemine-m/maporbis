@@ -25,6 +25,7 @@ import { LineSegmentsGeometry, LineSegments2, LineMaterial } from 'three-stdlib'
 
 import { Paint, PaintConfig, PaintRule } from "../style";
 import { matchFilter } from "../style/filter";
+import { resolveZoomNumber } from "../style/zoomExpression";
 import { WebGPUCompat } from "../utils/WebGPUCompat";
 
 import { LineBucket, PointBucket, FillBucket } from "../buckets";
@@ -521,6 +522,10 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             if ((material as any).dashed) {
                 mesh.computeLineDistances();
             }
+            mesh.userData = mesh.userData || {};
+            if ((config as any).widthExpr) {
+                mesh.userData.widthExpr = (config as any).widthExpr;
+            }
             mesh.onBeforeRender = function(renderer: any) {
                 const drawingBufferSize = new Vector2();
                 renderer.getDrawingBufferSize(drawingBufferSize);
@@ -546,7 +551,35 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             mesh = new LineSegments(geometry, material);
         }
 
+        mesh.userData = mesh.userData || {};
+        if ((config as any).widthExpr) {
+            mesh.userData.widthExpr = (config as any).widthExpr;
+        }
+
         return mesh;
+    }
+
+    /**
+     * Patch LineMaterial.linewidth from stored zoom expressions.
+     * Cheap: no bucket/mesh rebuild. Called from VectorTileLayer on zoom settle.
+     */
+    public updateZoomDependentLineWidth(zoom: number): void {
+        this._tileMeshMap.forEach((meshes) => {
+            meshes.forEach((mesh) => {
+                const expr = (mesh as any).userData?.widthExpr;
+                if (!expr) return;
+                const w = resolveZoomNumber(expr, zoom, 1);
+                const apply = (m: any) => {
+                    const mat = m.material;
+                    if (!mat) return;
+                    if (mat.isLineMaterial && typeof mat.linewidth === "number") {
+                        mat.linewidth = w;
+                    }
+                };
+                apply(mesh);
+                mesh.traverse?.(apply);
+            });
+        });
     }
 
     /**

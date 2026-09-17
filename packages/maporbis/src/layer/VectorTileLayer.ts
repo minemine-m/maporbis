@@ -489,6 +489,32 @@ export class VectorTileLayer extends BaseTileLayer {
         this.setPaint(rules as any[]);
     }
 
+    /**
+     * Zoom-dependent paint: update existing LineMaterial.linewidth in place.
+     * Does NOT call setPaint / processTileData (those rebuild buckets).
+     */
+    private _patchZoomMaterials(): void {
+        const map = this.getMap?.() as any;
+        if (!map || !this._renderer) return;
+        const zoom = this._currentStyleZoom();
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (
+            Number.isFinite(this._styleZoom) &&
+            Math.abs(zoom - this._styleZoom) < VectorTileLayer.STYLE_ZOOM_EPS
+        ) {
+            return;
+        }
+        if (now - this._styleZoomAppliedAt < VectorTileLayer.STYLE_ZOOM_MS) {
+            return;
+        }
+        this._styleZoom = zoom;
+        this._styleZoomAppliedAt = now;
+        const r = this._renderer as any;
+        if (typeof r.updateZoomDependentLineWidth === "function") {
+            r.updateZoomDependentLineWidth(zoom);
+        }
+    }
+
     private _currentStyleZoom(): number {
         const map = this.getMap?.() as any;
         if (!map) return 0;
@@ -605,9 +631,9 @@ export class VectorTileLayer extends BaseTileLayer {
     public update(camera: Camera): void {
         if (!this.enabled || !this.visible) return;
         super.update(camera);
-        // P3a: zoom functions / minzoom-maxzoom need re-resolve as camera zoom changes.
+        // P3a lightweight: only patch material widths for zoom expressions — no bucket rebuild.
         if (this._styleDocument) {
-            this._applyStyleAtCurrentZoom(false);
+            this._patchZoomMaterials();
         }
         // Ensure renderer also updates (e.g. recalculate Features positions)
         // 确保 renderer 也更新（例如重新计算 Features 位置）
