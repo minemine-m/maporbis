@@ -30,53 +30,53 @@ export function matchFilter(
             return !matchFilter(filter[1], properties);
 
         case '==': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             // Mapbox 的 == 会进行类型转换 Mapbox '==' performs type coercion
             return coerceType(left) == coerceType(right);
         }
 
         case '!=': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             // Mapbox 的 != 会进行类型转换 Mapbox '!=' performs type coercion
             return coerceType(left) != coerceType(right);
         }
 
         case '>': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             // 数值比较 Numerical comparison
             return toNumber(left) > toNumber(right);
         }
 
         case '<': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             return toNumber(left) < toNumber(right);
         }
 
         case '>=': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             return toNumber(left) >= toNumber(right);
         }
 
         case '<=': {
-            const left = evalExpr(filter[1], properties);
-            const right = evalExpr(filter[2], properties);
+            const left = evalExpr(filter[1], properties, true);
+            const right = evalExpr(filter[2], properties, false);
             return toNumber(left) <= toNumber(right);
         }
 
         case 'in': {
-            const value = evalExpr(filter[1], properties);
-            const rest = filter.slice(2).map((x: any) => evalExpr(x, properties));
+            const value = evalExpr(filter[1], properties, true);
+            const rest = filter.slice(2).map((x: any) => evalExpr(x, properties, false));
             return rest.includes(value);
         }
 
         case '!in': {
-            const value = evalExpr(filter[1], properties);
-            const rest = filter.slice(2).map((x: any) => evalExpr(x, properties));
+            const value = evalExpr(filter[1], properties, true);
+            const rest = filter.slice(2).map((x: any) => evalExpr(x, properties, false));
             return !rest.includes(value);
         }
 
@@ -98,23 +98,25 @@ export function matchFilter(
 }
 
 /**
- * 解析表达式节点（目前只支持 ["get","xxx"]，其他直接返回值）
- * Parse expression node (currently only supports ["get", "xxx"], returns other values directly)
- * @param expr 表达式 Expression
- * @param properties 属性 Properties
- * @returns 解析结果 Parsed result
+ * 解析表达式节点
+ * asPropertyKey=true：字符串视为属性名（legacy Mapbox 左操作数）
+ * Parse expression; bare strings are property keys when asPropertyKey.
  */
-function evalExpr(expr: any, properties: any): any {
+function evalExpr(expr: any, properties: any, asPropertyKey = false): any {
     if (Array.isArray(expr)) {
         const op = expr[0];
         switch (op) {
             case 'get':
-                // ["get", "class"]
                 return properties ? properties[expr[1]] : undefined;
+            case 'zoom':
+                // zoom injected into properties by caller if needed
+                return properties && properties.$zoom != null ? properties.$zoom : undefined;
             default:
-                // 暂时不支持的表达式，直接返回整个数组
                 return expr;
         }
+    }
+    if (asPropertyKey && typeof expr === 'string' && properties) {
+        return properties[expr];
     }
     return expr;
 }

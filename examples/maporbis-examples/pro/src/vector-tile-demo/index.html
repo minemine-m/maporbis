@@ -161,6 +161,20 @@
           </div>
         </div>
 
+        <!-- Style Spec 热更新验证 -->
+        <div class="control-section">
+          <div class="control-label">Style Spec 热更新</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#1a73e8; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('red-lines')">红线全量</button>
+            <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#007AFF; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('blue-major')">蓝·主干</button>
+            <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#34C759; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('green-thin')">绿·细线</button>
+            <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#8e8e93; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('motorway-only')">仅高速</button>
+          </div>
+          <div id="styleHotLog" style="margin-top:8px; font-family:ui-monospace,Consolas,monospace; font-size:11px; line-height:1.5; background:var(--orbis-bg-secondary); border-radius:8px; padding:8px; color:var(--orbis-text-secondary);">
+            点按钮切换 Style Spec；应只重绘缓存瓦片，不增加 pbf 请求。
+          </div>
+        </div>
+
         <div class="control-section">
             <div class="control-label">数据源说明</div>
             <p style="font-size: 12px; color: var(--orbis-text-tertiary); margin: 0;">
@@ -613,13 +627,96 @@
       state.color = color;
 
       document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      if (btn) btn.classList.add('active');
 
       const renderer = vectorLayer?._getRenderer();
       if (renderer && typeof renderer.setLineColor === 'function') {
         renderer.setLineColor(color);
       } else {
         addVectorLayer();
+      }
+    };
+
+    // ---- Style Spec hot reload (setStyle from cache, no network) ----
+    let styleNetBaseline = 0;
+    function countPbfRequests() {
+      try {
+        const entries = performance.getEntriesByType('resource') || [];
+        return entries.filter(e => String(e.name).includes('.pbf')).length;
+      } catch { return -1; }
+    }
+
+    const STYLE_PRESETS = {
+      'red-lines': {
+        version: 8,
+        sources: { v: { type: 'vector' } },
+        layers: [
+          {
+            id: 'lines', type: 'line',
+            filter: ['==', 'class', 'primary'], // may match nothing — fallback layer below
+            paint: { 'line-color': '#FF3B30', 'line-width': 3, 'line-opacity': 0.9 }
+          },
+          {
+            id: 'lines-all', type: 'line',
+            filter: true,
+            paint: { 'line-color': '#FF3B30', 'line-width': 2, 'line-opacity': 0.85 }
+          }
+        ]
+      },
+      'blue-major': {
+        version: 8,
+        sources: { v: { type: 'vector' } },
+        layers: [
+          {
+            id: 'major', type: 'line',
+            filter: ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
+            paint: { 'line-color': '#007AFF', 'line-width': 2.5, 'line-opacity': 0.95 }
+          }
+        ]
+      },
+      'green-thin': {
+        version: 8,
+        sources: { v: { type: 'vector' } },
+        layers: [
+          {
+            id: 'all-lines', type: 'line',
+            filter: true,
+            paint: { 'line-color': '#34C759', 'line-width': 1, 'line-opacity': 0.7 }
+          }
+        ]
+      },
+      'motorway-only': {
+        version: 8,
+        sources: { v: { type: 'vector' } },
+        layers: [
+          {
+            id: 'mw', type: 'line',
+            filter: ['in', 'class', 'motorway', 'motorway_link', 'trunk'],
+            paint: { 'line-color': '#FFD60A', 'line-width': 3.5, 'line-opacity': 1 }
+          }
+        ]
+      }
+    };
+
+    window.applyStylePreset = (id) => {
+      if (!vectorLayer || typeof vectorLayer.setStyle !== 'function') {
+        const el = document.getElementById('styleHotLog');
+        if (el) el.textContent = 'setStyle 不可用（请确认 dist 已含本分支）';
+        return;
+      }
+      const before = countPbfRequests();
+      const t0 = performance.now();
+      vectorLayer.setStyle(STYLE_PRESETS[id]);
+      const ms = Math.round(performance.now() - t0);
+      const after = countPbfRequests();
+      const delta = after >= 0 && before >= 0 ? (after - before) : 'n/a';
+      const el = document.getElementById('styleHotLog');
+      if (el) {
+        el.innerHTML =
+          `<b>已应用</b> ${id}<br>` +
+          `setStyle 耗时 ${ms}ms<br>` +
+          `pbf 请求数 before=${before} after=${after} Δ=${delta}<br>` +
+          `<span style="opacity:.75">Δ 应为 0（热更新不重下）。若线条消失，说明该 filter 在当前 source-layer 无匹配，可点「红线全量」。</span>`;
       }
     };
 
