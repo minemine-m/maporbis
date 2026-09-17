@@ -169,6 +169,7 @@
             <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#007AFF; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('blue-major')">蓝·主干</button>
             <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#34C759; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('green-thin')">绿·细线</button>
             <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#8e8e93; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('motorway-only')">仅高速</button>
+            <button class="color-btn" style="border-radius:8px; aspect-ratio:auto; height:32px; padding:0 10px; background:#AF52DE; color:#fff; border:none; font-size:12px;" onclick="applyStylePreset('dash-fade')">紫·虚线淡出</button>
           </div>
           <div id="styleHotLog" style="margin-top:8px; font-family:ui-monospace,Consolas,monospace; font-size:11px; line-height:1.5; background:var(--orbis-bg-secondary); border-radius:8px; padding:8px; color:var(--orbis-text-secondary);">
             点按钮切换 Style Spec；应只重绘缓存瓦片，不增加 pbf 请求。
@@ -694,6 +695,23 @@
               ['in', ['get', 'class'], 'motorway', 'motorway_link', 'trunk', 'trunk_link']
             ],
             paint: { 'line-color': '#FFD60A', 'line-width': 3.5, 'line-opacity': 1 }
+          }
+        ]
+      },
+      'dash-fade': {
+        version: 8,
+        sources: { v: { type: 'vector' } },
+        layers: [
+          {
+            id: 'dash', type: 'line',
+            filter: true,
+            paint: {
+              'line-color': '#AF52DE',
+              'line-width': 2,
+              'line-opacity': 0.45,
+              'line-dasharray': [3, 2],
+              'line-blur': 0.5
+            }
           }
         ]
       }

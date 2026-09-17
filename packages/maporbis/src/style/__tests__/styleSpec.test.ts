@@ -91,10 +91,62 @@ describe("styleSpec convert", () => {
 		const cfg = mapPaintToConfig({
 			id: "poi",
 			type: "circle",
-			paint: { "circle-color": "#0f0", "circle-radius": 6, "text-color": "#fff" },
+			paint: {
+				"circle-color": "#0f0",
+				"circle-radius": 6,
+				"text-color": "#fff",
+				"circle-stroke-width": 2,
+				"circle-stroke-color": "#111",
+			},
 			layout: { "text-field": "{name}" },
 		});
 		expect((cfg as any).color).toBe("#0f0");
 		expect((cfg as any).textField).toBe("name");
+		expect((cfg as any).strokeWidth).toBe(2);
+		expect((cfg as any).strokeColor).toBe("#111");
+	});
+
+	it("layout.visibility none drops layer and zero-opacity mapping", () => {
+		const rules = toPaintRules({
+			sources: {},
+			layers: [
+				{ id: "off", type: "line", layout: { visibility: "none" }, paint: { "line-color": "#f00" } },
+				{ id: "on", type: "line", paint: { "line-color": "#0f0", "line-opacity": 0.5 } },
+			],
+		});
+		expect(rules).toHaveLength(1);
+		expect(rules[0].id).toBe("on");
+
+		const hidden = mapPaintToConfig({
+			id: "h",
+			type: "line",
+			layout: { visibility: "none" },
+			paint: { "line-color": "#f00" },
+		});
+		expect((hidden as any).opacity).toBe(0);
+	});
+
+	it("line dash + fill outline extras", () => {
+		const line = mapPaintToConfig({
+			id: "d",
+			type: "line",
+			paint: { "line-color": "#00f", "line-width": 2, "line-dasharray": [2, 2], "line-blur": 1 },
+		});
+		expect((line as any).dashArray).toEqual([2, 2]);
+		expect((line as any).blur).toBe(1);
+
+		const fill = mapPaintToConfig({
+			id: "f",
+			type: "fill",
+			paint: {
+				"fill-color": "#abc",
+				"fill-opacity": 0.3,
+				"fill-outline-color": "#def",
+				"fill-outline-width": 2,
+			},
+		});
+		expect((fill as any).fillOpacity).toBeCloseTo(0.3);
+		expect((fill as any).width).toBe(2);
+		expect((fill as any).stroke).toBe(true);
 	});
 });

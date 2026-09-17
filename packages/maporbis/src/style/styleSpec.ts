@@ -42,21 +42,21 @@ function str(v: unknown, fallback: string): string {
 
 /**
  * Map one style layer's paint/layout (subset) onto MapOrbis PaintConfig.
- * Returns a loosely-typed config consumed by VectorTileRenderLayer buckets.
+ * P2: extra paint keys + layout.visibility. Zoom functions still deferred.
  */
 export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 	const paint = layer.paint ?? {};
 	const layout = layer.layout ?? {};
 	const type = layer.type;
+	const visible = layout["visibility"] !== "none";
 
 	if (type === "line") {
 		const color = str(paint["line-color"], "#3388ff");
 		const width = num(paint["line-width"], 1);
-		const opacity = num(paint["line-opacity"], 1);
+		const opacity = num(paint["line-opacity"], 1) * (visible ? 1 : 0);
 		const dashArray = Array.isArray(paint["line-dasharray"])
 			? (paint["line-dasharray"] as number[])
 			: undefined;
-		// Renderer reads `width`/`color`; keep `weight` for legacy PaintConfig consumers.
 		return {
 			type: "line",
 			color,
@@ -64,31 +64,45 @@ export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 			weight: width,
 			opacity,
 			dashArray,
-			transparent: true,
+			transparent: opacity < 1 || paint["line-opacity"] != null,
+			// P2 extras (consumed if renderer supports; otherwise retained on config)
+			blur: num(paint["line-blur"], 0),
+			gapWidth: num(paint["line-gap-width"], 0),
+			zOffset: num(paint["line-z-offset"] ?? paint["line-elevation-reference"] as number, 0),
 		} as unknown as PaintConfig;
 	}
 
 	if (type === "fill") {
+		const fillOpacity = num(paint["fill-opacity"], 0.5) * (visible ? 1 : 0);
 		return {
 			type: "fill",
 			fill: true,
 			fillColor: str(paint["fill-color"], "#3388ff"),
-			fillOpacity: num(paint["fill-opacity"], 0.5),
-			stroke: paint["fill-outline-color"] != null,
+			fillOpacity,
+			opacity: fillOpacity,
+			stroke: paint["fill-outline-color"] != null || paint["fill-outline-width"] != null,
 			color: str(paint["fill-outline-color"], "#3388ff"),
-			weight: 1,
-			width: 1,
+			weight: num(paint["fill-outline-width"], 1),
+			width: num(paint["fill-outline-width"], 1),
+			antialias: paint["fill-antialias"] !== false,
 		} as unknown as PaintConfig;
 	}
 
 	// symbol / circle → existing point path
 	const textField = layout["text-field"];
+	const size = num(paint["circle-radius"], 4);
 	return {
 		type: "icon",
 		color: str(paint["circle-color"] ?? paint["text-color"], "#3388ff"),
-		size: num(paint["circle-radius"], 4),
+		size,
+		width: size,
+		opacity: num(paint["circle-opacity"] ?? paint["text-opacity"], 1) * (visible ? 1 : 0),
 		fontColor: str(paint["text-color"], "#ffffff"),
 		textField: typeof textField === "string" ? textField.replace(/^\{|\}$/g, "") : "name",
+		strokeWidth: num(paint["circle-stroke-width"], 0),
+		strokeColor: str(paint["circle-stroke-color"], "#ffffff"),
+		haloColor: str(paint["text-halo-color"], "#000000"),
+		haloWidth: num(paint["text-halo-width"], 0),
 	} as unknown as PaintConfig;
 }
 
@@ -107,18 +121,20 @@ export type StylePaintRule = PaintRule & {
  */
 export function toPaintRules(style: StyleSpecLike): StylePaintRule[] {
 	const layers = Array.isArray(style.layers) ? style.layers : [];
-	return layers.map((layer) => {
-		const rule: StylePaintRule = {
-			id: layer.id,
-			type: layer.type,
-			sourceLayer: layer["source-layer"],
-			minzoom: layer.minzoom,
-			maxzoom: layer.maxzoom,
-			filter: layer.filter ?? true,
-			paint: mapPaintToConfig(layer),
-		};
-		return rule;
-	});
+	return layers
+		.filter((layer) => layer.layout?.["visibility"] !== "none")
+		.map((layer) => {
+			const rule: StylePaintRule = {
+				id: layer.id,
+				type: layer.type,
+				sourceLayer: layer["source-layer"],
+				minzoom: layer.minzoom,
+				maxzoom: layer.maxzoom,
+				filter: layer.filter ?? true,
+				paint: mapPaintToConfig(layer),
+			};
+			return rule;
+		});
 }
 
 /** Compatibility: accept either StyleSpecLike or legacy PaintRule[]. */

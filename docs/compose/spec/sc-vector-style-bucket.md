@@ -35,9 +35,9 @@ MapOrbis 矢量层已有 `PaintRule[]` + `Line/Point/FillBucket` + worker 分桶
 
 | 期 | 内容 | 本 spec 任务 |
 |----|------|--------------|
-| P1 | Style JSON 子集 + filter 求值 + 从缓存 rebuild | T1–T4 |
-| P2 | 更多 paint/layout 属性、zoom 函数 | 后续 amendment |
-| P3 | 完整 Style Spec（sprite/glyph/transitions…） | 后续 feature |
+| P1 | Style JSON 子集 + filter 求值 + 从缓存 rebuild | 已交付 |
+| P2 | 更多 paint/layout（dash/blur/stroke/visibility） | T5–T6 |
+| P3 | 完整 Style Spec（sprite/glyph/transitions/zoom 插值） | 后续 feature |
 
 ### 2.2 Style 子集 Schema
 
