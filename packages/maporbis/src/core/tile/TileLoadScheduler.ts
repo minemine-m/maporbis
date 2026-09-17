@@ -1,7 +1,6 @@
 import type { ICompositeLoader } from "../../loaders";
 import type { Tile } from "./Tile";
 import type { IdealTileSet } from "./util";
-import { isAncestorOfAnyIdeal } from "./util";
 
 type LoadJob = {
 	tile: Tile;
@@ -179,19 +178,6 @@ export class TileLoadScheduler {
 			return Math.min(0.01 + dNorm, 0.099);
 		}
 		return 2 + tile.distToCamera;
-	}
-
-	private static _isNeededForIdealCover(tile: Tile): boolean {
-		if (TileLoadScheduler._idealTiles.has(`${tile.z}/${tile.x}/${tile.y}`)) {
-			return true;
-		}
-		if (!TileLoadScheduler._idealTileSet) return true;
-		return isAncestorOfAnyIdeal(
-			tile.z,
-			tile.x,
-			tile.y,
-			TileLoadScheduler._idealTiles
-		);
 	}
 
 	/** Enqueue a tile load; always attaches completion → root via requestLoad. */

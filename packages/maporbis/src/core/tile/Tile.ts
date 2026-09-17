@@ -73,8 +73,6 @@ export interface ITileEventMap extends Object3DEventMap {
 	"tile-unload": BaseEvent & { tile: Tile };
 	"vector-data-loaded": BaseEvent & { tile: Tile; data: any };
 	"vector-tile-loaded": BaseEvent & { tileKey: string; data: any; tile: Tile };
-	"tile-hidden": BaseEvent & { tile: Tile }; // Tile hidden event 瓦片被隐藏事件
-	"tile-shown": BaseEvent & { tile: Tile }; // Tile shown event 瓦片被显示事件
 	"vector-tile-unloaded": BaseEvent & { tileKey: string; tile: Tile };
 	"visible-vector-tiles-changed": BaseEvent & { tiles: Array<{ tileKey: string, data: any, tile: Tile }> };
 }
@@ -283,15 +281,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			if ((t as any).isTile) n++;
 		});
 		return n;
-	}
-
-	/** Thin alias: scheduling lives on TileLoadScheduler. */
-	public static requestLoad(
-		tile: Tile,
-		loader: ICompositeLoader,
-		idealTiles?: Set<string>
-	): void {
-		TileLoadScheduler.enqueue(tile, loader, idealTiles);
 	}
 
 	/** Coordinate of tile 瓦片坐标 */
@@ -856,7 +845,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (!this.loaded && this.state === TileState.Idle) return;
 
 		this._transitionTo(TileState.Unloaded);
-		this.dispatchEvent({ type: "unload" });
+		this._fireUnloadEvents();
 
 		const cache = this._rootCache();
 		const mats = Tile._payloadMaterials(this.material);
@@ -869,9 +858,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 			if (this._dataMode) {
 				cache.set(this.z, this.x, this.y, {
 					materials: [],
-					geometry: { userData: (this as any)._vectorData } as any,
+					geometry: { userData: this._vectorData } as any,
 				});
-				(this as any)._vectorData = null;
 			} else if (canCache) {
 				cache.set(this.z, this.x, this.y, {
 					materials: mats as any,
@@ -881,8 +869,19 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		} else if (canCache) {
 			loader?.unload?.(this);
 		}
-		this.geometry = defaultGeometry as any;
-		this.material = [] as any;
+		this.clearPayload();
+	}
+
+	/** unload on self + tile-unload on root so SourceCache can re-emit. */
+	private _fireUnloadEvents(): void {
+		this.dispatchEvent({ type: "unload" });
+		let root: Tile = this;
+		while (root.parent && (root.parent as any).isTile) {
+			root = root.parent as Tile;
+		}
+		if (root !== this) {
+			root.dispatchEvent({ type: "tile-unload", tile: this });
+		}
 	}
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {
@@ -898,7 +897,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		if (disposeSelf && this.isTile && !this.isDummy) {
 			// Transition to Unloaded state 转换到 Unloaded 状态
 			this._transitionTo(TileState.Unloaded);
-			this.dispatchEvent({ type: "unload" });
+			this._fireUnloadEvents();
 
 			const cache = this._rootCache();
 			const mats = Tile._payloadMaterials(this.material);
@@ -911,9 +910,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				if (this._dataMode) {
 					cache.set(this.z, this.x, this.y, {
 						materials: [],
-						geometry: { userData: (this as any)._vectorData } as any,
+						geometry: { userData: this._vectorData } as any,
 					});
-					(this as any)._vectorData = null;
 				} else if (canCache) {
 					// Transfer ownership of real GPU payload only.
 					// Never write placeholder/empty entries — a later cache hit
@@ -924,15 +922,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 						geometry: geo as any,
 					});
 				}
-				this.geometry = defaultGeometry as any;
-				this.material = [] as any;
-			} else {
-				if (canCache) {
-					loader?.unload?.(this);
-				}
-				this.geometry = defaultGeometry as any;
-				this.material = [] as any;
+			} else if (canCache) {
+				loader?.unload?.(this);
 			}
+			this.clearPayload();
 		}
 		// remove all children recursively
 		this.children.forEach(child => child._disposeResources(true, loader));

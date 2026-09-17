@@ -216,6 +216,16 @@ export class VectorTileLayer extends BaseTileLayer {
     * Set all child tiles to data mode and wire SourceCache lifecycle events.
     * 设置所有子瓦片为数据模式，并挂 SourceCache 生命周期事件。
     */
+    private _scListeners: Array<{ type: string; fn: (e: any) => void }> = [];
+
+    private _onSc(
+        type: "tile-created" | "tile-loaded" | "tile-unload" | "tile-shown" | "tile-hidden",
+        fn: (e: any) => void
+    ): void {
+        this.sourceCache.addEventListener(type, fn as any);
+        this._scListeners.push({ type, fn });
+    }
+
     private _setupDataModeAndListenersForChildren(): void {
         const setupTile = (tile: Tile) => {
             if (tile !== this._rootTile) {
@@ -223,8 +233,7 @@ export class VectorTileLayer extends BaseTileLayer {
             }
         };
 
-        // Event bus is SourceCache (not root Tile).
-        this.sourceCache.addEventListener('tile-created', (event: any) => {
+        this._onSc('tile-created', (event: any) => {
             const newTile = event.tile;
             if (newTile?.isTile) setupTile(newTile);
         });
@@ -235,13 +244,13 @@ export class VectorTileLayer extends BaseTileLayer {
             }
         });
 
-        this.sourceCache.addEventListener('tile-shown', (event: any) => {
+        this._onSc('tile-shown', (event: any) => {
             this._onVectorTileShown(event.tile as Tile);
         });
-        this.sourceCache.addEventListener('tile-hidden', (event: any) => {
+        this._onSc('tile-hidden', (event: any) => {
             this._onVectorTileHidden(event.tile as Tile);
         });
-        this.sourceCache.addEventListener('tile-unload', (event: any) => {
+        this._onSc('tile-unload', (event: any) => {
             this._onVectorTileUnload(event.tile as Tile);
         });
     }
@@ -322,7 +331,7 @@ export class VectorTileLayer extends BaseTileLayer {
     */
     private _setupLifeCycleListeners(): void {
         // Events come from SourceCache (public bus), not root Tile.
-        this.sourceCache.addEventListener('tile-loaded', (event: any) => {
+        this._onSc('tile-loaded', (event: any) => {
             const tile: Tile = event.tile;
             const tileKey = `${tile.z}-${tile.x}-${tile.y}`;
             const vectorData = this.getVectorDataFromTile(tile);
@@ -544,6 +553,11 @@ export class VectorTileLayer extends BaseTileLayer {
      * 重写dispose方法，清理矢量数据。
      */
     public dispose(): void {
+        for (const { type, fn } of this._scListeners) {
+            this.sourceCache.removeEventListener(type as any, fn as any);
+        }
+        this._scListeners = [];
+        this._tileDataMap.clear();
         // Notify renderer to clean up all Features
         // 通知 renderer 清理所有 Features
         if (this._renderer) {

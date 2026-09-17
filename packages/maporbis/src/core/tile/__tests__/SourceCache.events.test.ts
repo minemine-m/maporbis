@@ -99,4 +99,26 @@ describe("SourceCache event bus", () => {
 		sc.update(ctx(root, loader, 1));
 		expect(shown.length).toBeGreaterThan(0);
 	});
+
+	it("re-emits tile-unload when root reload disposes children", async () => {
+		const root = new Tile(0, 0, 0);
+		root._payloadCache = new TileCache(8);
+		const loader = makeRasterLoader();
+		const sc = new TileSourceCache();
+		sc.update(ctx(root, loader, 1));
+		const pending: Tile[] = [];
+		root.traverse((t) => {
+			if ((t as any).isTile && !(t as Tile).loaded) pending.push(t as Tile);
+		});
+		for (const t of pending) {
+			await (t as any)._loadData(loader);
+		}
+
+		const unloaded: string[] = [];
+		sc.addEventListener("tile-unload", (e: any) => {
+			unloaded.push(`${e.tile.z}/${e.tile.x}/${e.tile.y}`);
+		});
+		root.reload(loader);
+		expect(unloaded.length).toBeGreaterThan(0);
+	});
 });
