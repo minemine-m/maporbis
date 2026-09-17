@@ -297,25 +297,9 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * @param value - The new showing state. 新的显示状态。
 	 */
 	public set showing(value) {
-		const oldValue = this._isVisible;
 		this._isVisible = value;
 		this.material.forEach(mat => (mat.visible = value));
-
-		// 🔥 Critical Fix: When tile changes from hidden to shown, if loaded but not rendered, trigger render
-		// 🔥 关键修复：当瓦片从隐藏变为显示时，如果已加载但未渲染，触发渲染
-		if (oldValue === false && this._isVisible === true && this._isLoaded) {
-			// Trigger an event to notify VectorTileLayer to check and render this tile
-			// 触发一个事件，通知 VectorTileLayer 检查并渲染这个瓦片
-			// console.log('Tile shown', this.z, this.x, this.y);
-			this.dispatchEvent({ type: "tile-shown", tile: this });
-		}
-
-		// 🔥 When tile changes from shown to hidden, trigger tile-hidden event
-		// 🔥 当瓦片从显示变为隐藏时，触发 tile-hidden 事件
-		if (oldValue === true && this._isVisible === false) {
-			// console.log('Tile hidden', this.z, this.x, this.y);
-			this.dispatchEvent({ type: "tile-hidden", tile: this });
-		}
+		// tile-shown / tile-hidden are owned by SourceCache._setShowing.
 	}
 
 	/** Max height of tile 瓦片最大高度 */

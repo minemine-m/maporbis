@@ -1,4 +1,4 @@
-import { Camera, PerspectiveCamera, Vector3 } from "three";
+import { Camera, EventDispatcher, PerspectiveCamera, Vector3 } from "three";
 import { Tile, TileState } from "./Tile";
 import { TileLoadScheduler } from "./TileLoadScheduler";
 import { ICompositeLoader } from "../../loaders";
@@ -230,14 +230,25 @@ function computeCovered(
 	return covered;
 }
 
+export type SourceCacheEventMap = {
+	"tile-created": { type: "tile-created"; tile: Tile };
+	"tile-loaded": { type: "tile-loaded"; tile: Tile };
+	"tile-unload": { type: "tile-unload"; tile: Tile };
+	"tile-shown": { type: "tile-shown"; tile: Tile };
+	"tile-hidden": { type: "tile-hidden"; tile: Tile };
+};
+
 /**
  * Mapbox SourceCache: ideal cover → retain → covered → visibility + loads.
  * Visibility rule is ONLY: retain && loaded && !covered.
  *
  * Storage is a flat key→Tile map (`_tiles`), like Mapbox `_tiles`. The scene
  * graph still holds hierarchy/transforms; this map is the O(1) schedule index.
+ *
+ * Event bus (public): tile-created / tile-loaded / tile-unload / tile-shown /
+ * tile-hidden. Layers must listen here, not on the root Tile.
  */
-export class TileSourceCache {
+export class TileSourceCache extends EventDispatcher<SourceCacheEventMap> {
 	private _ideal: IdealTileSet | null = null;
 	private _idealKeys = new Set<string>();
 	private _retainKeys = new Set<string>();
@@ -256,14 +267,22 @@ export class TileSourceCache {
 	static traceVisibility = false;
 	private readonly _onTileCreated = (e: any) => {
 		const t = e?.tile as Tile | undefined;
-		if (t?.isTile) this._register(t);
+		if (!t?.isTile) return;
+		this._register(t);
+		this.dispatchEvent({ type: "tile-created", tile: t });
 	};
 	private readonly _onTileUnload = (e: any) => {
 		const t = e?.tile as Tile | undefined;
-		if (t?.isTile) this._tiles.delete(keyOf(t.z, t.x, t.y));
+		if (!t?.isTile) return;
+		this._tiles.delete(keyOf(t.z, t.x, t.y));
+		this.dispatchEvent({ type: "tile-unload", tile: t });
 	};
-	private readonly _onTileLoaded = (_e: any) => {
+	private readonly _onTileLoaded = (e: any) => {
+		const t = e?.tile as Tile | undefined;
 		this.markDirty();
+		if (t?.isTile) {
+			this.dispatchEvent({ type: "tile-loaded", tile: t });
+		}
 		// Always defer: cache-hit path fires tile-loaded synchronously inside
 		// update()'s load phase; a sync driver would nest a full update.
 		queueMicrotask(() => {
@@ -377,6 +396,10 @@ export class TileSourceCache {
 			);
 		}
 		tile.showing = show;
+		this.dispatchEvent({
+			type: show ? "tile-shown" : "tile-hidden",
+			tile,
+		});
 	}
 
 	/**

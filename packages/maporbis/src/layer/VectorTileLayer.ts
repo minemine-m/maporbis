@@ -213,119 +213,74 @@ export class VectorTileLayer extends BaseTileLayer {
     }
 
     /**
-    * Set all child tiles to data mode and add necessary event listeners to them.
-    * 设置所有子瓦片为数据模式，并为它们添加必要的事件监听器
+    * Set all child tiles to data mode and wire SourceCache lifecycle events.
+    * 设置所有子瓦片为数据模式，并挂 SourceCache 生命周期事件。
     */
     private _setupDataModeAndListenersForChildren(): void {
         const setupTile = (tile: Tile) => {
             if (tile !== this._rootTile) {
                 tile.setDataOnlyMode(true);
             }
-            // Add tile-hidden listener so parent meshes hide once children cover
-            // 监听 tile-hidden：子瓦片齐后隐藏父级 mesh，避免叠绘
-            this._addHiddenListenerToTile(tile);
-            // Add shown listener to supplement render cached data
-            this._addShownListenerToTile(tile);
-            // Add unload listener to thoroughly clean up vector features of that tile
-            // 添加卸载监听，彻底清理该 tile 的矢量要素
-            this._addUnloadListenerToTile(tile);
         };
 
-        // Listen for new tile creation event
-        // 监听新瓦片创建事件
-        this._rootTile.addEventListener('tile-created', (event: any) => {
+        // Event bus is SourceCache (not root Tile).
+        this.sourceCache.addEventListener('tile-created', (event: any) => {
             const newTile = event.tile;
-            setupTile(newTile);
+            if (newTile?.isTile) setupTile(newTile);
         });
 
-        // Traverse existing child tiles (if any)
-        // 遍历现有子瓦片（如果有的话）
         this._rootTile.traverse(tile => {
             if ((tile as any).isTile) {
                 setupTile(tile);
             }
         });
+
+        this.sourceCache.addEventListener('tile-shown', (event: any) => {
+            this._onVectorTileShown(event.tile as Tile);
+        });
+        this.sourceCache.addEventListener('tile-hidden', (event: any) => {
+            this._onVectorTileHidden(event.tile as Tile);
+        });
+        this.sourceCache.addEventListener('tile-unload', (event: any) => {
+            this._onVectorTileUnload(event.tile as Tile);
+        });
     }
-    private _addShownListenerToTile(tile: Tile): void {
-        const listener = (event: any) => {
-            const shownTile: Tile = event.tile;
-            const tileKey = `${shownTile.z}-${shownTile.x}-${shownTile.y}`;
 
-            // Leaf tile's own shown does not trigger supplement render to avoid flickering
-            // 叶子瓦片自己的 shown 不触发补渲染，避免闪烁
-            // if (shownTile.isLeaf) {
-            //     return;
-            // }
-
-            const hasRenderer = !!this._renderer;
-            const cached = this._tileDataMap.get(tileKey);
-            // const hasData = !!cached;
-
-            // let beforeCount = 0;
-            // if (hasRenderer) {
-            //     const featureMap = (this._renderer as any)._tileFeatureMap as Map<string, any[]>;
-            //     const list = featureMap?.get(tileKey);
-            //     beforeCount = list ? list.length : 0;
-            // }
-
-            // console.log(
-            //     `[VectorTileLayer] tile-shown ${tileKey} ` +
-            //     `showing=${shownTile.showing}, loaded=${shownTile.loaded}, ` +
-            //     `hasData=${hasData}, beforeFeatures=${beforeCount}`
-            // );
-            // console.log('tile-shown', tile.z, tile.x, tile.y);
-
-            if (!hasRenderer) {
-                // console.warn(`Vector tile renderer tile-shown ${tileKey} not ready yet 矢量瓦片渲染器 tile-shown ${tileKey} 还没准备好`);
-                return;
-            }
-
-            if (!cached) {
-                // console.warn(`Vector tile renderer tile-shown ${tileKey} has no cached data 矢量瓦片渲染器 tile-shown ${tileKey} 没有缓存数据`);
-                return;
-            }
-
-            // Supplement render using cached data
-            // 利用缓存数据补渲染
-            if (this._useWorker) {
-                this._renderer.processTileDataAsync(shownTile, cached.data);
-            } else {
-                this._renderer.processTileData(shownTile, cached.data);
-            }
-
-            // let afterCount = 0;
-            // const featureMap = (this._renderer as any)._tileFeatureMap as Map<string, any[]>;
-            // const list = featureMap?.get(tileKey);
-            // afterCount = list ? list.length : 0;
-
-            // console.log(
-            //     `Vector tile layer tile-shown ${tileKey} supplement render count 矢量瓦片图层 tile-shown ${tileKey} 补充渲染数量, ` +
-            //     `${afterCount}`
-            // );
-        };
-        tile.addEventListener('tile-shown', listener);
+    private _onVectorTileShown(shownTile: Tile): void {
+        if (!shownTile?.isTile) return;
+        const tileKey = `${shownTile.z}-${shownTile.x}-${shownTile.y}`;
+        const hasRenderer = !!this._renderer;
+        const cached = this._tileDataMap.get(tileKey);
+        if (!hasRenderer || !cached) return;
+        if (this._useWorker) {
+            this._renderer.processTileDataAsync(shownTile, cached.data);
+        } else {
+            this._renderer.processTileData(shownTile, cached.data);
+        }
     }
-    private _addUnloadListenerToTile(tile: Tile): void {
-        const listener = (event: any) => {
-            // For this.dispatchEvent({ type: "unload" }); in _unLoad
-            // event.target is the tile being unloaded
-            // 对于 _unLoad 里的 this.dispatchEvent({ type: "unload" });
-            // event.target 就是当前被卸载的 tile
-            const t: Tile = (event.tile as Tile) || (event.target as Tile);
-            const tileKey = `${t.z}-${t.x}-${t.y}`;
 
-            // console.log('[VectorTileLayer] tile unload', tileKey);
+    private _onVectorTileHidden(hiddenTile: Tile): void {
+        if (!hiddenTile?.isTile || !this._renderer) return;
+        const tileKey = `${hiddenTile.z}-${hiddenTile.x}-${hiddenTile.y}`;
+        try {
+            this._renderer.hideFeaturesByTileKey(tileKey);
+        } catch {
+            /* ignore */
+        }
+        // Keep _tileDataMap for supplement render on next shown.
+    }
 
-            if (this._renderer) {
-                try {
-                    this._renderer.removeFeaturesByTileKey(tileKey);
-                } catch (e) {
-                    // console.error('[VectorTileLayer] Error removing features for tile', tileKey, e);
-                }
+    private _onVectorTileUnload(t: Tile): void {
+        if (!t?.isTile) return;
+        const tileKey = `${t.z}-${t.x}-${t.y}`;
+        if (this._renderer) {
+            try {
+                this._renderer.removeFeaturesByTileKey(tileKey);
+            } catch {
+                /* ignore */
             }
-            this._tileDataMap.delete(tileKey);
-        };
-        tile.addEventListener('unload', listener);
+        }
+        this._tileDataMap.delete(tileKey);
     }
 
 
@@ -362,93 +317,28 @@ export class VectorTileLayer extends BaseTileLayer {
         return this._renderAltitude;
     }
     /**
-     * Add tile-hidden event listener for a single tile.
-     * 为单个瓦片添加 tile-hidden 事件监听器
-     * @param tile
-     * @private
-     */
-   //@ts-ignore
-    private _addHiddenListenerToTile(tile: Tile): void {
-        const listener = (event: any) => {
-            const hiddenTile: Tile = event.tile;
-            const tileKey = `${hiddenTile.z}-${hiddenTile.x}-${hiddenTile.y}`;
-
-            // Leaf tile's hidden does not trigger vector hide/show to avoid flickering caused by frequent hide/show
-            //  叶子瓦片的 hidden 不做矢量显隐，避免频繁 hide/show 导致闪烁
-            // if (hiddenTile.isLeaf) {
-            //     return;
-            // }
-            // const hasRenderer = !!this._renderer;
-            // let beforeCount = 0;
-            //
-            // if (hasRenderer) {
-            //     const featureMap = (this._renderer as any)._tileFeatureMap as Map<string, any[]>;
-            //     const list = featureMap?.get(tileKey);
-            //     beforeCount = list ? list.length : 0;
-            // }
-
-            // console.log(
-            //     `[VectorTileLayer] tile-hidden ${tileKey} ` +
-            //     `showing=${hiddenTile.showing}, loaded=${hiddenTile.loaded}, ` +
-            //     `beforeFeatures=${beforeCount}`
-            // );
-
-            if (this._renderer) {
-                try {
-                    this._renderer.hideFeaturesByTileKey(tileKey);
-
-                    // let afterCount = 0;
-                    // const featureMap = (this._renderer as any)._tileFeatureMap as Map<string, any[]>;
-                    // const list = featureMap?.get(tileKey);
-                    // afterCount = list ? list.length : 0;
-
-                    // console.log('tile-hidden', tile.z, tile.x, tile.y);
-                } catch (e) {
-                    // console.error(`[VectorTileLayer] Error hiding features for tile ${tileKey}:`, e);
-                }
-            }
-
-            // Note: Do not clear _tileDataMap here temporarily, to avoid losing opportunity for supplement render
-            // 注意：这里暂时不要清理 _tileDataMap，避免失去补渲染的机会
-            // const hadData = this._tileDataMap.has(tileKey);
-            // this._tileDataMap.delete(tileKey);
-            // console.log(`[VectorTileLayer] Removed data reference for hidden tile ${tileKey}, hadData=${hadData}.`);
-        };
-        tile.addEventListener('tile-hidden', listener);
-    }
-    /**
      * Unified lifecycle listener management, responsible for data and renderer linkage.
      * 统一管理生命周期监听，负责数据和渲染器的联动
     */
     private _setupLifeCycleListeners(): void {
-
-        // --- Tile loaded event ---
-        // ---  瓦片加载完成事件 ---
-        // This event is dispatched on rootTile
-        // 此事件是在 rootTile 上派发的
-        this._rootTile.addEventListener('tile-loaded', (event: any) => {
+        // Events come from SourceCache (public bus), not root Tile.
+        this.sourceCache.addEventListener('tile-loaded', (event: any) => {
             const tile: Tile = event.tile;
             const tileKey = `${tile.z}-${tile.x}-${tile.y}`;
-            // console.log(`Vector tile layer Tile ${tileKey} triggered loaded event. 矢量瓦片图层 Tile ${tileKey} 触发了loaded事件。`);
             const vectorData = this.getVectorDataFromTile(tile);
             if (!vectorData) {
                 console.warn(`[VectorTileLayer] Tile ${tileKey} loaded but has no vector data.`);
                 return;
             }
-            // Accept both legacy GeoJSON path ('mvt') and tile-local path ('mvt-local')
             const fmt = vectorData.vectorData?.dataFormat;
             if (fmt === 'mvt' || fmt === 'mvt-local') {
                 this._tileDataMap.set(tileKey, {
                     data: vectorData,
                     tile,
                     timestamp: Date.now(),
-                    pending: false // Whether to render 是否渲染
+                    pending: false
                 });
             }
-            // ② Render directly in tile-loaded stage only if tile is currently showing
-            // ② 只有当前就处于 showing 的瓦片，才在 tile-loaded 阶段直接渲染
-            // Always build meshes on load; visibility is applied from tile.showing.
-            // 加载后立刻建 mesh；是否可见由 tile.showing 控制（避免兄弟未齐时丢结果）。
             if (this._renderer && (fmt === 'mvt' || fmt === 'mvt-local')) {
                 try {
                     if (this._useWorker) {
@@ -460,10 +350,7 @@ export class VectorTileLayer extends BaseTileLayer {
                     // ignore
                 }
             }
-            // console.log(`All cached in loaded: loaed里所有的缓存:`, this._tileDataMap);
         });
-
-
     }
 
 
