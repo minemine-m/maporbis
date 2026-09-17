@@ -127,7 +127,7 @@ interface TilePayload {
 
 ## Tasks
 
-- [ ] T1: 抽出 `TileLoadScheduler`，替换 `Tile` 静态队列；SourceCache/测试改引用 — acceptance: 生产代码无 `Tile._loadQueue`/`Tile.requestLoad`；`feel.schedule` + holes + release 测试 PASS (covers: S2.2)
-- [ ] T2: SourceCache 事件总线：created/loaded/unload/shown/hidden 从 SourceCache 派发；VectorTileLayer 改听 sourceCache — acceptance: VectorTileLayer 不再 `addEventListener` 到 `_rootTile`；矢量 loaded/hide/show/unload 行为与改前等价 (covers: S2.3; depends: T1)
-- [ ] T3: `TilePayload` + `applyPayload`/`clearPayload`/`hasRenderPayload`；矢量取数走 payload.vectorData — acceptance: Vector 不读 `tile.geometry` 取数据；raster 路径 depth-bias 与 cache-hit 仍工作 (covers: S2.4; depends: T1)
-- [ ] T4: 清理 Tile 冗余静态/事件类型；`tsc` + `vitest src/core/tile` + `npm run build` — acceptance: 全绿；`emptyLoaded` 快照仍可读 (covers: S2; depends: T1,T2,T3)
+- [x] T1: 抽出 `TileLoadScheduler`，替换 `Tile` 静态队列；SourceCache/测试改引用 — acceptance: 生产代码无 `Tile._loadQueue`/`Tile.requestLoad` 静态实现；`feel.schedule` + holes + release 测试 PASS (covers: S2.2)
+- [x] T2: SourceCache 事件总线：created/loaded/unload/shown/hidden 从 SourceCache 派发；VectorTileLayer 改听 sourceCache — acceptance: VectorTileLayer 不再 `addEventListener` 到 `_rootTile`；矢量 loaded/hide/show/unload 行为与改前等价 (covers: S2.3; depends: T1)
+- [x] T3: `TilePayload` + `applyPayload`/`clearPayload`/`hasRenderPayload`；矢量取数走 payload.vectorData — acceptance: Vector 不读 `tile.geometry` 取数据；raster 路径 depth-bias 与 cache-hit 仍工作 (covers: S2.4; depends: T1)
+- [x] T4: 清理 Tile 冗余静态/事件类型；`tsc` + `vitest src/core/tile` + `npm run build` — acceptance: 全绿；`emptyLoaded` 快照仍可读；demo 页 200 (covers: S2; depends: T1,T2,T3)
