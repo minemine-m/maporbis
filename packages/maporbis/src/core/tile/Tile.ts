@@ -879,9 +879,8 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		while (root.parent && (root.parent as any).isTile) {
 			root = root.parent as Tile;
 		}
-		if (root !== this) {
-			root.dispatchEvent({ type: "tile-unload", tile: this });
-		}
+		// Root reload/dispose must also notify the bus (Vector cleanup).
+		root.dispatchEvent({ type: "tile-unload", tile: this });
 	}
 
 	private _disposeResources(disposeSelf: boolean, loader: ICompositeLoader) {

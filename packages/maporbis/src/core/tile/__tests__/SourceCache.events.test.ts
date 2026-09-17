@@ -121,4 +121,21 @@ describe("SourceCache event bus", () => {
 		root.reload(loader);
 		expect(unloaded.length).toBeGreaterThan(0);
 	});
+
+	it("re-emits tile-unload for root itself on root reload", async () => {
+		const root = new Tile(0, 0, 0);
+		root._payloadCache = new TileCache(8);
+		const loader = makeRasterLoader();
+		const sc = new TileSourceCache();
+		// Bind root (production layer always update()s first).
+		sc.update(ctx(root, loader, 1));
+		await (root as any)._loadData(loader);
+
+		const unloaded: string[] = [];
+		sc.addEventListener("tile-unload", (e: any) => {
+			unloaded.push(`${e.tile.z}/${e.tile.x}/${e.tile.y}`);
+		});
+		root.reload(loader);
+		expect(unloaded).toContain("0/0/0");
+	});
 });

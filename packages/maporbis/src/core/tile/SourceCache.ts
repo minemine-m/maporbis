@@ -403,8 +403,8 @@ export class TileSourceCache extends EventDispatcher<SourceCacheEventMap> {
 	}
 
 	/**
-	 * Drop entries whose scene node was cleared (LOD remove → Object3D.clear).
-	 * Children do not fire tile-unload; parent does.
+	 * Drop entries whose scene node was cleared (dispose → Object3D.clear).
+	 * Tiles also fire root tile-unload via _fireUnloadEvents.
 	 */
 	private _pruneDetached(): void {
 		for (const [key, tile] of this._tiles) {
@@ -647,14 +647,12 @@ export class TileSourceCache extends EventDispatcher<SourceCacheEventMap> {
 				if (this._retainKeys.has(key) || structural.has(key)) continue;
 				if (coverageIncomplete && tile.loaded) continue;
 				this._setShowing(tile, false, "release");
+				// releasePayloadForCache fires unload + root tile-unload (bus).
 				tile.releasePayloadForCache(ctx.loader);
 				const hasTileChild = tile.children.some((c: any) => c?.isTile);
 				if (!hasTileChild && tile.parent) {
 					tile.parent.remove(tile);
 					byKey.delete(key);
-					if (this._root) {
-						this._root.dispatchEvent({ type: "tile-unload", tile });
-					}
 				}
 				// Parent shell with children: keep in map for resync/transforms
 			}
