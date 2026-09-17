@@ -3,21 +3,21 @@ feature: sc-vector-style-bucket
 status: delivered
 updated: 2026-09-16
 branch: feat/sc-vector-style-bucket
-commits: 77f1725..d16cd24
+commits: 77f1725..7c85da2
 ---
 
 # 矢量 Style Spec → Bucket
 
 ## Report
 
-**What was built** — P1：Mapbox 风格 filter 求值器（legacy 属性/字面量语义）、`StyleSpecLike` 子集 → `PaintRule[]`（`toPaintRules` / `mapPaintToConfig`）、`VectorTileLayer.setStyle` 热更新（只读 `_tileDataMap`，不发网络）。兼容旧 `PaintRule[]`。
+**What was built** — P1：filter 求值、StyleSpecLike→PaintRule、`setStyle` 缓存热更新。P2：更多 paint/layout（dash/blur/stroke/halo/outline-width）、`layout.visibility=none` 丢弃图层、demo 虚线淡出预设。Worker `in` 与 `matchFilter` 左值属性语义已对齐 Mapbox legacy。
 
-**Verification** — `tsc` PASS；vitest style+tiles **86 PASS**；`vite build` PASS。
+**Verification** — `tsc` PASS；style vitest **11 PASS**；`vite build` PASS；demo 热更新 Δpbf=0（用户确认）。
 
 **Journey log**
-1. filter 右值不能当属性名解析，否则 `==` 恒 false。
-2. `PaintConfig` 判别联合需 `as unknown as`。
-3. 完整 Style Spec（更多 paint / sprite / transitions）属 P2/P3。
+1. filter 右值/worker `in` 语义曾导致主干/高速预设空白。
+2. 渲染读 `config.width`，映射必须带 `width` 不只 `weight`。
+3. zoom 插值 / sprite / transitions 留 P3。
 
 ## [S1] Problem
 
@@ -131,3 +131,5 @@ getStyleDocument(): StyleSpecLike | null
 - [x] T2: `StyleSpecLike` 类型 + `toPaintRules` + `mapPaintToConfig` — acceptance: 样例 style 转成 PaintRule[] (covers: S2.2, S2.4)
 - [x] T3: `VectorTileLayer.setStyle` / Renderer rebuild from cache（无网络） — acceptance: setStyle→setPaint→_refreshVisibleTiles 仅用 `_tileDataMap` (covers: S2.4, S2.5)
 - [x] T4: `tsc` + tile/style vitest + build + commit — acceptance: 全绿 (covers: S2; depends: T1,T2,T3)
+- [x] T5: P2 paint/layout 扩展 — line-blur/gap、circle-stroke、text-halo、fill-outline-width、layout.visibility (covers: S2.4)
+- [x] T6: demo 虚线/淡出预设 + vitest — acceptance: 新用例 PASS；demo 按钮可切换 (covers: S2.4; depends: T5)
