@@ -1,14 +1,23 @@
 ---
 feature: sc-vector-style-bucket
-status: in-progress
+status: delivered
 updated: 2026-09-16
 branch: feat/sc-vector-style-bucket
-commits: 
+commits: 77f1725..d16cd24
 ---
 
 # 矢量 Style Spec → Bucket
 
 ## Report
+
+**What was built** — P1：Mapbox 风格 filter 求值器（legacy 属性/字面量语义）、`StyleSpecLike` 子集 → `PaintRule[]`（`toPaintRules` / `mapPaintToConfig`）、`VectorTileLayer.setStyle` 热更新（只读 `_tileDataMap`，不发网络）。兼容旧 `PaintRule[]`。
+
+**Verification** — `tsc` PASS；vitest style+tiles **86 PASS**；`vite build` PASS。
+
+**Journey log**
+1. filter 右值不能当属性名解析，否则 `==` 恒 false。
+2. `PaintConfig` 判别联合需 `as unknown as`。
+3. 完整 Style Spec（更多 paint / sprite / transitions）属 P2/P3。
 
 ## [S1] Problem
 
