@@ -19,6 +19,11 @@ import { TileCache } from "../../loaders/TileCache";
 import { getDistance, getTileSize, IdealTileSet } from "./util";
 import { computeTileRootLocal } from "./tileTransform";
 import { TileLoadScheduler } from "./TileLoadScheduler";
+import {
+	TilePayload,
+	isPlaceholderGeometry,
+	payloadMaterials,
+} from "./TilePayload";
 
 const MAX_RETRY_COUNT = 3;
 
@@ -173,10 +178,16 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	private _needsRetry(): boolean {
 		return this._state === TileState.Error && this._retryCount < this._maxRetries;
 	}
-	/** Vector Data 矢量数据 */
-	public _vectorData: any = null;
 	/** Optional payload LRU on the tree root (set by TileLayer) */
 	public _payloadCache: TileCache | null = null;
+	/** Last applied payload (raster or vector). Mesh may still hold raster GPU objects. */
+	private _payload: TilePayload | null = null;
+	/** Vector payload (legacy field; prefer payload.vectorData). */
+	private _vectorData: any = null;
+
+	get payload(): TilePayload | null {
+		return this._payload;
+	}
 
 	private _rootCache(): TileCache | null {
 		let t: Tile = this;
@@ -188,12 +199,37 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 
 	/** Shared empty placeholder geometry — never cache or dispose it. */
 	private static _isPlaceholderGeometry(geo: any): boolean {
-		return !geo || geo === defaultGeometry || !(geo as any).attributes?.position;
+		return isPlaceholderGeometry(geo, defaultGeometry);
 	}
 
 	private static _payloadMaterials(materials: any): Material[] {
-		const list = Array.isArray(materials) ? materials : materials ? [materials] : [];
-		return list.filter(Boolean) as Material[];
+		return payloadMaterials(materials);
+	}
+
+	/**
+	 * Apply loaded payload: raster writes Mesh geometry/materials; vector
+	 * only stores data and leaves the Mesh empty.
+	 */
+	applyPayload(payload: TilePayload): void {
+		this._payload = payload;
+		if (payload.kind === "vector") {
+			this._vectorData = payload.vectorData ?? {};
+			this.geometry = defaultGeometry as any;
+			this.material = [] as any;
+			return;
+		}
+		this.geometry = payload.geometry as any;
+		this.material = Tile._payloadMaterials(payload.materials);
+		this.maxZ = (this.geometry as any)?.boundingBox?.max.z || 0;
+		this._applyRasterDepthBias();
+	}
+
+	/** Drop payload references from the tile (GPU objects may live in cache). */
+	clearPayload(): void {
+		this._payload = null;
+		this._vectorData = null;
+		this.geometry = defaultGeometry as any;
+		this.material = [] as any;
 	}
 
 	/**
@@ -202,7 +238,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 */
 	hasRenderPayload(): boolean {
 		if (this._dataMode) {
-			return !!(this as any)._vectorData;
+			return !!this._vectorData;
 		}
 		return (
 			!Tile._isPlaceholderGeometry(this.geometry) &&
@@ -237,7 +273,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 	 * 获取矢量数据（仅数据模式有效）
 	 */
 	public getVectorData(): any {
-		return (this as any)._vectorData;
+		return this._vectorData;
 	}
 
 	/** Count tiles in a layer tree (debug). */
@@ -467,12 +503,16 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				if (okHit) {
 					try {
 						if (this._dataMode) {
-							(this as any)._vectorData = (hitGeo as any)?.userData || {};
+							this.applyPayload({
+								kind: "vector",
+								vectorData: (hitGeo as any)?.userData || {},
+							});
 						} else {
-							this.geometry = hitGeo;
-							this.material = hitMats;
-							this.maxZ = (this.geometry as any)?.boundingBox?.max.z || 0;
-							this._applyRasterDepthBias();
+							this.applyPayload({
+								kind: "raster",
+								geometry: hitGeo,
+								materials: hitMats,
+							});
 						}
 						this._transitionTo(TileState.Loaded);
 						this._retryCount = 0;
@@ -514,7 +554,6 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 		try {
 			// 如果是数据模式，只获取数据不创建Mesh
 			if (this._dataMode) {
-				// 调用加载器获取数据
 				const meshData = await loader.load({
 					x, y, z,
 					bounds: [-Infinity, -Infinity, Infinity, Infinity],
@@ -525,7 +564,10 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					this._onLoadComplete = null;
 					return this;
 				}
-				(this as any)._vectorData = (meshData as any).geometry?.userData || {};
+				this.applyPayload({
+					kind: "vector",
+					vectorData: (meshData as any).geometry?.userData || {},
+				});
 
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);
@@ -538,7 +580,7 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 				// 触发数据加载事件
 				this.dispatchEvent({
 					type: "vector-data-loaded",
-					data: (this as any)._vectorData,
+					data: this._vectorData,
 					tile: this
 				});
 			} else {
@@ -554,18 +596,19 @@ export class Tile extends Mesh<BufferGeometry, Material[], ITileEventMap> {
 					this._onLoadComplete = null;
 					return this;
 				}
-				this.material = Tile._payloadMaterials(meshData.materials);
-				this.geometry = meshData.geometry;
-				if (Tile._isPlaceholderGeometry(this.geometry) || this.material.length === 0) {
+				const mats = Tile._payloadMaterials(meshData.materials);
+				if (Tile._isPlaceholderGeometry(meshData.geometry) || mats.length === 0) {
 					// Do not mark Loaded without a drawable payload — that creates skybox holes.
-					this.geometry = defaultGeometry as any;
-					this.material = [] as any;
+					this.clearPayload();
 					this._transitionTo(TileState.Error);
 					this._onLoadComplete = null;
 					return this;
 				}
-				this.maxZ = this.geometry.boundingBox?.max.z || 0;
-				this._applyRasterDepthBias();
+				this.applyPayload({
+					kind: "raster",
+					geometry: meshData.geometry,
+					materials: mats,
+				});
 
 				// Transition to Loaded state 转换到 Loaded 状态
 				this._transitionTo(TileState.Loaded);

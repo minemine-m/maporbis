@@ -359,7 +359,11 @@ export class VectorTileLayer extends BaseTileLayer {
      * 从瓦片几何体中提取矢量数据
      */
     private getVectorDataFromTile(tile: Tile): any {
-        if (!(tile as any).geometry || !tile.getVectorData()) {
+        // Prefer payload.vectorData; Mesh geometry is not the vector carrier.
+        if (tile.payload?.vectorData) {
+            return tile.payload.vectorData;
+        }
+        if (!tile.getVectorData()) {
             return null;
         }
         return tile.getVectorData();
