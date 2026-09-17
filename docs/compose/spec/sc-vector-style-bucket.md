@@ -130,4 +130,4 @@ getStyleDocument(): StyleSpecLike | null
 - [x] T1: `evaluateFilter` + 单测（==/in/range/has/all/any/!/zoom） — acceptance: vitest filter 覆盖通过 (covers: S2.3)
 - [x] T2: `StyleSpecLike` 类型 + `toPaintRules` + `mapPaintToConfig` — acceptance: 样例 style 转成 PaintRule[] (covers: S2.2, S2.4)
 - [x] T3: `VectorTileLayer.setStyle` / Renderer rebuild from cache（无网络） — acceptance: setStyle→setPaint→_refreshVisibleTiles 仅用 `_tileDataMap` (covers: S2.4, S2.5)
-- [ ] T4: `tsc` + tile/style vitest + build + commit — acceptance: 全绿 (covers: S2; depends: T1,T2,T3)
+- [x] T4: `tsc` + tile/style vitest + build + commit — acceptance: 全绿 (covers: S2; depends: T1,T2,T3)
