@@ -50,30 +50,41 @@ export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 	const type = layer.type;
 
 	if (type === "line") {
+		const color = str(paint["line-color"], "#3388ff");
+		const width = num(paint["line-width"], 1);
+		const opacity = num(paint["line-opacity"], 1);
+		const dashArray = Array.isArray(paint["line-dasharray"])
+			? (paint["line-dasharray"] as number[])
+			: undefined;
+		// Renderer reads `width`/`color`; keep `weight` for legacy PaintConfig consumers.
 		return {
-			color: str(paint["line-color"], "#3388ff"),
-			weight: num(paint["line-width"], 1),
-			opacity: num(paint["line-opacity"], 1),
-			dashArray: Array.isArray(paint["line-dasharray"])
-				? (paint["line-dasharray"] as number[])
-				: undefined,
+			type: "line",
+			color,
+			width,
+			weight: width,
+			opacity,
+			dashArray,
+			transparent: true,
 		} as unknown as PaintConfig;
 	}
 
 	if (type === "fill") {
 		return {
+			type: "fill",
 			fill: true,
 			fillColor: str(paint["fill-color"], "#3388ff"),
 			fillOpacity: num(paint["fill-opacity"], 0.5),
 			stroke: paint["fill-outline-color"] != null,
 			color: str(paint["fill-outline-color"], "#3388ff"),
 			weight: 1,
+			width: 1,
 		} as unknown as PaintConfig;
 	}
 
 	// symbol / circle → existing point path
 	const textField = layout["text-field"];
 	return {
+		type: "icon",
 		color: str(paint["circle-color"] ?? paint["text-color"], "#3388ff"),
 		size: num(paint["circle-radius"], 4),
 		fontColor: str(paint["text-color"], "#ffffff"),

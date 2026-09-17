@@ -73,7 +73,9 @@ describe("styleSpec convert", () => {
 		expect(rules[0].type).toBe("fill");
 		expect((rules[0].paint as any).fillColor).toBe("#00f");
 		expect(rules[1].type).toBe("line");
+		expect((rules[1].paint as any).width).toBe(2);
 		expect((rules[1].paint as any).weight).toBe(2);
+		expect((rules[1].paint as any).type).toBe("line");
 		expect(rules[1].sourceLayer).toBe("transportation");
 	});
 

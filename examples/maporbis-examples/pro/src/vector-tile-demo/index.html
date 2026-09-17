@@ -652,11 +652,6 @@
         sources: { v: { type: 'vector' } },
         layers: [
           {
-            id: 'lines', type: 'line',
-            filter: ['==', 'class', 'primary'], // may match nothing — fallback layer below
-            paint: { 'line-color': '#FF3B30', 'line-width': 3, 'line-opacity': 0.9 }
-          },
-          {
             id: 'lines-all', type: 'line',
             filter: true,
             paint: { 'line-color': '#FF3B30', 'line-width': 2, 'line-opacity': 0.85 }
@@ -669,7 +664,10 @@
         layers: [
           {
             id: 'major', type: 'line',
-            filter: ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
+            filter: ['all',
+              ['==', ['get', '$type'], 'LineString'],
+              ['in', ['get', 'class'], 'motorway', 'trunk', 'primary', 'secondary', 'tertiary']
+            ],
             paint: { 'line-color': '#007AFF', 'line-width': 2.5, 'line-opacity': 0.95 }
           }
         ]
@@ -691,7 +689,10 @@
         layers: [
           {
             id: 'mw', type: 'line',
-            filter: ['in', 'class', 'motorway', 'motorway_link', 'trunk'],
+            filter: ['all',
+              ['==', ['get', '$type'], 'LineString'],
+              ['in', ['get', 'class'], 'motorway', 'motorway_link', 'trunk', 'trunk_link']
+            ],
             paint: { 'line-color': '#FFD60A', 'line-width': 3.5, 'line-opacity': 1 }
           }
         ]

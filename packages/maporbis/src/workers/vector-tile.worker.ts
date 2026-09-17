@@ -24,10 +24,12 @@ interface ProcessedResult {
 }
 
 /**
- * Evaluate filter expression (Mapbox GL style spec)
+ * Evaluate filter expression (Mapbox GL style spec, legacy + get form).
+ * Bare string on the left of comparison/in is a property key.
  */
 function evaluateFilter(filter: any, properties: any, layerName: string, geometryType: string): boolean {
     if (!filter || filter === true) return true;
+    if (!Array.isArray(filter)) return !!filter;
 
     const extendedProps = {
         ...properties,
@@ -35,29 +37,42 @@ function evaluateFilter(filter: any, properties: any, layerName: string, geometr
         $type: geometryType
     };
 
-    const getValue = (expr: any): any => {
+    /** asKey=true: bare string → property lookup (Mapbox left operand). */
+    const getValue = (expr: any, asKey = false): any => {
         if (Array.isArray(expr)) {
             if (expr[0] === 'get') return extendedProps[expr[1]];
             if (expr[0] === 'literal') return expr[1];
+            return expr;
         }
+        if (asKey && typeof expr === 'string') return extendedProps[expr];
         return expr;
     };
 
-    if (!Array.isArray(filter)) return true;
-
     const op = filter[0];
-    if (op === '==') return getValue(filter[1]) === getValue(filter[2]);
-    if (op === '!=') return getValue(filter[1]) !== getValue(filter[2]);
-    if (op === '>') return getValue(filter[1]) > getValue(filter[2]);
-    if (op === '>=') return getValue(filter[1]) >= getValue(filter[2]);
-    if (op === '<') return getValue(filter[1]) < getValue(filter[2]);
-    if (op === '<=') return getValue(filter[1]) <= getValue(filter[2]);
-    if (op === 'in') { const v = getValue(filter[1]); return Array.isArray(filter[2]) && filter[2].includes(v); }
+    if (op === '==') return getValue(filter[1], true) === getValue(filter[2], false);
+    if (op === '!=') return getValue(filter[1], true) !== getValue(filter[2], false);
+    if (op === '>') return getValue(filter[1], true) > getValue(filter[2], false);
+    if (op === '>=') return getValue(filter[1], true) >= getValue(filter[2], false);
+    if (op === '<') return getValue(filter[1], true) < getValue(filter[2], false);
+    if (op === '<=') return getValue(filter[1], true) <= getValue(filter[2], false);
+    if (op === 'in' || op === '!in') {
+        const v = getValue(filter[1], true);
+        // Support both ["in", key, "a", "b"] and ["in", key, ["a","b"]]
+        let list: any[];
+        if (Array.isArray(filter[2])) {
+            list = filter[2].map((x: any) => getValue(x, false));
+        } else {
+            list = filter.slice(2).map((x: any) => getValue(x, false));
+        }
+        const hit = list.includes(v);
+        return op === 'in' ? hit : !hit;
+    }
     if (op === 'all') return filter.slice(1).every((f: any) => evaluateFilter(f, properties, layerName, geometryType));
     if (op === 'any') return filter.slice(1).some((f: any) => evaluateFilter(f, properties, layerName, geometryType));
     if (op === 'none') return !filter.slice(1).some((f: any) => evaluateFilter(f, properties, layerName, geometryType));
     if (op === '!') return !evaluateFilter(filter[1], properties, layerName, geometryType);
     if (op === 'has') return filter[1] in extendedProps;
+    if (op === '!has') return !(filter[1] in extendedProps);
 
     return true;
 }
