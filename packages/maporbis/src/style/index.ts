@@ -12,6 +12,10 @@ import { _createBasicPoint, _createIconPoint, _createBasicLine } from '../utils/
 import { Feature } from '../feature/Feature';
 import type { Anchor } from '../types';
 
+export * from './filterExpression';
+export * from './styleSpec';
+export * from './Layerstyle';
+
 /**
  * Base paint interface.
  * 基础样式接口

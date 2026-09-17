@@ -972,9 +972,19 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         Array.from(this._tileFeatureMap.keys()).forEach(key => {
             this.removeFeaturesByTileKey(key);
         });
+        Array.from(this._tileMeshMap.keys()).forEach(key => {
+            this.removeFeaturesByTileKey(key);
+        });
 
         this.paint = paint;
-        // No need to call this.clear() as removeFeaturesByTileKey handles removal from scene and _feaList
+    }
+
+    /**
+     * Accept StyleSpecLike or PaintRule[] and reset paint rules.
+     * Caller (VectorTileLayer) rebuilds from cache — no network here.
+     */
+    public setStyleFromRules(paint: PaintRule[]): void {
+        this.setPaint(paint);
     }
 
     /**

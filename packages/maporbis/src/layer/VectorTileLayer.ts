@@ -6,6 +6,7 @@ import { ICompositeLoader } from "../loaders/LoaderInterfaces";
 import { Tile } from "../core/tile";
 import { Feature } from "../feature";
 import { VectorTileRenderLayer } from "./VectorTileRenderLayer";
+import { normalizeStyleInput } from "../style/styleSpec";
 
 /**
  * Vector Tile Layer configuration interface.
@@ -87,6 +88,7 @@ export class VectorTileLayer extends BaseTileLayer {
     // Vector layer specific properties
     // 矢量图层特有属性
     private _style: any;
+    private _styleDocument: import("../style/styleSpec").StyleSpecLike | null = null;
     // private _featureFilter?: (feature: any) => boolean;
     private _useWorker: boolean = true;
 
@@ -437,7 +439,7 @@ export class VectorTileLayer extends BaseTileLayer {
     // --- Feature 样式和过滤 ---
 
     /**
-     * Set paint configuration.
+     * Set paint configuration (legacy PaintRule[]).
      * 设置样式配置。
      * @param style Style configuration (PaintRule[]). 样式配置 (PaintRule[])。
      */
@@ -445,9 +447,24 @@ export class VectorTileLayer extends BaseTileLayer {
         this._style = style;
         if (this._renderer) {
             this._renderer.setPaint(style);
-            // Re-render visible tiles
+            // Re-render from cached vectorData — no network.
             this._refreshVisibleTiles();
         }
+    }
+
+    /**
+     * Apply a Mapbox Style Spec–like document (subset) or legacy PaintRule[].
+     * 热更新：只从 _tileDataMap 重建 bucket/mesh，不发起瓦片请求。
+     */
+    public setStyle(style: import("../style/styleSpec").StyleSpecLike | any[]): void {
+        const rules = normalizeStyleInput(style as any);
+        this._styleDocument = Array.isArray(style) ? null : (style as any);
+        this.setPaint(rules as any[]);
+    }
+
+    /** Last StyleSpecLike passed to setStyle, if any. */
+    public getStyleDocument(): import("../style/styleSpec").StyleSpecLike | null {
+        return this._styleDocument;
     }
 
     /**
