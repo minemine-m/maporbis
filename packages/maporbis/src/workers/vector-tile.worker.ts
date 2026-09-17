@@ -213,14 +213,19 @@ function processFillFeatures(
         if (feature.type !== 'Polygon' && feature.type !== 'MultiPolygon') continue;
 
         let matchedConfig: any = null;
+        let matchedRuleType: string | null = null;
         for (const rule of paintRules) {
             if (evaluateFilter(rule.filter, feature.properties, feature.layerName, feature.type)) {
                 matchedConfig = rule.paint;
+                matchedRuleType = rule.type ?? null;
                 break;
             }
         }
 
+        // Only fill-type rules (or legacy rules with fill:true) may fill polygons.
         if (!matchedConfig) continue;
+        if (matchedRuleType === "line") continue;
+        if (matchedRuleType && matchedRuleType !== "fill" && !(matchedConfig as any)?.fill) continue;
 
         const configKey = JSON.stringify(matchedConfig);
         if (!bucketMap.has(configKey)) {
