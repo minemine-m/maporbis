@@ -89,6 +89,11 @@ export class VectorTileLayer extends BaseTileLayer {
     // 矢量图层特有属性
     private _style: any;
     private _styleDocument: import("../style/styleSpec").StyleSpecLike | null = null;
+    private _styleZoom = NaN;
+    private _styleZoomAppliedAt = 0;
+    /** Min zoom delta + ms throttle before re-resolving StyleSpec zoom paints. */
+    private static readonly STYLE_ZOOM_EPS = 0.12;
+    private static readonly STYLE_ZOOM_MS = 250;
     // private _featureFilter?: (feature: any) => boolean;
     private _useWorker: boolean = true;
 
@@ -458,19 +463,43 @@ export class VectorTileLayer extends BaseTileLayer {
      */
     public setStyle(style: import("../style/styleSpec").StyleSpecLike | any[]): void {
         this._styleDocument = Array.isArray(style) ? null : (style as any);
-        this._applyStyleAtCurrentZoom();
+        this._applyStyleAtCurrentZoom(true);
     }
 
     /** Re-resolve StyleSpecLike at map.getZoom() and hot-rebuild from cache. */
-    private _applyStyleAtCurrentZoom(): void {
-        const map = this.getMap?.() as any;
-        const zoom = typeof map?.getZoom === "number"
-            ? map.getZoom()
-            : (typeof map?.getZoom === "function" ? map.getZoom() : 0);
+    private _applyStyleAtCurrentZoom(force = false): void {
+        if (!this._renderer) return;
+        const zoom = this._currentStyleZoom();
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (
+            !force &&
+            Number.isFinite(this._styleZoom) &&
+            Math.abs(zoom - this._styleZoom) < VectorTileLayer.STYLE_ZOOM_EPS
+        ) {
+            return;
+        }
+        if (!force && now - this._styleZoomAppliedAt < VectorTileLayer.STYLE_ZOOM_MS) {
+            return;
+        }
+        this._styleZoom = zoom;
+        this._styleZoomAppliedAt = now;
         const rules = this._styleDocument
-            ? normalizeStyleInput(this._styleDocument, Number(zoom) || 0)
-            : normalizeStyleInput(this._style as any[], Number(zoom) || 0);
+            ? normalizeStyleInput(this._styleDocument, zoom)
+            : normalizeStyleInput(this._style as any[], zoom);
         this.setPaint(rules as any[]);
+    }
+
+    private _currentStyleZoom(): number {
+        const map = this.getMap?.() as any;
+        if (!map) return 0;
+        if (typeof map.getZoom === "function") {
+            const z = Number(map.getZoom());
+            if (Number.isFinite(z)) return z;
+        }
+        if (typeof map.getZoom === "number" && Number.isFinite(map.getZoom)) {
+            return map.getZoom();
+        }
+        return 0;
     }
 
     /** Last StyleSpecLike passed to setStyle, if any. */
@@ -576,6 +605,10 @@ export class VectorTileLayer extends BaseTileLayer {
     public update(camera: Camera): void {
         if (!this.enabled || !this.visible) return;
         super.update(camera);
+        // P3a: zoom functions / minzoom-maxzoom need re-resolve as camera zoom changes.
+        if (this._styleDocument) {
+            this._applyStyleAtCurrentZoom(false);
+        }
         // Ensure renderer also updates (e.g. recalculate Features positions)
         // 确保 renderer 也更新（例如重新计算 Features 位置）
         // if (this._renderer) {
