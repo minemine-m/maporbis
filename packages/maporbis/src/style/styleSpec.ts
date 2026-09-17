@@ -1,6 +1,7 @@
 import type { PaintConfig } from "./index";
 import type { PaintRule } from "./Layerstyle";
 import { evaluateFilter, type FilterExpression } from "./filterExpression";
+import { resolveZoomNumber } from "./zoomExpression";
 
 export type StyleLayerType = "fill" | "line" | "symbol" | "circle";
 
@@ -32,8 +33,11 @@ export type StyleSpecLike = {
 };
 
 function num(v: unknown, fallback: number): number {
-	const n = typeof v === "number" ? v : Number(v);
-	return Number.isFinite(n) ? n : fallback;
+	return resolveZoomNumber(v, 0, fallback);
+}
+
+function numAt(v: unknown, zoom: number, fallback: number): number {
+	return resolveZoomNumber(v, zoom, fallback);
 }
 
 function str(v: unknown, fallback: string): string {
@@ -41,10 +45,11 @@ function str(v: unknown, fallback: string): string {
 }
 
 /**
- * Map one style layer's paint/layout (subset) onto MapOrbis PaintConfig.
- * P2: extra paint keys + layout.visibility. Zoom functions still deferred.
+ * Map one style layer's paint/layout onto MapOrbis PaintConfig.
+ * P2: extra paint keys + layout.visibility.
+ * P3a: numeric paint values may be zoom expressions; resolved at `zoom`.
  */
-export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
+export function mapPaintToConfig(layer: StyleLayer, zoom = 0): PaintConfig {
 	const paint = layer.paint ?? {};
 	const layout = layer.layout ?? {};
 	const type = layer.type;
@@ -52,8 +57,8 @@ export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 
 	if (type === "line") {
 		const color = str(paint["line-color"], "#3388ff");
-		const width = num(paint["line-width"], 1);
-		const opacity = num(paint["line-opacity"], 1) * (visible ? 1 : 0);
+		const width = numAt(paint["line-width"], zoom, 1);
+		const opacity = numAt(paint["line-opacity"], zoom, 1) * (visible ? 1 : 0);
 		const dashArray = Array.isArray(paint["line-dasharray"])
 			? (paint["line-dasharray"] as number[])
 			: undefined;
@@ -65,15 +70,14 @@ export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 			opacity,
 			dashArray,
 			transparent: opacity < 1 || paint["line-opacity"] != null,
-			// P2 extras (consumed if renderer supports; otherwise retained on config)
-			blur: num(paint["line-blur"], 0),
-			gapWidth: num(paint["line-gap-width"], 0),
-			zOffset: num(paint["line-z-offset"] ?? paint["line-elevation-reference"] as number, 0),
+			blur: numAt(paint["line-blur"], zoom, 0),
+			gapWidth: numAt(paint["line-gap-width"], zoom, 0),
+			zOffset: numAt(paint["line-z-offset"] ?? (paint["line-elevation-reference"] as number), zoom, 0),
 		} as unknown as PaintConfig;
 	}
 
 	if (type === "fill") {
-		const fillOpacity = num(paint["fill-opacity"], 0.5) * (visible ? 1 : 0);
+		const fillOpacity = numAt(paint["fill-opacity"], zoom, 0.5) * (visible ? 1 : 0);
 		return {
 			type: "fill",
 			fill: true,
@@ -82,27 +86,26 @@ export function mapPaintToConfig(layer: StyleLayer): PaintConfig {
 			opacity: fillOpacity,
 			stroke: paint["fill-outline-color"] != null || paint["fill-outline-width"] != null,
 			color: str(paint["fill-outline-color"], "#3388ff"),
-			weight: num(paint["fill-outline-width"], 1),
-			width: num(paint["fill-outline-width"], 1),
+			weight: numAt(paint["fill-outline-width"], zoom, 1),
+			width: numAt(paint["fill-outline-width"], zoom, 1),
 			antialias: paint["fill-antialias"] !== false,
 		} as unknown as PaintConfig;
 	}
 
-	// symbol / circle → existing point path
 	const textField = layout["text-field"];
-	const size = num(paint["circle-radius"], 4);
+	const size = numAt(paint["circle-radius"], zoom, 4);
 	return {
 		type: "icon",
 		color: str(paint["circle-color"] ?? paint["text-color"], "#3388ff"),
 		size,
 		width: size,
-		opacity: num(paint["circle-opacity"] ?? paint["text-opacity"], 1) * (visible ? 1 : 0),
+		opacity: numAt(paint["circle-opacity"] ?? paint["text-opacity"], zoom, 1) * (visible ? 1 : 0),
 		fontColor: str(paint["text-color"], "#ffffff"),
 		textField: typeof textField === "string" ? textField.replace(/^\{|\}$/g, "") : "name",
-		strokeWidth: num(paint["circle-stroke-width"], 0),
+		strokeWidth: numAt(paint["circle-stroke-width"], zoom, 0),
 		strokeColor: str(paint["circle-stroke-color"], "#ffffff"),
 		haloColor: str(paint["text-halo-color"], "#000000"),
-		haloWidth: num(paint["text-halo-width"], 0),
+		haloWidth: numAt(paint["text-halo-width"], zoom, 0),
 	} as unknown as PaintConfig;
 }
 
@@ -119,10 +122,19 @@ export type StylePaintRule = PaintRule & {
  * Convert a StyleSpecLike into ordered PaintRules (first match wins, like Mapbox paint order inverted:
  * Mapbox draws first layer under later ones; matching here follows array order like existing getPaint).
  */
-export function toPaintRules(style: StyleSpecLike): StylePaintRule[] {
+/**
+ * Convert StyleSpecLike → ordered PaintRules at a given zoom.
+ * Drops visibility=none and layers outside [minzoom, maxzoom].
+ */
+export function toPaintRules(style: StyleSpecLike, zoom = 0): StylePaintRule[] {
 	const layers = Array.isArray(style.layers) ? style.layers : [];
 	return layers
 		.filter((layer) => layer.layout?.["visibility"] !== "none")
+		.filter((layer) => {
+			if (typeof layer.minzoom === "number" && zoom < layer.minzoom) return false;
+			if (typeof layer.maxzoom === "number" && zoom >= layer.maxzoom) return false;
+			return true;
+		})
 		.map((layer) => {
 			const rule: StylePaintRule = {
 				id: layer.id,
@@ -131,7 +143,7 @@ export function toPaintRules(style: StyleSpecLike): StylePaintRule[] {
 				minzoom: layer.minzoom,
 				maxzoom: layer.maxzoom,
 				filter: layer.filter ?? true,
-				paint: mapPaintToConfig(layer),
+				paint: mapPaintToConfig(layer, zoom),
 			};
 			return rule;
 		});
@@ -139,7 +151,8 @@ export function toPaintRules(style: StyleSpecLike): StylePaintRule[] {
 
 /** Compatibility: accept either StyleSpecLike or legacy PaintRule[]. */
 export function normalizeStyleInput(
-	input: StyleSpecLike | PaintRule[]
+	input: StyleSpecLike | PaintRule[],
+	zoom = 0
 ): StylePaintRule[] {
 	if (Array.isArray(input)) {
 		return input.map((r, i) => ({
@@ -148,7 +161,7 @@ export function normalizeStyleInput(
 			type: ((r as StylePaintRule).type ?? "line") as StyleLayerType,
 		})) as StylePaintRule[];
 	}
-	return toPaintRules(input);
+	return toPaintRules(input, zoom);
 }
 
 export { evaluateFilter };

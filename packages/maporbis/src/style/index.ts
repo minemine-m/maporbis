@@ -15,6 +15,7 @@ import type { Anchor } from '../types';
 export * from './filterExpression';
 export * from './styleSpec';
 export * from './Layerstyle';
+export * from './zoomExpression';
 
 /**
  * Base paint interface.

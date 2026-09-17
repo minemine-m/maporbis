@@ -457,14 +457,32 @@ export class VectorTileLayer extends BaseTileLayer {
      * 热更新：只从 _tileDataMap 重建 bucket/mesh，不发起瓦片请求。
      */
     public setStyle(style: import("../style/styleSpec").StyleSpecLike | any[]): void {
-        const rules = normalizeStyleInput(style as any);
         this._styleDocument = Array.isArray(style) ? null : (style as any);
+        this._applyStyleAtCurrentZoom();
+    }
+
+    /** Re-resolve StyleSpecLike at map.getZoom() and hot-rebuild from cache. */
+    private _applyStyleAtCurrentZoom(): void {
+        const map = this.getMap?.() as any;
+        const zoom = typeof map?.getZoom === "number"
+            ? map.getZoom()
+            : (typeof map?.getZoom === "function" ? map.getZoom() : 0);
+        const rules = this._styleDocument
+            ? normalizeStyleInput(this._styleDocument, Number(zoom) || 0)
+            : normalizeStyleInput(this._style as any[], Number(zoom) || 0);
         this.setPaint(rules as any[]);
     }
 
     /** Last StyleSpecLike passed to setStyle, if any. */
     public getStyleDocument(): import("../style/styleSpec").StyleSpecLike | null {
         return this._styleDocument;
+    }
+
+    /** Call when zoom changed if StyleSpec has minzoom/maxzoom or zoom paint functions. */
+    public refreshStyleForZoom(): void {
+        if (this._styleDocument) {
+            this._applyStyleAtCurrentZoom();
+        }
     }
 
     /**
