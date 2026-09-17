@@ -21,8 +21,8 @@ commits: 77f1725..b0b4610
 4. sprite / transitions / JSON URL / data-driven 表达式 留后续。
 
 **Known residual**
-- `_showCachedTile` 不感知 paint 规则版本，极端时序下可能闪旧 mesh。
-- 工作区有一份未提交的 RenderLayer 加固（线宽 clamp、widthExpr 材质不进共享缓存）。
+- ~~`_showCachedTile` 不感知 paint 规则版本，极端时序下可能闪旧 mesh。~~ 已修：`_paintVersion` + mesh `userData.paintVersion`。
+- 分支已 push；合入 master 需在主仓库 worktree 操作（本会话被 ref-store 保护拦截）。
 
 ## [S1] Problem
 
@@ -139,3 +139,4 @@ getStyleDocument(): StyleSpecLike | null
 - [x] T5: P2 paint/layout 扩展 — line-blur/gap、circle-stroke、text-halo、fill-outline-width、layout.visibility (covers: S2.4)
 - [x] T6: demo 虚线/淡出预设 + vitest — acceptance: 新用例 PASS；demo 按钮可切换 (covers: S2.4; depends: T5)
 - [x] T7: P3a zoom interpolate/step + minzoom/maxzoom — acceptance: zoomExpression 测试 PASS；setStyle 按当前 zoom 解析 (covers: S2.2, S2.4)
+- [x] T8: paint 版本失效 — setPaint/updateSymbol 递增 `_paintVersion`；worker 返回后丢弃过期结果；mesh 打 `userData.paintVersion`，`_showCachedTile` 拒绝并清理旧代 mesh (covers: S2.5)

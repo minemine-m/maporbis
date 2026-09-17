@@ -98,6 +98,8 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
     private _createFeatureProxies: boolean;
     private _statProxyCount = 0;
     private _statMeshCount = 0;
+    /** Bumped on every setPaint so in-flight worker results with old rules are discarded. */
+    private _paintVersion = 0;
 
     /**
      * Currently active feature filter (from VectorTileLayer).
@@ -175,6 +177,8 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         // Vector bucket meshes sit at prjCenter with large local extents;
         // Three.js frustum culling on default bounds can drop the map center.
         (mesh as any).frustumCulled = false;
+        (mesh as any).userData = (mesh as any).userData || {};
+        (mesh as any).userData.paintVersion = this._paintVersion;
         list.push(mesh);
         this._statMeshCount++;
     }
@@ -191,6 +195,15 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
     private _showCachedTile(tileKey: string): boolean {
         const meshes = this._tileMeshMap.get(tileKey);
         if (meshes && meshes.length > 0) {
+            // Reject meshes built under a previous paint generation.
+            const stale = meshes.some((m) => {
+                const v = (m as any).userData?.paintVersion;
+                return typeof v === "number" && v !== this._paintVersion;
+            });
+            if (stale) {
+                this._removeFeaturesByTileKey(tileKey);
+                return false;
+            }
             meshes.forEach((m) => {
                 m.visible = true;
                 if (!this.children.some((c) => c === m)) {
@@ -423,6 +436,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
 
         const prjCenter = map.prjcenter as Vector3;
         const newFeatures: Feature[] = [];
+        const paintVersion = this._paintVersion;
 
         try {
             const layoutFeatures = this._layout.layoutTileFeatures(
@@ -439,6 +453,10 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 this.paint
             );
 
+            // setStyle/setPaint ran while the worker was busy — drop stale geometry.
+            if (paintVersion !== this._paintVersion) {
+                return;
+            }
             // Do not drop the worker result just because the tile is temporarily
             // hidden (sibling children not all loaded). Only skip if disposed.
             if (!tile.loaded) {
@@ -484,6 +502,9 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             }
 
         } catch (error) {
+            if (paintVersion !== this._paintVersion) {
+                return;
+            }
             console.error(`[Worker] Failed to process tile ${tileKey}, falling back to main thread:`, error);
             this.processTileData(tile, data);
         }
@@ -1028,6 +1049,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      * @param paint New paint rules. 新的样式规则。
      */
     public setPaint(paint: PaintRule[]): void {
+        this._paintVersion++;
         // Clean up all existing features and meshes properly
         // 必须正确清理所有现有的要素和网格
         // Use Array.from to avoid iterator issues when deleting keys
@@ -1057,9 +1079,13 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      */
     public updateSymbol(index: number, symbol: PaintConfig): void {
         if (this.paint && this.paint[index]) {
+            this._paintVersion++;
             // Clean up all existing features and meshes properly
             // 必须正确清理所有现有的要素和网格
             Array.from(this._tileFeatureMap.keys()).forEach(key => {
+                this.removeFeaturesByTileKey(key);
+            });
+            Array.from(this._tileMeshMap.keys()).forEach(key => {
                 this.removeFeaturesByTileKey(key);
             });
 
