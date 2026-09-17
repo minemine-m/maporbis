@@ -3,21 +3,26 @@ feature: sc-vector-style-bucket
 status: delivered
 updated: 2026-09-16
 branch: feat/sc-vector-style-bucket
-commits: 77f1725..7c85da2
+commits: 77f1725..b0b4610
 ---
 
 # 矢量 Style Spec → Bucket
 
 ## Report
 
-**What was built** — P1：filter 求值、StyleSpecLike→PaintRule、`setStyle` 缓存热更新。P2：更多 paint/layout（dash/blur/stroke/halo/outline-width）、`layout.visibility=none` 丢弃图层、demo 虚线淡出预设。Worker `in` 与 `matchFilter` 左值属性语义已对齐 Mapbox legacy。
+**What was built** — P1：filter 求值、StyleSpecLike→PaintRule、`setStyle` 缓存热更新。P2：更多 paint/layout（dash/blur/stroke/halo/outline-width）、`layout.visibility=none` 丢弃图层、demo 虚线淡出预设。P3a：zoom interpolate/step/exponential + layer minzoom/maxzoom + 放大时 material patch 改线宽（不重建几何）。Worker `in` 与 `matchFilter` 左值属性语义已对齐 Mapbox legacy；fill 规则不再误吃 polygon。
 
-**Verification** — `tsc` PASS；style vitest **11 PASS**；`vite build` PASS；demo 热更新 Δpbf=0（用户确认）。
+**Verification** — `tsc` PASS；style vitest **18 PASS**；tile vitest **77 PASS**；`vite build` PASS；demo 热更新 Δpbf=0；缩放变宽用户确认流畅。
 
 **Journey log**
 1. filter 右值/worker `in` 语义曾导致主干/高速预设空白。
 2. 渲染读 `config.width`，映射必须带 `width` 不只 `weight`。
-3. zoom 插值 / sprite / transitions 留 P3。
+3. zoom 线宽不能走 `setPaint` 重建——必须每帧 patch `LineMaterial.linewidth`。
+4. sprite / transitions / JSON URL / data-driven 表达式 留后续。
+
+**Known residual**
+- `_showCachedTile` 不感知 paint 规则版本，极端时序下可能闪旧 mesh。
+- 工作区有一份未提交的 RenderLayer 加固（线宽 clamp、widthExpr 材质不进共享缓存）。
 
 ## [S1] Problem
 

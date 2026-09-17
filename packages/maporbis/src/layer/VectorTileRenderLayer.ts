@@ -310,9 +310,11 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
         let lineCount = 0, pointCount = 0, fillCount = 0;
         for (const layoutFeature of layoutFeatures) {
             let matchedPaintConfig: PaintConfig | null = null;
+            let matchedRuleType: string | null = null;
             for (const rule of globalPaintRules) {
                 if (this._evaluateFilter(rule.filter, layoutFeature.properties, layoutFeature.layerName, layoutFeature.type)) {
                     matchedPaintConfig = rule.paint;
+                    matchedRuleType = (rule as any).type ?? ((matchedPaintConfig as any)?.type) ?? null;
                     break;
                 }
             }
@@ -320,8 +322,13 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             if (matchedPaintConfig) {
                 const paintKey = JSON.stringify(matchedPaintConfig);
                 const type = layoutFeature.type;
+                // Style Spec layer type gates geometry: line layers never fill polygons.
+                const isLineLayer = matchedRuleType === "line" || matchedRuleType == null;
+                const isFillLayer = matchedRuleType === "fill";
+                const isPointLayer = matchedRuleType === "symbol" || matchedRuleType === "circle" || matchedRuleType == null;
 
                 if (type === 'LineString' || type === 'MultiLineString') {
+                    if (!isLineLayer) continue;
                     if (!lineBuckets.has(paintKey)) {
                         lineBuckets.set(paintKey, { config: matchedPaintConfig, bucket: new LineBucket() });
                     }
@@ -330,6 +337,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                     lineCount++;
 
                 } else if (type === 'Point' || type === 'MultiPoint') {
+                    if (!isPointLayer && matchedRuleType != null) continue;
                     if (!pointBuckets.has(paintKey)) {
                         pointBuckets.set(paintKey, { config: matchedPaintConfig, bucket: new PointBucket() });
                     }
@@ -338,6 +346,9 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                     pointCount++;
 
                 } else if (type === 'Polygon' || type === 'MultiPolygon') {
+                    // Only fill layers (or legacy paint with fill:true) may fill polygons.
+                    if (!isFillLayer && !(matchedPaintConfig as any)?.fill && matchedRuleType !== "fill") continue;
+                    if (matchedRuleType === "line") continue;
                     if (!fillBuckets.has(paintKey)) {
                         fillBuckets.set(paintKey, { config: matchedPaintConfig, bucket: new FillBucket() });
                     }
@@ -483,13 +494,18 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
      * 从线段数据创建线网格
      */
     private _createLineMesh(segments: number[], config: PaintConfig): any {
-        const cacheKey = `line_${JSON.stringify(config)}`;
-        let material = VectorTileRenderLayer._materialCache.get(cacheKey);
+        const widthExpr = (config as any).widthExpr;
+        // Zoom-expr materials must not share cache slots — linewidth is patched per mesh.
+        const cacheKey = `line_${JSON.stringify({ ...config, widthExpr: undefined })}`;
+        let material = widthExpr
+            ? undefined
+            : VectorTileRenderLayer._materialCache.get(cacheKey);
 
         const opacity = config.opacity ?? 1;
         const isTransparent = opacity < 1 || (config as any).transparent === true;
-        const width = (config as any).width ?? 1;
-        const useWideLine = width > 1 && !WebGPUCompat.useWebGPU;
+        const width = VectorTileRenderLayer._clampLineWidth((config as any).width ?? 1);
+        // Wide (screen-space) lines only when width is safely bounded.
+        const useWideLine = width > 1.05 && !WebGPUCompat.useWebGPU;
 
         let mesh: any;
 
@@ -501,13 +517,17 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                 material = new LineMaterial({
                     color: (config as any).color || 0xffffff,
                     linewidth: width,
+                    worldUnits: false,
                     transparent: isTransparent,
                     opacity: opacity,
                     dashed: Array.isArray((config as any).dashArray) && (config as any).dashArray.length > 0,
                     dashScale: 1,
                     dashSize: (config as any).dashArray?.[0] ?? 1,
                     gapSize: (config as any).dashArray?.[1] ?? 0,
-                    resolution: new Vector2(window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio),
+                    resolution: new Vector2(
+                        Math.max(1, window.innerWidth * window.devicePixelRatio),
+                        Math.max(1, window.innerHeight * window.devicePixelRatio)
+                    ),
                     alphaToCoverage: false,
                     depthTest: true,
                     depthWrite: !isTransparent,
@@ -515,22 +535,23 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                     polygonOffsetFactor: -2,
                     polygonOffsetUnits: -2
                 });
-                VectorTileRenderLayer._materialCache.set(cacheKey, material);
+                if (!widthExpr) {
+                    VectorTileRenderLayer._materialCache.set(cacheKey, material);
+                }
             }
 
             mesh = new LineSegments2(geometry, material);
             if ((material as any).dashed) {
                 mesh.computeLineDistances();
             }
-            mesh.userData = mesh.userData || {};
-            if ((config as any).widthExpr) {
-                mesh.userData.widthExpr = (config as any).widthExpr;
-            }
+            const matRef = material;
             mesh.onBeforeRender = function(renderer: any) {
                 const drawingBufferSize = new Vector2();
                 renderer.getDrawingBufferSize(drawingBufferSize);
-                if (material.resolution.x !== drawingBufferSize.x || material.resolution.y !== drawingBufferSize.y) {
-                    material.resolution.copy(drawingBufferSize);
+                if (drawingBufferSize.x > 0 && drawingBufferSize.y > 0) {
+                    if (matRef.resolution.x !== drawingBufferSize.x || matRef.resolution.y !== drawingBufferSize.y) {
+                        matRef.resolution.copy(drawingBufferSize);
+                    }
                 }
             };
         } else {
@@ -545,18 +566,26 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
                     opacity: opacity,
                     depthWrite: !isTransparent
                 });
-                VectorTileRenderLayer._materialCache.set(cacheKey, material);
+                if (!widthExpr) {
+                    VectorTileRenderLayer._materialCache.set(cacheKey, material);
+                }
             }
 
             mesh = new LineSegments(geometry, material);
         }
 
         mesh.userData = mesh.userData || {};
-        if ((config as any).widthExpr) {
-            mesh.userData.widthExpr = (config as any).widthExpr;
+        if (widthExpr) {
+            mesh.userData.widthExpr = widthExpr;
         }
 
         return mesh;
+    }
+
+    /** Keep screen-space LineMaterial.linewidth in a safe pixel range. */
+    private static _clampLineWidth(w: number): number {
+        if (!Number.isFinite(w)) return 1;
+        return Math.min(12, Math.max(0.25, w));
     }
 
     /**
@@ -568,7 +597,7 @@ export class VectorTileRenderLayer extends OverlayLayer<Feature> {
             meshes.forEach((mesh) => {
                 const expr = (mesh as any).userData?.widthExpr;
                 if (!expr) return;
-                const w = resolveZoomNumber(expr, zoom, 1);
+                const w = VectorTileRenderLayer._clampLineWidth(resolveZoomNumber(expr, zoom, 1));
                 const apply = (m: any) => {
                     const mat = m.material;
                     if (!mat) return;
