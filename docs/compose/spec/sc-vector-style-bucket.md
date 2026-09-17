@@ -133,3 +133,4 @@ getStyleDocument(): StyleSpecLike | null
 - [x] T4: `tsc` + tile/style vitest + build + commit — acceptance: 全绿 (covers: S2; depends: T1,T2,T3)
 - [x] T5: P2 paint/layout 扩展 — line-blur/gap、circle-stroke、text-halo、fill-outline-width、layout.visibility (covers: S2.4)
 - [x] T6: demo 虚线/淡出预设 + vitest — acceptance: 新用例 PASS；demo 按钮可切换 (covers: S2.4; depends: T5)
+- [x] T7: P3a zoom interpolate/step + minzoom/maxzoom — acceptance: zoomExpression 测试 PASS；setStyle 按当前 zoom 解析 (covers: S2.2, S2.4)
