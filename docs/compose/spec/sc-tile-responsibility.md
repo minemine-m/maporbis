@@ -1,14 +1,29 @@
 ---
 feature: sc-tile-responsibility
-status: in-progress
+status: delivered
 updated: 2026-09-16
 branch: feat/sc-tile-responsibility
-commits: 
+commits: 052fc76..8575485
 ---
 
 # Tile 职责拆分（对齐 Mapbox 边界）
 
 ## Report
+
+**What was built** — 把 `Tile` 上的全局下载调度抽到 `TileLoadScheduler`；把 `tile-*` 生命周期事件主权收到 `TileSourceCache`（EventDispatcher），`VectorTileLayer` 改听 `sourceCache`；新增 `TilePayload` / `applyPayload` / `clearPayload`，矢量载荷走 `payload.vectorData`，栅格经 `applyPayload` 写 Mesh。`Tile.showing` 不再派发 shown/hidden。
+
+**Verification** —
+- `tsc --noEmit` PASS
+- `vitest run src/core/tile` PASS（15 files / 75 tests，含新增 SourceCache.events）
+- `vite build` PASS（dist 2.6MB）
+- demo dev server `http://127.0.0.1:5173`：basemap / tile-state / vector-tile-demo / sc-mapbox-pr1 均 HTTP 200
+
+**Journey log**
+1. 误在 master 上直接改代码 → 立刻切到 `feat/sc-tile-responsibility`，未污染历史。
+2. 系统 Node 14 过旧 → 用 MiMo runtime Node 24 跑 pnpm/tsc/vitest。
+3. 用 Python 改 `Tile.showing` 时括号匹配失误弄坏文件 → 从 T1 commit `git checkout` 恢复后重做。
+4. 三.js `EventDispatcher` 需显式事件映射，否则 `dispatchEvent` 类型为 `never`。
+5. 例子页 alias 指向 `packages/maporbis/dist`，改完源码必须先 `vite build` 再 demo。
 
 ## [S1] Problem
 
