@@ -373,31 +373,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
      * @param camera The camera used for rendering. 用于渲染的相机。
      */
     public update(camera: Camera): void {
-        // console.log('更新图层tile');
-        if (!this._enabled || !this._visible) {
-            // console.log(`❌ 图层 ${this.layerId} 被禁用或不可见`);
-            return;
-        }
-
-        // console.group(`🔄 更新图层: ${this.layerId}`);
-        // console.log("📊 图层状态:", {
-        //     启用: this._enabled,
-        //     可见: this._visible,
-        //     根瓦片存在: !!this._rootTile,
-        //     加载器存在: !!this._loader
-        // });
+        if (!this._enabled || !this._visible) return;
 
         try {
-            // Check root tile transform matrix
-            // 检查根瓦片变换矩阵
-            // console.log("📐 根瓦片变换:", {
-            //     位置: this._rootTile.position.toArray(),
-            //     缩放: this._rootTile.scale.toArray(),
-            //     矩阵更新: this._rootTile.matrixAutoUpdate
-            // });
-           
-            // Call tile update
-            // 调用瓦片更新
             this.updateMatrixWorld(true);
             const map = this.getMap?.() as any;
             const viewportHeight =
@@ -426,7 +404,6 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 map?.sceneRenderer?.renderer?.domElement?.clientWidth ||
                 (typeof window !== "undefined" ? window.innerWidth : 1200);
 
-            // LOD tree first, then SourceCache retain/covered owns visibility
             if (this._idealRetain) {
                 camera.updateMatrixWorld();
                 if ((camera as any).isPerspectiveCamera) {
@@ -434,10 +411,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                 }
             }
 
-            const coveringZ = coveringZoom;
-
             // PR-2: SourceCache owns structure. Do not run LOD create/remove.
-            if (!this._idealRetain) {
+            // Legacy non-retain path kept for completeness; production uses _idealRetain.
+            if (!this._idealRetain && this._rootTile) {
                 this._rootTile.update({
                     camera,
                     loader: this._loader,
@@ -445,9 +421,14 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     maxLevel: this.maxLevel,
                     LODThreshold: this.LODThreshold,
                     interacting: !!(map && map.isInteracting),
-                    coveringZoom: coveringZ,
+                    coveringZoom,
                     idealTiles: this._layerIdealTiles,
                 });
+                // Keep scheduler interacting throttle in sync on the legacy path too.
+                TileLoadScheduler.interacting = !!(map && map.isInteracting);
+                if (Number.isFinite(coveringZoom)) {
+                    TileLoadScheduler.coveringZoom = coveringZoom;
+                }
             }
 
             if (this._idealRetain) {
@@ -457,6 +438,12 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     lookAtProj = { x: p.x, y: p.y };
                 } else if (map?.prjcenter) {
                     lookAtProj = { x: map.prjcenter.x, y: map.prjcenter.y };
+                }
+                const interacting = !!(map && map.isInteracting);
+                // Keep Tile.update / prune / concurrent throttle in sync with feel contract.
+                TileLoadScheduler.interacting = interacting;
+                if (Number.isFinite(coveringZoom)) {
+                    TileLoadScheduler.coveringZoom = coveringZoom;
                 }
                 const snap = this._sourceCache.update({
                     root: this._rootTile,
@@ -471,7 +458,7 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     fovDeg: (camera as any).fov || 60,
                     minLevel: this.minLevel,
                     maxLevel: this.maxLevel,
-                    interacting: !!(map && map.isInteracting),
+                    interacting,
                 });
                 this._layerIdealTiles = snap.idealKeys;
                 // Base layer owns the global ideal set used by queue prune/stats.
@@ -481,15 +468,9 @@ export abstract class BaseTileLayer extends Layer implements ITileLayer {
                     TileLoadScheduler.setIdealCoveredCount(snap.idealCovered);
                 }
             }
-
-            // Check tile tree status
-            // 检查瓦片树状态
-            // this._debugTileTree();
-
         } catch (error) {
-            // console.error(`💥 图层更新错误:`, error);
+            // swallow update errors (legacy)
         }
-        console.groupEnd();
     }
 
     // @ts-ignore
